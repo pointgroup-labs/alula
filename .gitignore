@@ -77,6 +77,8 @@ CLAUDE.md
 /contracts/controlled-oracle
 
 
+tmp
+
 # UI package
 packages/webapp/node_modules
 packages/webapp/dist

@@ -92,6 +92,7 @@ watch(() => rpcStore.network, (val) => {
               v-for="network in networks"
               :key="network"
               class="select-network__item"
+              :class="{ 'select-network__item--active': activeNetwork === network }"
               @click="activeNetwork = network"
             >
               {{ network }}
@@ -246,21 +247,23 @@ watch(() => rpcStore.network, (val) => {
     }
 
     &__item {
-      color: $text-primary;
+      color: $text-tertiary;
       text-transform: capitalize;
       padding: $spacing-md $spacing-3xl;
       cursor: pointer;
 
-      &:hover {
-        background-color: color-mix(in oklab, $navi-900 60%, transparent);
+      &:hover,
+      &--active {
+        color: #fff;
       }
     }
 
     .arrow-icon {
-      width: 12px;
+      width: 8px;
       color: $surface-neutral-60;
       transform: rotate(0deg);
       margin-bottom: -2px;
+      transition: $transition-base;
 
       &--active {
         transform: rotate(180deg);

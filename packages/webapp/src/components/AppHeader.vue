@@ -24,13 +24,19 @@ const tabs = computed(() => {
   }]
 
   if (isEnabled('multiply')) {
-    const devTab = {
+    navTabs.splice(1, 0, {
       label: 'Multiply',
       route: '/multiply',
       icon: multiplyTabIcon,
-    }
+    })
+  }
 
-    navTabs.splice(1, 0, devTab)
+  if (isEnabled('swap')) {
+    navTabs.splice(2, 0, {
+      label: 'Swap',
+      route: '/swap',
+      icon: multiplyTabIcon,
+    })
   }
   return navTabs
 })
@@ -76,6 +82,7 @@ watch(() => route.path, (p) => {
         >
           {{ tab.label }}
         </nuxt-link>
+        <header-more-menu />
       </nav>
 
       <div class="header-actions">
@@ -89,7 +96,12 @@ watch(() => route.path, (p) => {
 <style lang="scss">
 header {
   border-bottom: 1px solid $border-primary;
-  z-index: 1;
+  // Lift the header above page content (was 1) so its inline popovers — like
+  // the More-menu dropdown — can stack over sticky panels, charts, and other
+  // page elements that create their own stacking contexts. 100 is high enough
+  // to win against regular content but stays well below modal layers.
+  z-index: 100;
+  position: relative;
 
   .header-wrapper {
     padding-top: $spacing-2xl;

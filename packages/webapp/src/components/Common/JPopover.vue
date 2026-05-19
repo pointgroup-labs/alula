@@ -3,16 +3,25 @@ import type { BButtonProps } from 'bootstrap-vue-next'
 
 const {
   position = 'top',
+  placement,
   closePopup,
   modelValue,
   className,
   teleportToBody = true,
   disabled = false,
+  hover = false,
+  noFade = true,
+  hideDelay = 150,
   ...props
 } = defineProps<
   {
     teleportToBody?: boolean
     position?: 'top' | 'bottom'
+    placement?:
+      | 'top' | 'top-start' | 'top-end'
+      | 'bottom' | 'bottom-start' | 'bottom-end'
+      | 'left' | 'left-start' | 'left-end'
+      | 'right' | 'right-start' | 'right-end'
     menuClass?: string
     closePopup?: boolean
     label?: string
@@ -20,6 +29,18 @@ const {
     className?: string
     menuClassName?: string
     disabled?: boolean
+    // Open on pointerenter / focus instead of click. BPopover binds the
+    // pointer events itself when `click` is false; we only need to flip the
+    // mode and provide a small `hide` buffer so the cursor can cross the gap
+    // between trigger and menu without the popover snapping shut.
+    hover?: boolean
+    // Skip the opacity fade entirely. Used together with `hover` to make
+    // navigation popovers feel instantaneous. Leaves click popovers (modals,
+    // confirm prompts) on their default 150ms fade.
+    noFade?: boolean
+    // Override the hover-mode hide buffer in ms. Show is always 0 — we never
+    // want a delay before opening on hover.
+    hideDelay?: number
   } & BButtonProps>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -32,6 +53,13 @@ const show = ref(false)
 
 const navHeight = computed(() => navRef.value?.clientHeight)
 const boundary = computed(() => position === 'top' ? 'bottom' : 'top')
+
+// Hover delays: open instantly, leave a small window before closing so the
+// cursor has time to cross the offset gap between trigger and floating menu.
+// Click delays stay at zero (toggle is intentional).
+const effectiveDelay = computed(() => hover
+  ? { show: 0, hide: hideDelay }
+  : { show: 0, hide: 0 })
 
 function handleClickInside() {
   if (closePopup) {
@@ -55,11 +83,14 @@ onMounted(() => {
 <template>
   <b-popover
     v-model="show"
-    :click="true"
+    :click="!hover"
+    :no-fade="noFade"
+    :hover="hover"
     :close-on-hide="true"
-    :delay="{ show: 0, hide: 0 }"
+    :delay="effectiveDelay"
     :boundary-padding="{ [boundary]: navHeight }"
     :class="menuClass"
+    :placement="placement"
     :teleport-to="teleportToBody ? 'body' : undefined"
     lazy
     unmount-lazy

@@ -1,6 +1,6 @@
 import type { MultiplyVaultItem } from '~/types/table'
 
-export function useMultiplyTable() {
+export const useMultiplyTableStore = defineStore('multiply-table', () => {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
   const filtersStore = useMarketFilterStore()
@@ -47,53 +47,50 @@ export function useMultiplyTable() {
     const collateral = filtersStore.filters.multiply.collateral
     const debt = filtersStore.filters.multiply.debt
 
-    const selectedCollateral = new Set<string>()
-    const selectedDebt = new Set<string>()
+    const selectedCollateral = new Set(
+      Object.keys(collateral).filter(key => collateral[key]),
+    )
 
-    for (const key in collateral) {
-      if (collateral[key]) {
-        selectedCollateral.add(key)
-      }
-    }
-
-    for (const key in debt) {
-      if (debt[key]) {
-        selectedDebt.add(key)
-      }
-    }
+    const selectedDebt = new Set(
+      Object.keys(debt).filter(key => debt[key]),
+    )
 
     const hasFilter = selectedCollateral.size > 0 || selectedDebt.size > 0
 
-    const searchValue
-      = (typeof search.value === 'string' ? search.value : '').toLowerCase()
+    const searchValue = (typeof search.value === 'string'
+      ? search.value
+      : ''
+    ).toLowerCase()
 
-    return vaultsByMarket.value.map((vault) => {
-      const items = hasFilter || searchValue
-        ? vault.items.filter((item) => {
-            if (searchValue) {
-              return item.asset.symbol.toLowerCase().includes(searchValue)
-                || item.asset.name.toLowerCase().includes(searchValue)
-                || item.market?.toLowerCase().includes(searchValue)
-                || item.borrowAsset.name.toLowerCase().includes(searchValue)
-                || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
-            }
-            return selectedCollateral.has(item.asset.symbol) || selectedDebt.has(item.borrowAsset.symbol)
-          })
-        : vault.items
-      return {
-        ...vault,
-        items,
-      }
-    }).filter((vault) => {
-      return vault.market.toLowerCase().includes(searchValue)
-        || vault.items.some((item) => {
-          return item.asset.symbol.toLowerCase().includes(searchValue)
-            || item.asset.name.toLowerCase().includes(searchValue)
-            || item.market?.toLowerCase().includes(searchValue)
-            || item.borrowAsset.name.toLowerCase().includes(searchValue)
-            || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
-        })
-    })
+    const matchesFilters = (item: MultiplyVaultItem) => {
+      if (!hasFilter) { return true }
+      return (
+        selectedCollateral.has(item.asset.symbol)
+        || selectedDebt.has(item.borrowAsset.symbol)
+      )
+    }
+
+    return vaultsByMarket.value
+      .map((vault) => {
+        const items = vault.items
+          .filter(item => isValidPairItem(item))
+          .filter(item => matchesFilters(item))
+          .filter(item => matchesSearch(item, searchValue))
+
+        return {
+          ...vault,
+          items,
+        }
+      })
+      .filter((vault) => {
+        if (!searchValue) { return vault.items.length > 0 }
+
+        return (
+          vault.market.toLowerCase().includes(searchValue)
+          || vault.items.some(item => matchesSearch(item, searchValue))
+        )
+      })
+      .toSorted(a => (a.market === MAIN_MARKET_NAME ? -1 : 1))
   })
 
   function openDialog(vault: MultiplyVaultItem) {
@@ -125,4 +122,4 @@ export function useMultiplyTable() {
     getNetEquity,
     isUserHaveMultiply,
   }
-}
+})

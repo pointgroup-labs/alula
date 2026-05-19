@@ -1,0 +1,24 @@
+{
+  "name": "@alula/cli",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Operator tooling for Alula protocol stewards (multisig ceremonies, audits, deploys)",
+  "bin": {
+    "alula": "src/index.ts"
+  },
+  "scripts": {
+    "alula": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^14.4.0",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.3"
+  }
+}

@@ -92,6 +92,19 @@ pub trait MarketManager {
 
     /// Applies a queued in manager upgrade
     fn apply_manager_upgrade(e: Env) -> Result<(), MMCError>;
+
+    /// Proposes a new admin for the manager contract.
+    /// Must be called by the current admin. The proposal is stored until
+    /// the proposed address calls [`accept_admin`].
+    ///
+    /// # Arguments
+    /// * `new_admin` - the address being proposed as the new admin
+    fn propose_admin(e: Env, new_admin: Address) -> Result<(), MMCError>;
+
+    /// Accepts a pending admin proposal.
+    /// Must be called by the address that was previously proposed via [`propose_admin`].
+    /// On success the caller becomes the new admin and the proposal is cleared.
+    fn accept_admin(e: Env) -> Result<(), MMCError>;
 }
 
 #[contract]
@@ -216,7 +229,6 @@ impl MarketManager for MarketManagerContract {
 
     fn apply_market_upgrade(e: Env) -> Result<(), MMCError> {
         extend_instance(&e);
-        require_admin(&e);
 
         let Some(QueuedInUpgrade { wasm_hash, queued_in_timestamp }) =
             storage::get_queued_in_market_upgrade(&e)
@@ -247,7 +259,6 @@ impl MarketManager for MarketManagerContract {
 
     fn apply_manager_upgrade(e: Env) -> Result<(), MMCError> {
         extend_instance(&e);
-        require_admin(&e);
 
         let Some(QueuedInUpgrade { wasm_hash, queued_in_timestamp }) =
             storage::get_queued_in_manager_upgrade(&e)
@@ -265,6 +276,28 @@ impl MarketManager for MarketManagerContract {
 
         storage::remove_queued_in_manager_upgrade(&e);
         e.deployer().update_current_contract_wasm(wasm_hash);
+
+        Ok(())
+    }
+
+    fn propose_admin(e: Env, new_admin: Address) -> Result<(), MMCError> {
+        extend_instance(&e);
+        require_admin(&e);
+
+        storage::set_pending_admin(&e, &new_admin);
+
+        Ok(())
+    }
+
+    fn accept_admin(e: Env) -> Result<(), MMCError> {
+        extend_instance(&e);
+
+        let pending_admin =
+            storage::get_pending_admin(&e).ok_or(MMCError::NoPendingAdmin)?;
+        pending_admin.require_auth();
+
+        storage::set_admin(&e, &pending_admin);
+        storage::remove_pending_admin(&e);
 
         Ok(())
     }

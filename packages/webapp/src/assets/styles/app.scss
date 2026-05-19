@@ -149,16 +149,18 @@ h2 {
   }
 }
 
+// Vendor override: `<BPopover>` (and friends) wraps content in a Vue
+// `<Transition name="fade">` but sets `enterActiveClass: ""` /
+// `leaveActiveClass: ""`, so the auto-generated `.fade-enter-active`
+// class never lands on the element. The actual driver is bootstrap's
+// static `.popover.fade { transition: opacity 0.15s linear }` rule.
+// We pin it to the project motion token so future bootstrap upgrades
+// can't drift past the budget. (Hover popovers opt out via :no-fade.)
+.popover.fade {
+  transition: opacity $transition-base linear !important;
+}
+
 .dialog-default {
-  .modal-dialog {
-    min-width: 500px;
-
-    @media (max-width: $breakpoint-xs) {
-      width: 100%;
-      min-width: 100%;
-    }
-  }
-
   &__title {
     display: flex;
     align-items: center;
@@ -217,31 +219,6 @@ h2 {
   }
 }
 
-.pool-dialog {
-  .modal-content {
-    height: fit-content;
-    max-width: 500px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .modal-header {
-    height: 65px;
-  }
-
-  .modal-body {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .dialog-default__body {
-    flex: 1;
-    overflow: auto;
-  }
-}
-
 .table-wrapper {
   height: 100%;
   position: relative;
@@ -273,6 +250,7 @@ body:has(stellar-wallets-modal) {
 .stellar-wallets-kit {
   --swk-foreground-strong: #fff !important;
   font-family: $font-family-base !important;
+  z-index: 99999 !important;
 
   & > div {
     background-color: rgba(0, 0, 0, 0.1) !important;

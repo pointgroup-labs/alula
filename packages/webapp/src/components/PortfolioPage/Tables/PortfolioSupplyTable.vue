@@ -12,14 +12,16 @@ const marketsStore = useMarketsStore()
 
 const market = useMarketActions()
 
-const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
-const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
+// const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'balance', label: 'Supply', align: 'right' },
   { key: 'supply_apy', label: 'Supply APY', align: 'center' },
+  { key: 'earning', label: 'Earning', align: 'center' },
   { key: 'action', label: '', thClass: 'profile-action', tdClass: 'profile-action' },
 ]
 
@@ -41,13 +43,16 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
 
       const available = Number(bigintToNumber(activePool.total_available_adjusted, assetDecimals))
 
-      const deposited = calculateTotalStake(dep.j_tokens, {
+      const deposited = +calculateTotalStake(dep.j_tokens || 0n, {
         total_j_tokens: activePool.pool.total_j_tokens,
         total_borrowed: activePool.pool.total_borrowed,
         total_available: activePool.total_available_adjusted,
-      })
-      const userCollateral = bigintToNumber(dep.collateral, assetDecimals)
-      const balance = Number(deposited) + Number(userCollateral)
+      }, assetDecimals) || 0
+      const collateral = Number(bigintToNumber(BigInt(dep.collateral || 0n), assetDecimals)) || 0
+      const balance = deposited + collateral
+
+      const depositedPercent = calcStakePercent(deposited, balance)
+      const collateralPercent = calcStakePercent(collateral, balance)
 
       const price = activePool.oracle_asset_price ? bigintToNumber(activePool.oracle_asset_price, oraclePriceDecimals) : 0
 
@@ -64,8 +69,11 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
         supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
         action: 'Withdraw',
         pool_address,
-        collateral: userCollateral,
         market,
+        deposited,
+        depositedPercent,
+        collateral,
+        collateralPercent,
       }
 
       res.push(data)
@@ -74,18 +82,24 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
   return res.filter(Boolean) as SuppliedCardTableItem[]
 })
 
-const totalSupplyUsd = computed(() => {
+const totalSupplyUsdRaw = computed(() => {
   let sum = 0
   for (const item of items.value) {
     sum += Number(item.balanceUsd)
   }
-  return formatCompactUSD(sum, 2, 2)
+  return sum
 })
+
+const totalSupplyUsd = computed(() => formatCompactUSD(totalSupplyUsdRaw.value, 2, 2))
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
   marketsStore.selectedPoolAddress = item.pool_address
   marketsStore.dialogWithdraw = true
+}
+
+function calcStakePercent(stake: number, total: number) {
+  return (stake / total) * 100
 }
 </script>
 
@@ -95,14 +109,14 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
       My Supplies
 
       <metric-indicator
-        v-if="isHasObligations"
+        v-if="totalSupplyUsdRaw > 0"
         label="Total Supplied"
         :value="`${totalSupplyUsd}`"
         color="#17B26A"
       />
     </div>
 
-    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
+    <div v-if="markets.length === 0 && isLoading">
       <supply-table-skeleton />
     </div>
 
@@ -150,9 +164,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 
           <template #cell(balance)="data">
             <div class="table-cell justify-content-end with-price">
-              {{
-                Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
-              }}
+              {{ Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5) }}
               <span>${{ formatPrice(data.item.balanceUsd, 2, 2) }}</span>
             </div>
           </template>
@@ -168,10 +180,47 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
             </div>
           </template>
 
+          <template #cell(earning)="data">
+            <div class="table-cell justify-content-center">
+              <j-tooltip tooltip-class="earning-tip">
+                <div
+                  class="earning-indicator"
+                  :style="{
+                    '--deposit-width': `${data.item.depositedPercent}%`,
+                    '--collateral-width': `${data.item.collateralPercent}%`,
+                  }"
+                />
+                <div class="earning-percent">
+                  <span
+                    class="text-num"
+                    :class="[`text-${Number(data.item.depositedPercent) > 0 ? 'positive' : 'accent'}`]"
+                  >
+                    {{ truncatePercent(data.item.depositedPercent, 2) }}%
+                  </span>
+                </div>
+
+                <template #content>
+                  This shows how much of your deposit is actively earning yield.
+                  <br>
+                  <br>
+                  • {{ formatCompactUSD(Number(data.item.deposited) * Number(data.item.price)) }} in supply is earning interest
+                  <template v-if="Number(data.item.collateral) > 0">
+                    <br>
+                    • {{ formatCompactUSD(Number(data.item.collateral) * Number(data.item.price)) }} in collateral is not earning
+                    <br>
+                    <br>
+
+                    Move funds from collateral to supply to start earning yield.
+                  </template>
+                </template>
+              </j-tooltip>
+            </div>
+          </template>
+
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand-outlined"
+                variant="outlined-brand"
                 size="sm"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
@@ -289,6 +338,48 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 
   .profile-action {
     width: 100px;
+  }
+
+  .earning-tip {
+    display: flex;
+    align-items: center;
+  }
+
+  .earning-indicator {
+    position: relative;
+    width: 50px;
+    height: 4px;
+    border-radius: 10px;
+    background-color: color-mix(in oklab, #1a2335 70%, transparent);
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 4px;
+    font-family: 'JetBrainsMono', monospace;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: var(--deposit-width);
+      background-color: $success;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: var(--collateral-width);
+      background-color: $accent;
+    }
+  }
+
+  .earning-percent {
+    font-size: 11px;
+    color: $text-tertiary;
   }
 }
 </style>

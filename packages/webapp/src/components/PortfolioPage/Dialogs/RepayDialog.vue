@@ -11,7 +11,7 @@ const asset = computed(() => getFullTokenData(activePool.value?.pool?.token_symb
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="pool-dialog dialog-default"
+    class-name="dialog-default"
   >
     <template #header>
       <div class="dialog-default__title">

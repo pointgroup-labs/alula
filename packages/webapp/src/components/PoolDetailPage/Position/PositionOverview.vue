@@ -170,7 +170,7 @@ function handleClick() {
       >
         Start borrowing
         <j-btn
-          variant="brand-secondary-outlined"
+          variant="outlined-brand-secondary"
           size="sm"
           @click="handleClick"
         >

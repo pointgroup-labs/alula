@@ -1,4 +1,4 @@
-import type { RPCcluster, StellarClient } from '@alula/client-sdk'
+import type { AlulaClient, RPCcluster } from '@alula/client-sdk'
 import type { ObligationKey } from '@alula/market-sdk'
 import type { TableActionType } from '~/store/markets'
 import { SOROBAN_RPC_URLS } from '@alula/client-sdk'
@@ -17,11 +17,11 @@ function parseAsset(asset_data?: string, asset_code_from_param?: string) {
 
 export function useMarketActions() {
   const userStore = useUserStore()
+  const clientStore = useClientStore()
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
   const recentStore = useRecentActivityStore()
   const rpcStore = useRpcStore()
-  const marketclient = computed(() => marketsStore.marketClient)
 
   const { generateExplorerLink } = useExplorerLink()
 
@@ -55,7 +55,7 @@ export function useMarketActions() {
       if (nativeBalance.value <= 0.5) {
         throw new Error('Insufficient balance')
       }
-      const res = await marketclient.value!.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
+      const res = await clientStore.alulaClient.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
       await loadBalances()
       return res
     } catch (error) {
@@ -97,7 +97,7 @@ export function useMarketActions() {
   }
 
   async function runAction(opts: {
-    client: StellarClient
+    client: AlulaClient
     market: string
     pool: string
     type: TableActionType
@@ -167,7 +167,7 @@ export function useMarketActions() {
   async function deposit(
     props: {
       market: string
-      client: StellarClient
+      client: AlulaClient
       pool_address: string
       amount: number
       asset_data: string
@@ -215,7 +215,7 @@ export function useMarketActions() {
   // Borrow
   async function borrow(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -266,7 +266,7 @@ export function useMarketActions() {
   // Withdraw
   async function withdraw(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -315,7 +315,7 @@ export function useMarketActions() {
   // Repay
   async function repay(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -367,7 +367,7 @@ export function useMarketActions() {
   // Add collateral
   async function addCollateral(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -416,7 +416,7 @@ export function useMarketActions() {
   // Remove collateral
   async function removeCollateral(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -465,7 +465,7 @@ export function useMarketActions() {
   // Leverage
   async function openMultiply(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       deposit_pool_address: string
       borrow_pool_address: string
@@ -474,6 +474,7 @@ export function useMarketActions() {
       margin_asset?: 'borrow' | 'deposit'
       slippage: number
       swap_provider: string
+      actionType: string
       obligation_key?: ObligationKey
       path?: string[]
       action?: () => void | Promise<void>
@@ -517,7 +518,7 @@ export function useMarketActions() {
       client,
       market,
       pool: deposit_pool_address,
-      type: 'multiplyOpen',
+      type: `multiplyOpen:${props.actionType}`,
       title: 'Open Multiply',
       body: `Sending multiply transaction`,
       action: props.action,
@@ -538,7 +539,7 @@ export function useMarketActions() {
 
   async function withdrawMultiply(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       deposit_pool_address: string
       borrow_pool_address: string
@@ -547,6 +548,7 @@ export function useMarketActions() {
       min_receive_amount?: number
       slippage_percent?: number
       swap_provider: string
+      actionType: string
       obligation_key: ObligationKey
       path?: string[]
       action?: () => void | Promise<void>
@@ -590,7 +592,7 @@ export function useMarketActions() {
       client,
       market,
       pool: deposit_pool_address,
-      type: 'withdrawLeverage',
+      type: `withdrawLeverage:${props.actionType}`,
       title: 'Withdraw Multiply',
       body: 'Sending transaction to close multiply position',
       withObligation: true,
@@ -618,7 +620,7 @@ export function useMarketActions() {
     action,
   }: { pool_address: string
     market: string
-    client: StellarClient
+    client: AlulaClient
     withObligation?: boolean
     action?: () => void | Promise<void> }) {
     const tasks = [

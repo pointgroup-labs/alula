@@ -31,7 +31,7 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
 </script>
 
 <template>
-  <div class="supply-card">
+  <div class="supply-card multiply-supply-card">
     <div class="supply-card__body">
       <div
         v-if="tabs.length > 1"
@@ -62,23 +62,25 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
 </template>
 
 <style lang="scss" scoped>
-.nav-tab {
-  &.nav-tab--add-position {
-    &:hover {
-      color: $success;
+.multiply-supply-card {
+  .nav-tab {
+    &.nav-tab--add-position {
+      &:hover {
+        color: $success;
+      }
+      &.active {
+        color: $success;
+        background-color: rgba(23, 168, 100, 0.1);
+      }
     }
-    &.active {
-      color: $success;
-      background-color: rgba(23, 168, 100, 0.1);
-    }
-  }
-  &.nav-tab--close-position {
-    &:hover {
-      color: $danger;
-    }
-    &.active {
-      color: $danger;
-      background-color: rgba(251, 71, 71, 0.1);
+    &.nav-tab--close-position {
+      &:hover {
+        color: $accent;
+      }
+      &.active {
+        color: $accent;
+        background-color: rgba(245, 159, 11, 0.1);
+      }
     }
   }
 }

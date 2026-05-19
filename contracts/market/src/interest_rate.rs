@@ -45,7 +45,7 @@ impl Pool {
             .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
             .map_over_or_underflow()?;
         let accrual_multiplier: i128 =
-            self.config.accrual_model.compute_multiplier(current_borrow_apr, seconds_passed)?;
+            self.config.accrual_model.compute_multiplier(e, current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
             .total_borrowed
@@ -101,11 +101,15 @@ impl Pool {
 
     // Get current annual percentage yields (APY) for borrowing and supplying
     // based on the pool's utilization ratio, interest rate model, and accrual model
-    pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
+    pub fn get_apy(&self, e: &Env) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        let borrow_apr =
-            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
+        let borrow_apr = self
+            .config
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps)?
+            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .map_over_or_underflow()?;
         let supply_apr = borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?
@@ -113,9 +117,9 @@ impl Pool {
             .map_over_or_underflow()?; // safe
 
         let borrow_apy_multiplier =
-            self.config.accrual_model.compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
+            self.config.accrual_model.compute_multiplier(e, borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier =
-            self.config.accrual_model.compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
+            self.config.accrual_model.compute_multiplier(e, supply_apr, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;

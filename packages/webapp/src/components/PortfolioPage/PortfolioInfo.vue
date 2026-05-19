@@ -115,7 +115,7 @@ const portfolioMetrics = computed(() => {
       </template>
       <template v-else>
         <total-card
-          title="Net Portfolio Value"
+          title="Net Value"
           :body="`$${formatPrice(portfolioMetrics.netValue, 0, 0)}`"
           :loading="loading"
         />

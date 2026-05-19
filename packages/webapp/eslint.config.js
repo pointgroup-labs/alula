@@ -31,26 +31,6 @@ export default antfu(
       // TypeScript specific rules
       'ts/consistent-type-definitions': ['error', 'type'],
 
-      // Vue specific rules
-      'vue/component-name-in-template-casing': ['error', 'kebab-case'],
-      'vue/max-attributes-per-line': ['error', {
-        singleline: 1,
-        multiline: 1,
-      }],
-      'vue/html-closing-bracket-newline': ['error', {
-        singleline: 'never',
-        multiline: 'always',
-      }],
-      'vue/html-indent': ['error', 2, {
-        attribute: 1,
-        baseIndent: 1,
-        closeBracket: 0,
-        alignAttributesVertically: true,
-        ignores: [],
-      }],
-      'vue/singleline-html-element-content-newline': 'off',
-      'vue/multiline-html-element-content-newline': 'off',
-
       // Node.js specific rules
       'node/prefer-global/process': 'off',
       'node/prefer-global/buffer': 'off',
@@ -74,6 +54,31 @@ export default antfu(
           ignore: [/^[A-Z]+\..*$/], // e.g. README.md
         },
       ],
+    },
+  },
+  {
+    files: ['src/**/*.vue'],
+    name: 'VUE-FILES',
+    rules: {
+      // Vue specific rules
+      'vue/component-name-in-template-casing': ['error', 'kebab-case'],
+      'vue/max-attributes-per-line': ['error', {
+        singleline: 1,
+        multiline: 1,
+      }],
+      'vue/html-closing-bracket-newline': ['error', {
+        singleline: 'never',
+        multiline: 'always',
+      }],
+      'vue/html-indent': ['error', 2, {
+        attribute: 1,
+        baseIndent: 1,
+        closeBracket: 0,
+        alignAttributesVertically: true,
+        ignores: [],
+      }],
+      'vue/singleline-html-element-content-newline': 'off',
+      'vue/multiline-html-element-content-newline': 'off',
     },
   },
 )

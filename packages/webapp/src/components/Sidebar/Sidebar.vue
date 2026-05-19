@@ -256,8 +256,8 @@ onMounted(() => {
 .slide-panel-enter-active,
 .slide-panel-leave-active {
   transition:
-    transform 0.18s ease,
-    opacity 0.18s ease;
+    transform $transition-base ease,
+    opacity $transition-base ease;
 }
 
 .slide-panel-enter-from {

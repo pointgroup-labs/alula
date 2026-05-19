@@ -3,64 +3,74 @@ import { TERMS_VERSION } from '../constants'
 import { TermsContent } from '../index'
 
 const key = computed(() => `termsAccepted:${TERMS_VERSION}`)
-const acceptedTerms = useLocalStorage(key, false, { initOnMounted: true })
+
+const acceptedTerms = useLocalStorage(
+  key,
+  false,
+  {
+    initOnMounted: true,
+  },
+)
 
 const dialog = ref(false)
 const accepted = ref(false)
+
 const isScroll = ref(false)
+
 const termsWrapper = ref<HTMLElement | null>(null)
 
-function updateScrollState() {
-  if (isScroll.value) {
-    return
-  }
+let resizeObserver: ResizeObserver | null = null
 
+function checkScrollState() {
   const element = termsWrapper.value
 
   if (!element) {
     return
   }
 
-  const maxScrollTop = element.scrollHeight - element.clientHeight
+  const maxScrollTop
+    = element.scrollHeight - element.clientHeight
 
+  // no scroll yet
   if (maxScrollTop <= 0) {
-    isScroll.value = true
+    isScroll.value = false
     return
   }
 
-  const isAtBottom = element.scrollTop >= maxScrollTop - 20
+  const isAtBottom
+    = element.scrollTop >= maxScrollTop - 20
 
   if (isAtBottom) {
     isScroll.value = true
   }
 }
 
-function acceptHandler() {
-  if (!accepted.value) {
-    return
-  }
-  dialog.value = false
-  acceptedTerms.value = true
-}
-
-onMounted(() => {
-  dialog.value = !acceptedTerms.value
-})
-
-watch(dialog, (isOpen) => {
-  if (!isOpen) {
-    return
-  }
-
-  isScroll.value = false
-  accepted.value = false
+async function initScrollState() {
+  await nextTick()
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      updateScrollState()
+      checkScrollState()
     })
   })
-})
+}
+
+function scrollHandler() {
+  checkScrollState()
+}
+
+function scrollToBottom() {
+  const element = termsWrapper.value
+
+  if (!element) {
+    return
+  }
+
+  element.scrollTo({
+    top: element.scrollHeight,
+    behavior: 'smooth',
+  })
+}
 
 function updateAccepted(value: boolean) {
   if (!isScroll.value) {
@@ -69,6 +79,59 @@ function updateAccepted(value: boolean) {
 
   accepted.value = value
 }
+
+function acceptHandler() {
+  if (!accepted.value) {
+    return
+  }
+
+  acceptedTerms.value = true
+
+  dialog.value = false
+}
+
+watch(dialog, async (isOpen) => {
+  if (!isOpen) {
+    return
+  }
+
+  accepted.value = false
+  isScroll.value = false
+
+  await initScrollState()
+})
+
+watch(
+  termsWrapper,
+  async (element, oldElement) => {
+    if (oldElement && resizeObserver) {
+      resizeObserver.unobserve(oldElement)
+    }
+
+    if (!element) {
+      return
+    }
+
+    resizeObserver ??= new ResizeObserver(() => {
+      checkScrollState()
+    })
+
+    resizeObserver.observe(element)
+
+    await initScrollState()
+  },
+  {
+    immediate: true,
+  },
+)
+
+onMounted(() => {
+  dialog.value = !acceptedTerms.value
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -87,7 +150,7 @@ function updateAccepted(value: boolean) {
         ref="termsWrapper"
         class="terms-wrapper"
         tabindex="0"
-        @scroll="updateScrollState"
+        @scroll="scrollHandler"
       >
         <terms-content />
       </div>
@@ -96,8 +159,11 @@ function updateAccepted(value: boolean) {
         <div
           v-if="!isScroll"
           class="terms-hint"
+          @click="scrollToBottom"
         >
           Scroll to the bottom to enable acceptance
+
+          <i-app-chevron-down class="chevron-icon" />
         </div>
       </Transition>
 
@@ -171,7 +237,7 @@ function updateAccepted(value: boolean) {
   }
 
   &__checkbox {
-    transition: opacity 0.2s ease;
+    transition: opacity $transition-base ease;
 
     &--locked {
       opacity: 0.55;
@@ -181,16 +247,36 @@ function updateAccepted(value: boolean) {
   }
 
   .terms-hint {
+    position: relative;
+    width: fit-content;
+    margin: 0 auto;
     font-size: 12px;
     color: $text-tertiary;
     text-align: center;
     margin-top: -6px;
     margin-bottom: -8px;
+    cursor: pointer;
+
+    &:hover {
+      .chevron-icon {
+        opacity: 1;
+      }
+    }
+
+    .chevron-icon {
+      position: absolute;
+      top: 50%;
+      right: -26px;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 8px;
+      opacity: 0;
+    }
   }
 
   .terms-wrapper {
     flex: 1;
-    min-height: 0;
+    min-height: 400px;
     overflow-y: auto;
     overflow-x: hidden;
     background: linear-gradient(180deg, color-mix(in oklab, $navi-500 88%, white) 0%, $navi-500 100%);
@@ -234,8 +320,8 @@ function updateAccepted(value: boolean) {
 
 .terms-hint-enter-active {
   transition:
-    opacity 0.25s ease,
-    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity $transition-base ease,
+    transform $transition-base cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .terms-hint-enter-to {
@@ -251,8 +337,8 @@ function updateAccepted(value: boolean) {
 
 .terms-hint-leave-active {
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity $transition-base ease,
+    transform $transition-base ease;
 }
 
 .terms-hint-leave-to {

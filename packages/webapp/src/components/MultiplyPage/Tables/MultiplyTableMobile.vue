@@ -59,7 +59,7 @@ function handleDetails(vault: MultiplyVaultItem) {
       <div class="card-top-info">
         <div class="info-wrapper with-pill align-items-center">
           <div class="info-wrapper__title text-center">
-            Max Multiplier
+            Multiplier
           </div>
           <div class="info-wrapper__value">
 
@@ -81,7 +81,7 @@ function handleDetails(vault: MultiplyVaultItem) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          APY at Max
+          APY at Multiplier
         </div>
         <div
           class="info-wrapper__value"
@@ -121,9 +121,9 @@ function handleDetails(vault: MultiplyVaultItem) {
       <j-btn
         v-if="isUserHaveMultiply(item)"
         size="sm"
-        variant="positive-outlined"
-        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
+        variant="outline-positive"
+        :disabled="market.isDisabled(item.pool_address, `withdrawLeverage:${item.pairKey}`, item.market!)"
+        :loading="market.isLoading(item.pool_address, `withdrawLeverage:${item.pairKey}`, item.market!)"
         @click="emits('dialogHandler', { item, action: 'Manage' })"
       >
         Manage
@@ -131,9 +131,9 @@ function handleDetails(vault: MultiplyVaultItem) {
       <j-btn
         v-else
         size="sm"
-        variant="positive-outlined"
-        :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
+        variant="outline-positive"
+        :disabled="market.isDisabled(item.pool_address, `multiplyOpen:${item.pairKey}`, item.market!)"
+        :loading="market.isLoading(item.pool_address, `multiplyOpen:${item.pairKey}`, item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"
       >
         Multiply

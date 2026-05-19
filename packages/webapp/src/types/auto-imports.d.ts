@@ -9,8 +9,10 @@ declare global {
   const AlertToast: typeof import('../features/toast/index').AlertToast
   const DefaultToast: typeof import('../features/toast/index').DefaultToast
   const EffectScope: typeof import('vue').EffectScope
+  const MAIN_MARKET_NAME: typeof import('../store/markets').MAIN_MARKET_NAME
   const Network: typeof import('../store/rpc').Network
   const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
+  const XLM_NATIVE_RESERVE: typeof import('../hooks/swap/use-swap').XLM_NATIVE_RESERVE
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const calcUserTotalShares: typeof import('../store/user')['calcUserTotalShares']
@@ -100,6 +102,7 @@ declare global {
   const refAutoReset: typeof import('@vueuse/core').refAutoReset
   const refDebounced: typeof import('@vueuse/core').refDebounced
   const refDefault: typeof import('@vueuse/core').refDefault
+  const refManualReset: typeof import('@vueuse/core').refManualReset
   const refThrottled: typeof import('@vueuse/core').refThrottled
   const refWithControl: typeof import('@vueuse/core').refWithControl
   const resolveComponent: typeof import('vue').resolveComponent
@@ -136,6 +139,7 @@ declare global {
   const useAccordionMarketsHandler: typeof import('../hooks/accortion-handler').useAccordionMarketsHandler
   const useAccou: typeof import('../hooks/accortion-handler').useAccou
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
+  const useAddTrustLine: typeof import('../hooks/add-trustline').useAddTrustLine
   const useAdditionalApy: typeof import('../hooks/additional-apy').useAdditionalApy
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useAppEnv: typeof import('../hooks/app-env').useAppEnv
@@ -173,6 +177,7 @@ declare global {
   const useCountdown: typeof import('@vueuse/core').useCountdown
   const useCounter: typeof import('@vueuse/core').useCounter
   const useCssModule: typeof import('vue').useCssModule
+  const useCssSupports: typeof import('@vueuse/core').useCssSupports
   const useCssVar: typeof import('@vueuse/core').useCssVar
   const useCssVars: typeof import('vue').useCssVars
   const useCurrentElement: typeof import('@vueuse/core').useCurrentElement
@@ -222,6 +227,7 @@ declare global {
   const useIntervalFn: typeof import('@vueuse/core').useIntervalFn
   const useKeyModifier: typeof import('@vueuse/core').useKeyModifier
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
+  const useLatestRequest: typeof import('../hooks/latest-request').useLatestRequest
   const useLeverage: typeof import('../hooks/multiply/leverage').useLeverage
   const useLeverageDialog: typeof import('../hooks/multiply/leverage-dialog').useLeverageDialog
   const useLeveragePosition: typeof import('../hooks/multiply/position').useLeveragePosition
@@ -234,6 +240,7 @@ declare global {
   const useMarketFilter: typeof import('../store/filter').useMarketFilter
   const useMarketFilterStore: typeof import('../store/filter').useMarketFilterStore
   const useMarketTable: typeof import('../hooks/market/table').useMarketTable
+  const useMarketTableStore: typeof import('../store/market-table').useMarketTableStore
   const useMarketsStore: typeof import('../store/markets').useMarketsStore
   const useMediaControls: typeof import('@vueuse/core').useMediaControls
   const useMediaQuery: typeof import('@vueuse/core').useMediaQuery
@@ -249,7 +256,10 @@ declare global {
   const useMultiplyOpen: typeof import('../hooks/multiply/open').useMultiplyOpen
   const useMultiplyStore: typeof import('../store/multiply').useMultiplyStore
   const useMultiplyTable: typeof import('../hooks/multiply/table').useMultiplyTable
+  const useMultiplyTableStore: typeof import('../store/multiply-table').useMultiplyTableStore
   const useMultiplyWithdraw: typeof import('../hooks/multiply/withdraw').useMultiplyWithdraw
+  const useMultisigSigner: typeof import('../hooks/multisig').useMultisigSigner
+  const useMultisigStore: typeof import('../store/multisig').useMultisigStore
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
   const useMyPosition: typeof import('../hooks/my-position').useMyPosition
   const useNavigatorLanguage: typeof import('@vueuse/core').useNavigatorLanguage
@@ -300,6 +310,7 @@ declare global {
   const useStyleTag: typeof import('@vueuse/core').useStyleTag
   const useSupplyDialog: typeof import('../hooks/market/supply-dialog').useSupplyDialog
   const useSupported: typeof import('@vueuse/core').useSupported
+  const useSwap: typeof import('../hooks/swap/use-swap').useSwap
   const useSwipe: typeof import('@vueuse/core').useSwipe
   const useTemplateRef: typeof import('vue').useTemplateRef
   const useTemplateRefsList: typeof import('@vueuse/core').useTemplateRefsList
@@ -363,11 +374,17 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { MarketWithTableItems } from '../hooks/market/table'
-  import('../hooks/market/table')
+  export type { LatestRequest } from '../hooks/latest-request'
+  import('../hooks/latest-request')
+  // @ts-ignore
+  export type { SwapTokenOption } from '../hooks/swap/use-swap'
+  import('../hooks/swap/use-swap')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
+  // @ts-ignore
+  export type { MarketWithTableItems } from '../store/market-table'
+  import('../store/market-table')
   // @ts-ignore
   export type { MarketsState, MarketFullData, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
@@ -393,7 +410,9 @@ declare module 'vue' {
     readonly AlertToast: UnwrapRef<typeof import('../features/toast/index')['AlertToast']>
     readonly DefaultToast: UnwrapRef<typeof import('../features/toast/index')['DefaultToast']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly MAIN_MARKET_NAME: UnwrapRef<typeof import('../store/markets')['MAIN_MARKET_NAME']>
     readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
+    readonly XLM_NATIVE_RESERVE: UnwrapRef<typeof import('../hooks/swap/use-swap')['XLM_NATIVE_RESERVE']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -477,11 +496,11 @@ declare module 'vue' {
     readonly refAutoReset: UnwrapRef<typeof import('@vueuse/core')['refAutoReset']>
     readonly refDebounced: UnwrapRef<typeof import('@vueuse/core')['refDebounced']>
     readonly refDefault: UnwrapRef<typeof import('@vueuse/core')['refDefault']>
+    readonly refManualReset: UnwrapRef<typeof import('@vueuse/core')['refManualReset']>
     readonly refThrottled: UnwrapRef<typeof import('@vueuse/core')['refThrottled']>
     readonly refWithControl: UnwrapRef<typeof import('@vueuse/core')['refWithControl']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly resolveRef: UnwrapRef<typeof import('@vueuse/core')['resolveRef']>
-    readonly resolveUnref: UnwrapRef<typeof import('@vueuse/core')['resolveUnref']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
@@ -507,6 +526,7 @@ declare module 'vue' {
     readonly until: UnwrapRef<typeof import('@vueuse/core')['until']>
     readonly useAccordionMarketsHandler: UnwrapRef<typeof import('../hooks/accortion-handler')['useAccordionMarketsHandler']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
+    readonly useAddTrustLine: UnwrapRef<typeof import('../hooks/add-trustline')['useAddTrustLine']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
     readonly useArrayDifference: UnwrapRef<typeof import('@vueuse/core')['useArrayDifference']>
     readonly useArrayEvery: UnwrapRef<typeof import('@vueuse/core')['useArrayEvery']>
@@ -542,6 +562,7 @@ declare module 'vue' {
     readonly useCountdown: UnwrapRef<typeof import('@vueuse/core')['useCountdown']>
     readonly useCounter: UnwrapRef<typeof import('@vueuse/core')['useCounter']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
+    readonly useCssSupports: UnwrapRef<typeof import('@vueuse/core')['useCssSupports']>
     readonly useCssVar: UnwrapRef<typeof import('@vueuse/core')['useCssVar']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useCurrentElement: UnwrapRef<typeof import('@vueuse/core')['useCurrentElement']>
@@ -589,6 +610,7 @@ declare module 'vue' {
     readonly useIntervalFn: UnwrapRef<typeof import('@vueuse/core')['useIntervalFn']>
     readonly useKeyModifier: UnwrapRef<typeof import('@vueuse/core')['useKeyModifier']>
     readonly useLastChanged: UnwrapRef<typeof import('@vueuse/core')['useLastChanged']>
+    readonly useLatestRequest: UnwrapRef<typeof import('../hooks/latest-request')['useLatestRequest']>
     readonly useLeveragePosition: UnwrapRef<typeof import('../hooks/multiply/position')['useLeveragePosition']>
     readonly useLocalStorage: UnwrapRef<typeof import('@vueuse/core')['useLocalStorage']>
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
@@ -596,7 +618,7 @@ declare module 'vue' {
     readonly useMarket: UnwrapRef<typeof import('../hooks/market')['useMarket']>
     readonly useMarketActions: UnwrapRef<typeof import('../hooks/market-actions')['useMarketActions']>
     readonly useMarketFilterStore: UnwrapRef<typeof import('../store/filter')['useMarketFilterStore']>
-    readonly useMarketTable: UnwrapRef<typeof import('../hooks/market/table')['useMarketTable']>
+    readonly useMarketTableStore: UnwrapRef<typeof import('../store/market-table')['useMarketTableStore']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
     readonly useMediaControls: UnwrapRef<typeof import('@vueuse/core')['useMediaControls']>
     readonly useMediaQuery: UnwrapRef<typeof import('@vueuse/core')['useMediaQuery']>
@@ -609,8 +631,10 @@ declare module 'vue' {
     readonly useMousePressed: UnwrapRef<typeof import('@vueuse/core')['useMousePressed']>
     readonly useMultiplyOpen: UnwrapRef<typeof import('../hooks/multiply/open')['useMultiplyOpen']>
     readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
-    readonly useMultiplyTable: UnwrapRef<typeof import('../hooks/multiply/table')['useMultiplyTable']>
+    readonly useMultiplyTableStore: UnwrapRef<typeof import('../store/multiply-table')['useMultiplyTableStore']>
     readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
+    readonly useMultisigSigner: UnwrapRef<typeof import('../hooks/multisig')['useMultisigSigner']>
+    readonly useMultisigStore: UnwrapRef<typeof import('../store/multisig')['useMultisigStore']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>
     readonly useMyPosition: UnwrapRef<typeof import('../hooks/my-position')['useMyPosition']>
     readonly useNavigatorLanguage: UnwrapRef<typeof import('@vueuse/core')['useNavigatorLanguage']>
@@ -659,6 +683,7 @@ declare module 'vue' {
     readonly useStyleTag: UnwrapRef<typeof import('@vueuse/core')['useStyleTag']>
     readonly useSupplyDialog: UnwrapRef<typeof import('../hooks/market/supply-dialog')['useSupplyDialog']>
     readonly useSupported: UnwrapRef<typeof import('@vueuse/core')['useSupported']>
+    readonly useSwap: UnwrapRef<typeof import('../hooks/swap/use-swap')['useSwap']>
     readonly useSwipe: UnwrapRef<typeof import('@vueuse/core')['useSwipe']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useTemplateRefsList: UnwrapRef<typeof import('@vueuse/core')['useTemplateRefsList']>

@@ -1,5 +1,6 @@
+import type { RPCcluster } from '@alula/client-sdk'
 import type { MultiplyPositionItem, MultiplyVaultItem } from '~/types/table'
-import { bpsToNumber, calculateMultiplyMaxLeverage, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
+import { AQUA_PROVIDER_ADDRESS, bpsToNumber, calculateMultiplyMaxLeverage, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { calculateCurrentMultiplier } from '~/utils'
 import { buildMultiplyPairKey } from '~/utils/obligation'
@@ -9,8 +10,17 @@ export const useMultiplyStore = defineStore('multiply', () => {
   const router = useRouter()
   const marketsStore = useMarketsStore()
   const { getFullTokenData } = useTokensStore()
+  const rpcStore = useRpcStore()
 
-  const swapProviderAddress = useLocalStorage('swapProviderAddress', SOROSWAP_PROVIDER_ADDRESS, { initOnMounted: true })
+  const swapProviderAddress = useLocalStorage('swapProviderAddress', '', { initOnMounted: true })
+
+  watch(() => rpcStore.network as RPCcluster, (network) => {
+    if (!network) { return }
+    const validAddresses = [AQUA_PROVIDER_ADDRESS[network], SOROSWAP_PROVIDER_ADDRESS[network]].filter(Boolean)
+    if (!validAddresses.includes(swapProviderAddress.value)) {
+      swapProviderAddress.value = AQUA_PROVIDER_ADDRESS[network] || validAddresses[0] || ''
+    }
+  }, { immediate: true })
 
   const vaults = computed<MultiplyVaultItem[]>(() => {
     const items: MultiplyVaultItem[] = []
@@ -103,11 +113,16 @@ export const useMultiplyStore = defineStore('multiply', () => {
       const [, depositData] = depositObligation
       const [, borrowData] = borrowObligation
 
-      const deposited = +calculateTotalStake(depositData.j_tokens, {
+      const depositDecimals = depositPoolData.pool.token_decimals
+      // V3 positions store the deposit as raw collateral (AddCollateral); V2 stores it as j_tokens (supply shares).
+      // Sum both so legacy V2 obligations and new V3 obligations both display correctly.
+      const jTokenStake = +calculateTotalStake(depositData.j_tokens, {
         total_j_tokens: depositPoolData.pool.total_j_tokens,
         total_borrowed: depositPoolData.pool.total_borrowed,
         total_available: depositPoolData.total_available_adjusted,
-      }) || 0
+      }, depositDecimals) || 0
+      const collateralAmount = Number(bigintToNumber(BigInt(depositData.collateral || 0n), depositDecimals)) || 0
+      const deposited = jTokenStake + collateralAmount
 
       const borrowed = +calculateBorrow(borrowData.d_tokens, {
         total_borrowed: borrowPoolData.pool.total_borrowed,

@@ -6,8 +6,9 @@ const router = useRouter()
 
 const userStore = useUserStore()
 const marketsStore = useMarketsStore()
-const { marketWithTableItems } = useMarketTable()
+const marketTableStore = useMarketTableStore()
 
+const marketWithTableItems = computed(() => marketTableStore.marketWithTableItems)
 const obligations = computed(() => Object.entries(userStore.state.obligations).filter(([, obligation]) => Boolean(obligation)))
 
 const positionsCount = computed(() => {

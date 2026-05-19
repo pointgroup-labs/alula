@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { bpsToNumber } from '@alula/client-sdk'
 import { capitalize } from 'vue'
 import { truncatePercent } from '~/utils'
 
@@ -7,6 +8,11 @@ const marketActions = useMarketActions()
 const userStore = useUserStore()
 
 const multiplyStore = useMultiplyStore()
+const multiplyTableStore = useMultiplyTableStore()
+const {
+  openDialog,
+  onRowClicked,
+  isUserHaveMultiply } = multiplyTableStore
 
 const {
   search,
@@ -14,10 +20,7 @@ const {
   filteredVaults,
   selectedVault,
   dialogLeverage,
-  openDialog,
-  onRowClicked,
-  isUserHaveMultiply,
-} = useMultiplyTable()
+} = storeToRefs(multiplyTableStore)
 
 const {
   opened,
@@ -28,11 +31,31 @@ const vaults = computed(() => multiplyStore.vaults)
 
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
-  { key: 'maxMultiplier', label: 'Multiplier', align: 'center' },
-  { key: 'apyAtMaxMultiplier', label: 'Net APY', align: 'center' },
+  { key: 'maxMultiplier', label: 'Max Multiplier', align: 'center' },
+  { key: 'apyAtMaxMultiplier', label: 'Max Net APY', align: 'center' },
+  { key: 'openLtv', label: 'LTV', align: 'center' },
+  { key: 'closeLtv', label: 'Liq. Threshold', align: 'center' },
+  { key: 'supplyApy', label: 'Supply APY', align: 'center' },
+  { key: 'borrowApy', label: 'Borrow APY', align: 'center' },
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
+
+// Pure derivers — pulled out of the templates so the cell markup stays declarative and
+// the same formula can be unit-tested in isolation if/when we add coverage. All return
+// values are already in percent units (× 100) so `truncatePercent` can format directly.
+function openLtvPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.pool?.config?.health_config?.open_ltv_bps || 0)) * 100
+}
+function closeLtvPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.pool?.config?.health_config?.close_ltv_bps || 0)) * 100
+}
+function supplyApyPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.apy?.supply_bps || 0)) * 100
+}
+function borrowApyPercent(item: any): number {
+  return bpsToNumber(Number(item?.borrowPoolData?.apy?.borrow_bps || 0)) * 100
+}
 
 watch([
   filteredVaults,
@@ -98,7 +121,9 @@ watch([
             :key="field.key"
             #[`head(${field.key})`]="data"
           >
-            <span :style="{ '--align': field.align }">{{ data.label }}</span>
+            <span :style="{ '--align': field.align }">
+              {{ data.label }}
+            </span>
           </template>
 
           <template #cell(asset)="data">
@@ -117,14 +142,36 @@ watch([
                   {{ data.item.asset.symbol }} <span class="text-tertiary">/ {{ data.item.borrowAsset.symbol }}</span>
                 </div>
               </div>
-
-              <i-app-export-icon style="color: #6b7994;" />
             </div>
           </template>
 
           <template #cell(maxMultiplier)="data">
             <div class="table-cell justify-content-center">
               {{ truncatePercent(data.item.maxMultiplier || 0, 2) }}x
+            </div>
+          </template>
+
+          <template #cell(openLtv)="data">
+            <div class="table-cell justify-content-center">
+              {{ +truncatePercent(openLtvPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(closeLtv)="data">
+            <div class="table-cell justify-content-center">
+              {{ +truncatePercent(closeLtvPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(supplyApy)="data">
+            <div class="table-cell justify-content-center text-cyan">
+              {{ truncatePercent(supplyApyPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(borrowApy)="data">
+            <div class="table-cell justify-content-center text-indigo">
+              {{ truncatePercent(borrowApyPercent(data.item), 2) }}%
             </div>
           </template>
 
@@ -161,9 +208,9 @@ watch([
               <j-btn
                 v-if="isUserHaveMultiply(data.item)"
                 size="sm"
-                variant="positive-outlined"
-                :disabled="marketActions.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market)"
-                :loading="marketActions.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market)"
+                variant="outline-positive"
+                :disabled="marketActions.isDisabled(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
+                :loading="marketActions.isLoading(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 @click.stop="onRowClicked(data.item)"
               >
                 Manage
@@ -171,9 +218,9 @@ watch([
               <j-btn
                 v-else
                 size="sm"
-                variant="positive-outlined"
-                :disabled="marketActions.isDisabled(data.item.pool_address, 'multiplyOpen', data.item.market)"
-                :loading="marketActions.isLoading(data.item.pool_address, 'multiplyOpen', data.item.market)"
+                variant="outline-positive"
+                :disabled="marketActions.isDisabled(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
+                :loading="marketActions.isLoading(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 @click.stop="openDialog(data.item)"
               >
                 Multiply
@@ -251,6 +298,28 @@ watch([
     line-height: 16px;
     color: $text-secondary;
     text-align: center;
+  }
+
+  // Stack the borrow-asset icon over the deposit-asset icon (secondary on top, slightly
+  // overlapping). Mirrors the pattern used by .position-card__icons (multiply details page)
+  // and the My Multiplies portfolio table so multiply surfaces share one visual language.
+  .market-table__asset {
+    gap: 0;
+
+    .xlm-icon {
+      position: relative;
+      margin-left: -12px;
+      z-index: 1;
+      border: 2px solid $bg-card;
+      background-color: $bg-card;
+      border-radius: 50%;
+      // Compensate for the 2px ring so the visible disc matches the primary's 32×32.
+      box-sizing: content-box;
+    }
+
+    .market-table__asset__info {
+      margin-left: 12px;
+    }
   }
 }
 </style>

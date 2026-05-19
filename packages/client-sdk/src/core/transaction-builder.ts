@@ -1,5 +1,5 @@
 import type { RPCcluster } from '../types'
-import type { ObligationKey } from '@alula/market-sdk'
+import { ObligationKey } from '@alula/market-sdk'
 import { TransactionBuilder } from '@stellar/stellar-sdk'
 import { getNetworkPassphrase, sendSorobanTx } from '../utils'
 import { parseStellarError } from '../utils/errors'

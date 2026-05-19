@@ -3,6 +3,23 @@ const {
   position,
   selectedVault,
 } = useLeveragePosition()
+
+// Hard cap enforced on chain by the deposit pool's open_ltv (1 / (1 - open_ltv)).
+// This is different from `selectedVault.maxMultiplier`, which applies a 0.8 SAFETY_MULTIPLIER
+// discount used as the OPENING soft cap (so users leave headroom for slippage/fees).
+// The live position can legitimately drift between the soft cap and the hard cap because
+// of price movement after open, so we compare against the hard cap here to avoid showing
+// "2.66x of 2.28x" when the position is actually still inside the contract limit.
+const hardMaxMultiplier = computed(() => {
+  if (!position.value) {
+    return
+  }
+  const openLtvRate = position.value.openLtv / 100
+  if (!Number.isFinite(openLtvRate) || openLtvRate <= 0 || openLtvRate >= 1) {
+    return
+  }
+  return 1 / (1 - openLtvRate)
+})
 </script>
 
 <template>
@@ -16,11 +33,16 @@ const {
         <!-- multiplier -->
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Current multiplier
+            Effective leverage
             <info-tooltip>
-              Current position multiple based on total exposure relative to your invested capital.
+              Your live exposure ÷ equity right now — not the multiplier you picked at open.
+              It drifts as the price of your collateral moves: collateral falling pushes it up,
+              collateral rising pulls it down.
               <br>
-              Open LTV limit: {{ truncatePercent(position.openLtv, 2) }}%.
+              Hard ceiling enforced on chain: {{ hardMaxMultiplier !== undefined ? `${truncatePercent(hardMaxMultiplier, 2)}x` : '—' }}
+              (from open LTV {{ truncatePercent(position.openLtv, 2) }}%).
+              <br>
+              Suggested maximum at open (with safety headroom for slippage and fees): {{ truncatePercent(selectedVault.maxMultiplier, 2) }}x.
             </info-tooltip>
           </div>
           <div class="metrics-list__row__value">
@@ -30,7 +52,7 @@ const {
             <strong v-else>{{ '<0' }}</strong>
             of
             <strong>
-              {{ selectedVault.maxMultiplier }}x
+              {{ hardMaxMultiplier !== undefined ? `${truncatePercent(hardMaxMultiplier, 2)}x` : `${selectedVault.maxMultiplier}x` }}
             </strong>
           </div>
         </div>
@@ -109,7 +131,7 @@ const {
             Borrow rate
           </div>
           <div class="metrics-list__row__value text-indigo">
-              <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
+            <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
           </div>
         </div>
         <div class="metrics-list__row">

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ALULA_URL, DOCS_URL } from '~/config'
+import { ALULA_URL, DOCS_URL, PRIVACY_POLICY_LINK, TERMS_OF_SERVICE_LINK } from '~/config'
 </script>
 
 <template>
@@ -20,12 +20,20 @@ import { ALULA_URL, DOCS_URL } from '~/config'
         >
           Documentation
         </a>
-        <nuxt-link to="/terms">
+        <a
+          :href="TERMS_OF_SERVICE_LINK"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Terms of Use
-        </nuxt-link>
-        <nuxt-link to="/policy">
+        </a>
+        <a
+          :href="PRIVACY_POLICY_LINK"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Privacy Policy
-        </nuxt-link>
+        </a>
       </nav>
     </div>
   </footer>

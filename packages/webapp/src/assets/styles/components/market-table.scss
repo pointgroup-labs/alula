@@ -91,17 +91,29 @@
     tr {
       height: 54px;
       border-top: 1px solid rgba(30, 41, 59, 0.2);
-      transition: background 160ms ease;
+      transition: background-color $transition-base ease;
       cursor: pointer;
 
+      // Subtle cyan-tinted lift over the card background. Mixed in oklab so
+      // the change reads as a uniform brightness shift rather than a hue
+      // patch. The percentage stays low (3%) so the hover is felt more than
+      // seen — enough to confirm interactivity, not enough to compete with
+      // the row content.
       &:hover {
-        background-color: $navi-800;
-        outline: 1px solid #1e293b8c;
+        background-color: color-mix(in oklab, $cyan 3%, $bg-card);
       }
 
-      &:last-child {
-        border-radius: 0 0 $radius-xl $radius-xl;
-        overflow: hidden;
+      // `<tr>` doesn't establish a clipping context, so giving the row
+      // itself a `border-radius` + `overflow: hidden` doesn't actually
+      // round its `<td>` backgrounds — on hover the corner cells paint
+      // square corners that poke past the table's bottom edge. Apply the
+      // radius to the cells of the last row instead, which *do* clip
+      // their own backgrounds.
+      &:last-child td:first-child {
+        border-bottom-left-radius: $radius-xl;
+      }
+      &:last-child td:last-child {
+        border-bottom-right-radius: $radius-xl;
       }
     }
 

@@ -33,7 +33,6 @@ section#pool-detail-overview {
     }
   }
 
-
   .detail-list {
     display: flex;
     flex-direction: column;

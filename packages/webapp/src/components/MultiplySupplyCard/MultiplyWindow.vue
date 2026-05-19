@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyVaultItem } from '~/types/table'
-import { amountToUsdWithShort, formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
+import { formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   vault,
@@ -26,8 +26,12 @@ const {
   slippage,
   percentFromMax,
   selectedMultiplier,
+  hardMaxMultiplier,
   currentApy,
+  projectedLeverage,
+  priceImpactPercent,
   unhealthyReason,
+  maxTolerableSlippagePercent,
   maxInputAmount,
   availableBorrowLiquidity,
   flashLoanFeeAmount,
@@ -40,6 +44,26 @@ const {
   notMarginAsset,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
+
+// Color tiers for the price-impact readout. Green is the "deep pool, your
+// trade barely moves it" signal users are scanning for; warning/danger flag
+// trades large enough vs. depth that a smaller size or different pair would
+// open at a meaningfully better rate. Three contiguous bands — every value
+// gets a color, no in-between "default" gap that would leave moderate impact
+// rendering in plain text.
+const priceImpactClass = computed(() => {
+  const v = priceImpactPercent.value
+  if (v == null) {
+    return ''
+  }
+  if (v > 3) {
+    return 'text-danger'
+  }
+  if (v > 1) {
+    return 'text-warning'
+  }
+  return 'text-success'
+})
 
 const slippageInput = computed<string | number>({
   get: () => slippage.value,
@@ -77,6 +101,63 @@ const amountRules = computed(() => [
   },
 ])
 
+const batchPreviewSteps = computed(() => {
+  if (!summary.value || !vault) {
+    return []
+  }
+
+  const depositSymbol = vault.asset.symbol
+  const borrowSymbol = vault.borrowAsset.symbol
+  // Flash borrow is always taken from the borrow pool in V3, regardless of which side the user paid margin on.
+  // The swap is always borrow -> deposit, so swap input is always the borrow asset.
+  const slippageLabel = `${truncatePercent(slippage.value || 0, 1)}%`
+
+  return [
+    {
+      id: 1,
+      title: 'Flash borrow',
+      tooltip: 'Temporary flash-loan amount taken from the borrow pool to assemble the leveraged collateral in one batch.',
+      subtitle: `borrowed from the ${borrowSymbol} pool`,
+      value: summary.value.flashBorrowAmount,
+      symbol: borrowSymbol,
+    },
+    {
+      id: 2,
+      title: 'Total to swap',
+      tooltip: 'Borrow-asset amount routed through the swap provider to mint the leveraged collateral leg.',
+      subtitle: `swap at <= ${slippageLabel} slippage`,
+      value: summary.value.swapAmountIn,
+      symbol: borrowSymbol,
+    },
+    {
+      id: 3,
+      title: `${depositSymbol} received`,
+      tooltip: 'Slippage-protected swap output. This exact amount is added as collateral; the flash loan is repaid separately by the final borrow.',
+      subtitle: 'deposited as collateral',
+      value: summary.value.minAmountOut,
+      symbol: depositSymbol,
+    },
+    {
+      id: 4,
+      title: 'Total collateral',
+      tooltip: 'Final collateral that will remain in the multiply position after the batch completes.',
+      subtitle: 'locked in the deposit pool',
+      value: summary.value.depositAmount,
+      symbol: depositSymbol,
+      valueClass: 'text-cyan',
+    },
+    {
+      id: 5,
+      title: 'Final debt',
+      tooltip: 'Borrow opened at the end of the batch to repay the flash loan and leave the position leveraged.',
+      subtitle: `owed in ${borrowSymbol}`,
+      value: summary.value.finalBorrowAmount,
+      symbol: borrowSymbol,
+      valueClass: 'text-indigo',
+    },
+  ]
+})
+
 function isUserHaveMultiply(): boolean {
   return vault && checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
 }
@@ -89,18 +170,13 @@ function isUserHaveMultiply(): boolean {
     :class="{ 'multiply-trade-panel--compact': compact }"
   >
     <div class="input-wrapper multiply-trade-panel__input-wrapper">
-
-      <div class="multiply-trade-panel__input-meta">
-        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}</span>
-        <span>{{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
-      </div>
       <input-widget
         v-model="amount"
         :balance="balance"
         :limit="Number(maxInputAmount) || 0"
         :price="marginPrice"
         :symbol="marginAsset?.symbol"
-        label-left="Margin amount"
+        label-left="Wallet balance"
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         class="multiply-trade-panel__amount-input"
         :rules="amountRules"
@@ -115,21 +191,42 @@ function isUserHaveMultiply(): boolean {
           >
             <template #target="{ active }">
               <div
-                class="select-pool-btn"
+                class="select-pool-btn select-asset-btn"
               >
-                <img
-                  :src="marginAsset?.icon"
-                  alt="asset icon"
-                >
-                {{ marginAsset?.symbol }}
-                <i-app-chevron-down
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
+                <template v-if="isMarginBorrow">
+                  <div class="asset-icons">
+                    <img
+                      :src="marginAsset?.icon"
+                      alt="asset icon"
+                    >
+                    <img
+                      :src="notMarginAsset?.icon"
+                      alt="asset icon"
+                    >
+                  </div>
+                  <div class="swap-asset-label">
+                    <span class="text-tertiary">{{ marginAsset?.symbol }}</span> <i-app-line-arrow-right /> {{ notMarginAsset?.symbol }}
+                  </div>
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
+                <template v-else>
+                  <img
+                    :src="marginAsset?.icon"
+                    alt="asset icon"
+                  >
+                  {{ marginAsset?.symbol }}
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
               </div>
             </template>
 
-            <div class="select-pool-menu">
+            <div class="select-pool-menu select-asset-menu">
               <div
                 class="select-pool-menu__item"
                 @click="isMarginBorrow = !isMarginBorrow"
@@ -150,12 +247,29 @@ function isUserHaveMultiply(): boolean {
         <provider-select v-model="swapProviderAddress" />
         <slippage-select v-model="slippageInput" />
       </div>
+
+      <div
+        v-if="maxTolerableSlippagePercent !== undefined && amount && amount > 0"
+        class="multiply-trade-panel__slippage-hint"
+        :class="{ 'multiply-trade-panel__slippage-hint--breach': slippage > maxTolerableSlippagePercent }"
+      >
+        <template v-if="maxTolerableSlippagePercent === 0">
+          Multiplier {{ truncatePercent(selectedMultiplier, 2) }}× is too high for this pair. Lower it to enable any slippage tolerance.
+        </template>
+        <template v-else-if="slippage > maxTolerableSlippagePercent">
+          Slippage {{ slippage }}% is above the maximum safe value of {{ maxTolerableSlippagePercent.toFixed(2) }}% at {{ truncatePercent(selectedMultiplier, 2) }}×. Lower slippage or reduce multiplier.
+        </template>
+        <template v-else>
+          Max safe slippage at {{ truncatePercent(selectedMultiplier, 2) }}×: {{ maxTolerableSlippagePercent.toFixed(2) }}%
+        </template>
+      </div>
     </div>
 
     <multiply-select
       v-model="percentFromMax"
       :multiplier="selectedMultiplier"
       :max-multiply="vault.maxMultiplier"
+      :hard-max-multiply="hardMaxMultiplier"
       :net-apy="currentApy"
       :pool="vault.depositPoolData"
     />
@@ -163,7 +277,7 @@ function isUserHaveMultiply(): boolean {
     <warning-block
       v-if="previewError"
       class="mt-3"
-      title="Repay Multiply"
+      title="Multiply preview"
       :text="previewError"
     />
 
@@ -193,18 +307,53 @@ function isUserHaveMultiply(): boolean {
               </div>
             </div>
 
-            <div class="summary-list__item">
-              <div class="label">Target multiplier</div>
+            <div
+              v-if="priceImpactPercent != null"
+              class="summary-list__item"
+            >
+              <div class="label">
+                <div class="label-with-tip">
+                  Price impact
+                  <info-tooltip>
+                    Pure depth-driven slippage of this swap against the current pool: how
+                    much your trade size moves the rate. Computed by re-quoting the same
+                    path with a small probe input — the provider's fee cancels in the
+                    ratio, so this isolates depth impact from fee and from oracle/AMM
+                    price divergence.
+                  </info-tooltip>
+                </div>
+              </div>
               <div class="value">
-                {{ truncatePercent(selectedMultiplier || 0, 2) }}x
+                <span :class="priceImpactClass">
+                  {{ priceImpactPercent.toFixed(2) }}%
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="projectedLeverage != null"
+              class="summary-list__item"
+            >
+              <div class="label">
+                <div class="label-with-tip">
+                  Realized leverage
+                  <info-tooltip>
+                    Actual on-chain leverage after the swap. Differs from the slider target because
+                    the AMM charges fees and price impact, and oracle prices may not match AMM rates —
+                    so the USD value of collateral added vs. debt taken on is not 1:1 with the slider.
+                  </info-tooltip>
+                </div>
+              </div>
+              <div class="value">
+                {{ truncatePercent(projectedLeverage, 2) }}×
               </div>
             </div>
 
             <div class="summary-list__item align-items-start mb-2">
-              <div class="label">Borrow liquidity</div>
+              <div class="label">Available liquidity</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ marginAsset?.symbol }}
+                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset?.symbol }}
                 </div>
               </div>
             </div>
@@ -233,89 +382,63 @@ function isUserHaveMultiply(): boolean {
           </template>
 
           <div class="summary-list">
-            <div class="info-summary__item">
-              <div
-                v-if="loadingPreview && !summary"
-                class="summary-list"
-              >
-                <div class="summary-list__item mb-2">
-                  <div class="label">Quote</div>
-                  <div class="value">
-                    Updating batch preview...
-                  </div>
+            <div
+              v-if="loadingPreview && !summary"
+              class="summary-list"
+            >
+              <div class="summary-list__item mb-2">
+                <div class="label">Quote</div>
+                <div class="value">
+                  Updating batch preview...
                 </div>
               </div>
+            </div>
 
+            <div
+              v-else-if="summary"
+              class="summary-list"
+            >
               <div
-                v-else-if="summary"
-                class="summary-list"
+                v-for="step in batchPreviewSteps"
+                :key="step.id"
+                class="summary-list__item"
+                :class="{ 'pb-1': step.id === batchPreviewSteps.length }"
               >
-                <div class="summary-list__item">
-                  <div class="label">Flash borrow</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ marginAsset?.symbol }}
+                <div class="label">
+                  <div class="label-with-tip">
+                    <span class="step-id">{{ step.id }}</span> {{ step.title }}
+                    <info-tooltip>
+                      {{ step.tooltip }}
+                    </info-tooltip>
+                  </div>
+                  <div class="sub-label">
+                    <i-app-line-arrow-down class="line-arrow-icon" />
+                    {{ step.subtitle }}
                   </div>
                 </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Total swap in</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">{{ isMarginBorrow ? 'Expected out' : 'Flash repay target' }}</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.expectedAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.expectedAmountOut || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">{{ isMarginBorrow ? 'Min deposit' : 'Swap out target' }}</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.minAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.minAmountOut || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Total collateral</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.depositAmount || 0, 2, maxDecimalsForShortenNumber(summary.depositAmount || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Final borrow</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item align-items-start mb-2">
-                  <div class="label">Est. collateral value</div>
-                  <div class="value">
-                    <div class="text-end">
-                      ${{ amountToUsdWithShort(summary.depositAmount, vault.price, false) }}
-                    </div>
-                  </div>
+                <div
+                  class="value"
+                  :class="step.valueClass"
+                  style="opacity: 1;"
+                >
+                  {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
                 </div>
               </div>
+            </div>
 
-              <div
-                v-else
-                class="summary-list"
-              >
-                <div class="summary-list__item mb-2">
-                  <div class="label">Quote</div>
-                  <div class="value">
-                    <template v-if="publicKey">
-                      Enter an amount to build the flash-borrow batch.
-                    </template>
-                    <template v-else>
-                      Connect wallet to build the flash-borrow batch.
-                    </template>
-                  </div>
+            <div
+              v-else
+              class="summary-list"
+            >
+              <div class="summary-list__item mb-2">
+                <div class="label">Quote</div>
+                <div class="value">
+                  <template v-if="publicKey">
+                    Enter an amount to build the flash-borrow batch.
+                  </template>
+                  <template v-else>
+                    Connect wallet to build the flash-borrow batch.
+                  </template>
                 </div>
               </div>
             </div>
@@ -332,7 +455,7 @@ function isUserHaveMultiply(): boolean {
             <div class="summary-list__item">
               <div class="label">Flash loan fee</div>
               <div class="value">
-                {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ marginAsset?.symbol }}
+                {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ vault.borrowAsset?.symbol }}
               </div>
             </div>
           </div>
@@ -348,13 +471,14 @@ function isUserHaveMultiply(): boolean {
     />
 
     <div class="supply-card__action mt-3">
-      <market-dialog-action-btn
+      <market-action-btn
         variant="positive"
         class="market-action-btn"
         size="md"
-        :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
+        :loading="marketActions.isLoading(vault.pool_address, `multiplyOpen:${vault.pairKey}`, vault.market)"
         :pool="vault.depositPoolData.pool"
-        :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
+        :pool-secondary="vault.borrowPoolData.pool"
+        :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, `multiplyOpen:${vault.pairKey}`, vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
         <i-metrics-complete class="complete-icon" />
@@ -364,7 +488,7 @@ function isUserHaveMultiply(): boolean {
         <template v-else>
           Open Position
         </template>
-      </market-dialog-action-btn>
+      </market-action-btn>
     </div>
   </div>
 </template>
@@ -400,6 +524,17 @@ function isUserHaveMultiply(): boolean {
     margin: 12px 0 0;
   }
 
+  &__slippage-hint {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: $text-tertiary;
+
+    &--breach {
+      color: $danger;
+    }
+  }
+
   &__suffix {
     color: $text-brand;
     font-size: 10px;
@@ -427,6 +562,7 @@ function isUserHaveMultiply(): boolean {
       img {
         width: 20px;
         height: 20px;
+        border-radius: 50%;
       }
     }
   }
@@ -434,6 +570,95 @@ function isUserHaveMultiply(): boolean {
   .arrow-icon {
     &--active {
       transform: rotate(180deg);
+    }
+  }
+
+  .summary-list__item {
+    padding-bottom: 4px;
+    .label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+
+      .step-id {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: $navi-100;
+        background-color: $navi-400;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+        font-weight: 700;
+      }
+    }
+    .label-with-tip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sub-label {
+      font-size: 11px;
+      color: rgb(79, 96, 128);
+      margin-left: 18px;
+
+      .line-arrow-icon {
+        width: 8px;
+        height: 12px;
+        margin-right: 4px;
+      }
+    }
+
+    &:last-child {
+      .sub-label {
+        margin-left: 24px;
+        svg {
+          display: none;
+        }
+      }
+    }
+  }
+
+  .select-asset-btn {
+    .asset-icons {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+
+      img {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+
+        &:nth-child(1) {
+          left: 0;
+          top: 0;
+        }
+        &:nth-child(2) {
+          right: -2px;
+          bottom: -2px;
+        }
+      }
+    }
+
+    .swap-asset-label {
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      svg {
+        width: 12px;
+        height: 12px;
+        color: #fff;
+      }
+
+      span {
+        font-size: 12px;
+        font-weight: 500;
+      }
     }
   }
 }

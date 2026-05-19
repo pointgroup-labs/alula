@@ -26,6 +26,8 @@ const {
 const emit = defineEmits(['update:modelValue'])
 const slots = defineSlots()
 
+const scopeClass = ref()
+
 const inputVal = computed({
   get() {
     return modelValue
@@ -34,6 +36,7 @@ const inputVal = computed({
     emit('update:modelValue', val)
   },
 })
+
 const errorMessage = ref<string | null>(null)
 
 const computedClasses = computed(() => {
@@ -65,13 +68,18 @@ function handleBlur() {
   }
 }
 
-// watch(value, () => {
-//   emit('update:modelValue', value.value)
-// }, { flush: 'post' })
+function handlePaste(e: ClipboardEvent) {
+  if (!onlyNumbers) {
+    return
+  }
 
-// watch(() => modelValue, (val) => {
-//   value.value = val
-// })
+  e.preventDefault()
+
+  const pasted = e.clipboardData?.getData('text') ?? ''
+  const cleaned = pasted.replaceAll(/[^0-9.,]/g, '')
+
+  inputVal.value = cleaned
+}
 
 watch(inputVal, () => {
   if (!lazyRules) {
@@ -90,10 +98,25 @@ watch(() => forceValidation, (val) => {
     nextTick(() => validate())
   }
 })
+
+function handleClick(e: Event) {
+  if (e.target instanceof HTMLInputElement) {
+    return
+  }
+  focusInput(`.${scopeClass.value}`)
+}
+
+onMounted(() => {
+  scopeClass.value = `j-input-${Math.random().toString(36).slice(2, 11)}`
+})
 </script>
 
 <template>
-  <div class="j-input">
+  <div
+    class="j-input"
+    :class="scopeClass"
+    @click="handleClick"
+  >
     <div
       v-if="slots?.label"
       class="j-input__label"
@@ -119,6 +142,7 @@ watch(() => forceValidation, (val) => {
           autocomplete="off"
           @keypress="onlyNumbers && onlyNumber($event)"
           @blur="handleBlur"
+          @paste="handlePaste"
         />
       </div>
       <template
@@ -163,8 +187,8 @@ watch(() => forceValidation, (val) => {
 .fade-bottom-enter-active,
 .fade-bottom-leave-active {
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
+    opacity $transition-base ease,
+    transform $transition-base ease;
 }
 
 .fade-bottom-enter-from,

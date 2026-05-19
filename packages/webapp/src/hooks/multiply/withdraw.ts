@@ -29,7 +29,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   const data = computed(() => unref(dataRef))
 
   const amount = toRef(market, 'withdrawAmount')
-  const slippage = ref(0.5)
+  const slippage = ref(0.05)
   const swapProviderAddress = computed(() => multiplyStore.swapProviderAddress)
   const reloadFee = ref(false)
   const preview = ref<CloseMultiplyPreview>()
@@ -44,7 +44,10 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   const activeMarket = computed(() => marketsStore.state.markets[String(data.value?.market)])
 
-  const isMarginBorrow = ref(true)
+  // Default close margin = deposit asset so the user receives their collateral
+  // (e.g. XLM) back, matching the "close position → get my collateral" mental model.
+  // The dropdown still lets them pick the borrow asset to receive USDC instead.
+  const isMarginBorrow = ref(false)
   const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
   const marginAsset = computed(() => isMarginBorrow.value ? data.value?.borrowAsset : data.value?.asset)
   const notMarginAsset = computed(() => isMarginBorrow.value ? data.value?.asset : data.value?.borrowAsset)
@@ -106,15 +109,19 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     const deposits: any = userStore.state.multiplyObligations[String(data.value.market)]?.[data.value.pairKey]?.deposits || []
     const depositAsset = deposits.find(([deposit]: any) => deposit === data.value?.depositPoolData.pool.pool_address)
 
-    if (!depositAsset?.[1]?.j_tokens) {
+    if (!depositAsset?.[1]) {
       return 0
     }
 
-    return Number(calculateTotalStake(depositAsset[1].j_tokens, {
+    const decimals = data.value.depositPoolData.pool.token_decimals
+    // V3 stores deposit as raw `collateral`; V2 stores it as `j_tokens` (supply shares). Sum both.
+    const jTokenStake = Number(calculateTotalStake(depositAsset[1].j_tokens || 0n, {
       total_j_tokens: data.value.depositPoolData.pool.total_j_tokens,
       total_borrowed: data.value.depositPoolData.pool.total_borrowed,
       total_available: data.value.depositPoolData.total_available_adjusted,
-    }).toString()) || 0
+    }, decimals).toString()) || 0
+    const collateralAmount = Number(bigintToNumber(BigInt(depositAsset[1].collateral || 0n), decimals)) || 0
+    return jTokenStake + collateralAmount
   })
 
   const swapInputEstimate = computed(() => {
@@ -200,6 +207,12 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   }
 
   function getPreviewMinReceiveAmount(sourcePreview: CloseMultiplyPreview) {
+    // For a full close we let the SDK recompute the receive cap from a fresh preview
+    // (interest accrual between our preview and tx build can shift it). The SDK already
+    // defaults to the fresh maxReceivableAmount in that case.
+    if (sourcePreview.isFullClose) {
+      return
+    }
     return sourcePreview.marginAsset === 'deposit'
       ? toDepositAmount(sourcePreview.estimatedReceiveAmount)
       : undefined
@@ -382,7 +395,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     previewError.value = ''
     resolvedRepayAmount.value = undefined
     receivePreviewCache.clear()
-    isMarginBorrow.value = true
+    isMarginBorrow.value = false
     txFee.value = 0
   }
 
@@ -423,11 +436,11 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         return
       }
 
-      if (!amount.value) {
-        amount.value = isMarginBorrow.value
-          ? Number(bigintToNumber(maxPreview.maxRepayAmount, borrowDecimals.value)) || 0
-          : Number(bigintToNumber(maxPreview.maxReceivableAmount, depositDecimals.value)) || 0
-      }
+      // if (!amount.value) {
+      //   amount.value = isMarginBorrow.value
+      //     ? Number(bigintToNumber(maxPreview.maxRepayAmount, borrowDecimals.value)) || 0
+      //     : Number(bigintToNumber(maxPreview.maxReceivableAmount, depositDecimals.value)) || 0
+      // }
 
       if (!amount.value || amount.value <= 0) {
         preview.value = maxPreview
@@ -486,7 +499,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         depositPoolAddress: data.value.depositPoolData.pool.pool_address,
         borrowPoolAddress: data.value.borrowPoolData.pool.pool_address,
         marginAsset: marginAssetType.value,
-        repayAmount: Number(resolvedRepayAmount.value),
+        repayAmount: preview.value.isFullClose ? undefined : Number(resolvedRepayAmount.value),
         minReceiveAmount: getPreviewMinReceiveAmount(preview.value),
         slippagePercent: Number(slippage.value),
         swapProviderAddress: swapProviderAddress.value,
@@ -501,6 +514,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   function reset() {
     marketsStore.dialogLeverageWithdraw = false
+    clearState()
   }
 
   async function withdraw() {
@@ -520,12 +534,16 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         deposit_pool_address: data.value.depositPoolData.pool.pool_address,
         borrow_pool_address: data.value.borrowPoolData.pool.pool_address,
         margin_asset: marginAssetType.value,
-        repay_amount: Number(resolvedRepayAmount.value),
+        // On a full close, defer to the SDK's fresh repay calc — interest accrued between
+        // the original preview and tx build would otherwise make our cached number look
+        // like a partial close and trip the receive-amount sanity check.
+        repay_amount: preview.value.isFullClose ? undefined : Number(resolvedRepayAmount.value),
         min_receive_amount: getPreviewMinReceiveAmount(preview.value),
         slippage_percent: Number(slippage.value),
         swap_provider: swapProviderAddress.value,
         obligation_key: obligationKey.value,
         path: swapPath.value,
+        actionType: data.value.pairKey,
         action: async () => {
           await Promise.allSettled([
             userStore.updateUserMultiplyObligations(activeMarket.value!.marketState.global_state.name, activeMarket.value!.client!, false),

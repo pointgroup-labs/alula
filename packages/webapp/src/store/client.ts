@@ -1,5 +1,5 @@
 import type { RPCcluster } from '@alula/client-sdk'
-import { StellarClient } from '@alula/client-sdk'
+import { AlulaClient } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
 export const useClientStore = defineStore('client', () => {
@@ -19,12 +19,12 @@ export const useClientStore = defineStore('client', () => {
       const pubkey = isValidAccount.value ? walletStore.publicKey : undefined
 
       return import.meta.client && network.value
-        ? await StellarClient.fromAddress(pubkey, marketAddress, {
+        ? await AlulaClient.fromAddress(pubkey, marketAddress, {
             rpc: network.value as RPCcluster,
             horizonRpcUrl: rpcStore.horizonRPCUrl,
             sorobanRpcUrl: rpcStore.sorobanRPCUrl,
           })
-        : {} as StellarClient
+        : {} as AlulaClient
     } catch (error: any) {
       console.error(error)
       toast.create({

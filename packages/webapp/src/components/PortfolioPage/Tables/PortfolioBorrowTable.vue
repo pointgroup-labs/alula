@@ -16,9 +16,10 @@ const marketsStore = useMarketsStore()
 
 const market = useMarketActions()
 
-const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
-const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
+// const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
@@ -79,13 +80,15 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   return res?.filter(Boolean) as BorrowCardTableItem[]
 })
 
-const totalDebt = computed(() => {
+const totalDebtRaw = computed(() => {
   let sum = 0
   for (const item of items.value) {
     sum += Number(item.debtUsd)
   }
-  return formatCompactUSD(sum, 2, 2)
+  return sum
 })
+
+const totalDebt = computed(() => formatCompactUSD(totalDebtRaw.value, 2, 2))
 
 function withdrawDialogHandler(item: BorrowCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
@@ -100,14 +103,14 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       My Borrows
 
       <metric-indicator
-        v-if="isHasObligations"
+        v-if="totalDebtRaw > 0"
         label="Total Borrowed"
         :value="`${totalDebt}`"
         color="#f04438"
       />
     </div>
 
-    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
+    <div v-if="markets.length === 0 && isLoading">
       <borrow-table-skeleton />
     </div>
 
@@ -122,7 +125,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           :fields="fields"
           :items="items"
           responsive
-          class="portfolio-table market-table"
+          class="portfolio-table market-table "
           :class="{ 'table-loading': userStore.loading }"
         >
           <template
@@ -196,7 +199,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand-secondary-outlined"
+                variant="outlined-brand-secondary"
                 size="sm"
                 class="repay-btn"
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
@@ -258,8 +261,8 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       border-radius: $radius-lg;
       background-color: var(--indicator-color, #{$success});
       transition:
-        width 0.3s ease,
-        background-color 0.3s ease;
+        width $transition-base ease,
+        background-color $transition-base ease;
     }
   }
 

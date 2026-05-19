@@ -4,6 +4,7 @@ import { TermsWindow } from '~/features/terms'
 
 <template>
   <app-header />
+  <invalid-account-warning />
   <NuxtPage />
   <app-footer />
   <client-only>

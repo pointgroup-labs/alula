@@ -80,7 +80,7 @@ function disconnect() {
     }
 
     &__name {
-      color: $text-secondary;
+      color: rgba($text-secondary, 0.4);
       font-size: 12px;
       font-style: normal;
       font-weight: 400;

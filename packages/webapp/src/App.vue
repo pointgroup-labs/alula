@@ -12,7 +12,7 @@ onMounted(() => {
     nextTick(() => {
       const body = document.querySelector('body') as HTMLElement
       if (body) {
-        body.style.transition = 'opacity 0.3s ease-in-out'
+        body.style.transition = 'opacity 0.15s ease-in-out'
         body.style.opacity = '1'
       }
     })

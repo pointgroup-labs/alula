@@ -29,6 +29,10 @@ export function calcWeightedBorrowedUsd(
 /**
  * Computes Health Factor = Σ(Vc × closeLTV) / Σ(Vb × LF), capped at 10.
  *
+ * @param obligation
+ * @param poolsData
+ * @param assetDecimals
+ * @param oraclePriceDecimals
  * @param depositAdjustUsd - subtract from weighted deposit (e.g. withdraw: amount × price × closeLTV)
  * @param borrowAdjustUsd  - add to weighted borrow (e.g. borrow: +amount × price × LF; repay: -amount × price × LF)
  */

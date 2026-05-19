@@ -141,7 +141,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
       <j-btn
         v-if="+item.position.borrowed === 0"
         size="sm"
-        variant="brand-outlined"
+        variant="outlined-brand"
         :disabled="marketActions.isDisabled(item.pool_address, 'deposit', item.market!)"
         :loading="marketActions.isLoading(item.pool_address, 'deposit', item.market!)"
         @click="dialogHandler(item, 'supply')"
@@ -151,7 +151,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
       <j-btn
         v-else
         size="sm"
-        variant="brand-secondary-outlined"
+        variant="outlined-brand-secondary"
         :disabled="marketActions.isDisabled(item.pool_address, 'repay', item.market!)"
         :loading="marketActions.isLoading(item.pool_address, 'repay', item.market!)"
         @click="dialogHandler(item, 'repay')"
@@ -161,7 +161,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
       <j-btn
         v-if="+item.position.supplied === 0"
         size="sm"
-        variant="brand-secondary-outlined"
+        variant="outlined-brand-secondary"
         :disabled="marketActions.isDisabled(item.pool_address, 'borrow', item.market!)"
         :loading="marketActions.isLoading(item.pool_address, 'borrow', item.market!)"
         @click="dialogHandler(item, 'borrow')"
@@ -171,7 +171,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
       <j-btn
         v-else
         size="sm"
-        variant="brand-outlined"
+        variant="outlined-brand"
         :disabled="marketActions.isDisabled(item.pool_address, 'withdraw', item.market!)"
         :loading="marketActions.isLoading(item.pool_address, 'withdraw', item.market!)"
         @click="dialogHandler(item, 'withdraw')"

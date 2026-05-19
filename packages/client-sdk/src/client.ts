@@ -5,18 +5,19 @@ import { LendingService } from './services/lending'
 import { MarketService } from './services/market'
 import { MarketManagerService } from './services/market-manager'
 import { MultiplyService } from './services/multiply'
+import { SwapService } from './services/swap'
 import { WalletService } from './services/wallet'
 
 /**
  * Main client configuration
  */
-export interface StellarClientConfig {
+export interface AlulaClientConfig {
   publicKey?: string
   marketContractId?: string
-  opts: StellarClientOptions
+  opts: AlulaClientOptions
 }
 
-export type StellarClientOptions = {
+export type AlulaClientOptions = {
   rpc: RPCcluster
   horizonRpcUrl?: string
   sorobanRpcUrl?: string
@@ -27,7 +28,7 @@ export type StellarClientOptions = {
  *
  * @example
  * ```typescript
- * const client = new StellarClient({
+ * const client = new AlulaClient({
  *   publicKey: 'GABC...',
  *   rpc: 'testnet',
  *   marketContractId: 'CABC...'
@@ -50,20 +51,21 @@ export type StellarClientOptions = {
  * const balances = await client.wallet.getBalances()
  * ```
  */
-export class StellarClient {
+export class AlulaClient {
   public readonly rpc: RPCcluster
   public readonly market: MarketService
   public readonly obligation: ObligationService
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
   public readonly multiply: MultiplyService
+  public readonly swap: SwapService
   public readonly wallet: WalletService
   public readonly marketManager: MarketManagerService
   public readonly horizonRpcUrl?: string
   public readonly sorobanRpcUrl?: string
 
   private constructor(
-    config: StellarClientConfig,
+    config: AlulaClientConfig,
     market: MarketService,
   ) {
     this.rpc = config.opts.rpc
@@ -84,12 +86,13 @@ export class StellarClient {
     this.lending = new LendingService({ ...context, decimals })
     this.borrowing = new BorrowingService({ ...context, decimals })
     this.multiply = new MultiplyService({ ...context, decimals })
+    this.swap = new SwapService({ ...context, decimals })
     this.wallet = new WalletService(context)
     this.obligation = new ObligationService(context)
     this.marketManager = new MarketManagerService(context)
   }
 
-  static async create(config: StellarClientConfig): Promise<StellarClient> {
+  static async create(config: AlulaClientConfig): Promise<AlulaClient> {
     const market = await MarketService.create({
       rpc: config.opts.rpc,
       publicKey: config.publicKey,
@@ -98,7 +101,7 @@ export class StellarClient {
       sorobanRpcUrl: config.opts.sorobanRpcUrl,
     })
 
-    return new StellarClient(config, market)
+    return new AlulaClient(config, market)
   }
 
   /**
@@ -107,9 +110,9 @@ export class StellarClient {
   static async fromAddress(
     address: string | undefined,
     marketContractId?: string,
-    opts: StellarClientOptions = { rpc: 'testnet' },
+    opts: AlulaClientOptions = { rpc: 'testnet' },
   ) {
-    return StellarClient.create({
+    return AlulaClient.create({
       publicKey: address,
       marketContractId,
       opts,

@@ -3,22 +3,17 @@ import { formatPrice } from '~/utils'
 
 const GUIDE_LINK = 'https://docs.alula.finance/guides/'
 
+const marketTable = useMarketTableStore()
 const marketsStore = useMarketsStore()
 
 const loading = computed(() => marketsStore.state.loading)
 
 const marketsInfo = computed(() => {
-  return Object.values(marketsStore.state.markets)?.reduce((acc, { marketState }) => {
-    const oraclePriceDecimale = marketState?.oracle_price_decimals ?? 0
-
-    for (const data of marketState?.pools_data) {
-      const assetDecimals = data.pool.token_decimals
-      const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimale))
-      const totalSupplied = data.total_supply + data.pool.total_collateral
-      const supplied = Number(bigintToNumber(totalSupplied, assetDecimals)) * price
-      const borrowed = Number(bigintToNumber(data.pool.total_borrowed, assetDecimals)) * price
-      acc.total_borrowed += borrowed
-      acc.total_collateral += supplied
+  const activeMarkets = marketTable.filteredMarkets
+  return Object.values(activeMarkets)?.reduce((acc, el) => {
+    for (const data of el.tableItems) {
+      acc.total_collateral += data.total_supply * data.price
+      acc.total_borrowed += data.total_borrowed * data.price
     }
     return acc
   }, { total_collateral: 0, total_borrowed: 0 })

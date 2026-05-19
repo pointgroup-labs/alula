@@ -112,7 +112,7 @@ watchEffect((onCleanup) => {
       :style="{
         ...floatingStyles,
         position: 'absolute',
-        transition: 'opacity 0.2s ease',
+        transition: 'opacity 0.15s ease',
         opacity: isVisible ? 1 : 0,
         zIndex: 9999,
       }"

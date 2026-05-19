@@ -1,4 +1,4 @@
-import type { StellarClient } from '@alula/client-sdk'
+import type { AlulaClient } from '@alula/client-sdk'
 import type { ObligationArray, ObligationUI } from '@alula/client-sdk/src/types'
 import type { Obligation } from '@alula/market-sdk'
 import { defineStore } from 'pinia'
@@ -17,7 +17,7 @@ export const useUserStore = defineStore('user', () => {
 
   const loading = ref(false)
 
-  async function loadUserObligation(market: string, client: StellarClient) {
+  async function loadUserObligation(market: string, client: AlulaClient) {
     try {
       loading.value = true
       const oblKey = buildObligationKey({ pablicKey: publicKey.value })
@@ -29,7 +29,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserMultiplyObligations(market: string, client: StellarClient, withLogs = true) {
+  async function loadUserMultiplyObligations(market: string, client: AlulaClient, withLogs = true) {
     try {
       loading.value = true
       if (!client || !publicKey.value) {
@@ -73,7 +73,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function updateUserObligation(market: string, client: StellarClient, withLogs = true) {
+  async function updateUserObligation(market: string, client: AlulaClient, withLogs = true) {
     try {
       loading.value = true
       if (!client) {
@@ -90,7 +90,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function updateUserMultiplyObligations(market: string, client: StellarClient, withLogs = true) {
+  async function updateUserMultiplyObligations(market: string, client: AlulaClient, withLogs = true) {
     await loadUserMultiplyObligations(market, client, withLogs)
   }
 

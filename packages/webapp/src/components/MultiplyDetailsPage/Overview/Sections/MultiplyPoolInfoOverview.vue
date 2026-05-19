@@ -122,13 +122,6 @@ const detailCardsData = computed(() => {
     }
   }
 
-  .auditor-item {
-    img {
-      width: 18px;
-      height: 12px;
-    }
-  }
-
   .title {
     color: $text-tertiary;
     font-size: $text-xs;

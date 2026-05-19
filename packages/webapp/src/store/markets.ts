@@ -1,6 +1,8 @@
-import type { StellarClient } from '@alula/client-sdk'
+import type { AlulaClient } from '@alula/client-sdk'
 import type { MarketData, Pool, PoolData } from '@alula/market-sdk'
 import { defineStore } from 'pinia'
+
+export const MAIN_MARKET_NAME = 'main'
 
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
@@ -40,7 +42,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
   const poolActiveAddress = ref<string>()
 
-  async function updatePool(pool_address: string, market: string, client: StellarClient, withLogs = true) {
+  async function updatePool(pool_address: string, market: string, client: AlulaClient, withLogs = true) {
     const poolData = await loadPoolData(pool_address, client)
     const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
     state.markets[market] = {
@@ -193,7 +195,7 @@ export type MarketFullData = Record<string, {
   marketState: MarketData
   marketName: string
   address: string
-  client?: StellarClient
+  client?: AlulaClient
 }>
 
 export type PoolWithPrice = {
@@ -202,7 +204,7 @@ export type PoolWithPrice = {
   market?: string
 } & Pool
 
-export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage' | 'multiplyOpen'
+export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage' | 'multiplyOpen' | string
 
 async function loadPoolData(address: string, client: any) {
   try {

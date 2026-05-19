@@ -20,6 +20,16 @@ export interface MultiplyServiceConfig {
 
 export type MultiplyMarginAsset = 'borrow' | 'deposit'
 
+// V3 single-anchor multiply (per docs/SecondTokenMarginGuideV3.md):
+//   FlashBorrow(debt) → SwapExactTokens(debt→collateral) → AddCollateral(margin+Y) → Borrow(X+flash_fee)
+// Preconditions strictly required for the determinism invariants to hold:
+//   1. deposit pool add_collateral_fee_bps == 0  (else AddCollateral credits less than literal)
+//   2. borrow pool  borrow_fee_bps == 0          (else Borrow pays less than literal → flash repay reverts
+//                                                 OR silently milks the wallet)
+//   3. referrer must be undefined/None           (defense-in-depth; with bps==0 it's already a no-op)
+// If any precondition fails, the SDK falls back to the legacy V2-style flow (kept inline).
+const SWAP_PRINCIPAL_SAFETY_BPS = 5
+
 export interface MultiplyPreviewParams {
   depositPoolAddress: string
   borrowPoolAddress: string
@@ -69,12 +79,28 @@ export interface MultiplyPreview {
   minAmountOut: bigint
   depositAmount: bigint
   finalBorrowAmount: bigint
+  /**
+   * Pure depth-driven price impact of the swap leg, in basis points (10_000 = 100%).
+   * Computed by quoting a small probe trade in the same direction and comparing
+   * `expectedAmountOut / swapAmountIn` against `probeOut / probeIn`. The provider's
+   * fee approximately cancels in the ratio (it's baked into both quotes equally,
+   * with a sub-bp residual from the fee's effect on effective liquidity), so what
+   * remains is the depth-driven slippage of THIS trade size against the current
+   * pool — what "price impact" actually means in AMM terminology, distinct from
+   * the all-in cost vs oracle that lumps fee + impact + oracle/AMM divergence.
+   *
+   * `undefined` when the probe quote couldn't be obtained or produced unusable
+   * output (very small trades, provider error). UI should hide the row in that
+   * case rather than render a misleading "0%".
+   */
+  priceImpactBps?: number
 }
 
 export interface CloseMultiplyPreview {
   depositPool: PoolData
   borrowPool: PoolData
   marginAsset: MultiplyMarginAsset
+  hasOnChainCollateral: boolean
   currentDepositAmount: bigint
   currentBorrowAmount: bigint
   maxRepayAmount: bigint
@@ -93,9 +119,16 @@ export interface CloseMultiplyPreview {
   isFullClose: boolean
   requiredAmountIn: bigint
   maxReceivableAmount: bigint
+  /**
+   * Pure depth-driven price impact of the close swap (collateral → debt to fund
+   * the flash repay), basis points. Same semantics as `MultiplyPreview.priceImpactBps`:
+   * probe vs execution rate ratio, fee approximately cancels. `undefined` when
+   * the probe couldn't be measured.
+   */
+  priceImpactBps?: number
 }
 
-const DEFAULT_SLIPPAGE_PERCENT = 0.5
+const DEFAULT_SLIPPAGE_PERCENT = 0.05
 const MAX_SLIPPAGE_PERCENT = 50
 const SAFETY_MULTIPLIER = 0.8
 const CLOSE_REPAY_BUFFER_BPS = 100
@@ -160,6 +193,7 @@ export class MultiplyService extends BaseClient {
 
     const swapPath = params.path?.length ? params.path : [borrowPool.pool.token_address, depositPool.pool.token_address]
     const borrowFeeBps = Number(borrowPool.pool.config.fee_config.borrow_fee_bps || 0)
+    const addCollateralFeeBps = Number(depositPool.pool.config.fee_config.add_collateral_fee_bps || 0)
     let flashBorrowAmount: bigint
     let flashRepaymentAmount: bigint
     let swapAmountIn: bigint
@@ -168,8 +202,16 @@ export class MultiplyService extends BaseClient {
     let minAmountOut: bigint
     let finalBorrowAmount: bigint
     let flashLoanFeeBps: number
+    // V3 is the only flow. With non-zero pool fees the math still holds; we just gross up
+    // Borrow.amount so the wallet receives enough net-of-fee to cover flash repay (the
+    // borrow fee becomes part of legitimate debt, NOT slippage-scaled phantom debt — see
+    // tests/src/multiply_v3.rs::v3_silently_milks_user_when_borrow_fee_bps_nonzero for the
+    // failure mode this gross-up prevents).
 
     if (marginAsset === 'borrow') {
+      // V3 with margin in DEBT asset: user puts X_user USDC, we flash extra USDC,
+      // swap all USDC→XLM, anchor as a single AddCollateral(Y), borrow back exactly the flash repay
+      // (grossed up if borrow_fee_bps > 0).
       flashBorrowAmount = this.decimalToBigInt(
         new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
         Decimal.ROUND_DOWN,
@@ -178,39 +220,84 @@ export class MultiplyService extends BaseClient {
       flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
 
       const expectedAmountsOut = await this.getExpectedAmountsOut(params.swapProviderAddress, swapAmountIn, swapPath)
-      expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
-      if (expectedAmountOut == null) {
+      const lastExpected = expectedAmountsOut[expectedAmountsOut.length - 1]
+      if (lastExpected == null) {
         throw new Error('Router did not return an output quote for this multiply swap path')
       }
+      expectedAmountOut = lastExpected
 
       minAmountOut = this.applySlippageDown(expectedAmountOut, slippagePercent)
       depositAmount = minAmountOut
       flashRepaymentAmount = flashBorrowAmount + this.calculateFee(flashBorrowAmount, flashLoanFeeBps)
+      // Gross up so borrower_to_receive ≥ flashRepaymentAmount even when borrow_fee_bps > 0.
       finalBorrowAmount = this.grossUpAmountByFee(flashRepaymentAmount, borrowFeeBps)
     } else {
-      flashBorrowAmount = this.decimalToBigInt(
-        new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
+      // V3 canonical: margin in DEPOSIT (collateral) asset, flash-borrow DEBT asset, swap debt→collateral,
+      // anchor everything in one AddCollateral(margin + Y), borrow exact (X + flash_fee) grossed up if needed.
+      // Per docs/SecondTokenMarginGuideV3.md, with the borrow_fee_bps==0 precondition relaxed via gross-up.
+      flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
+
+      // Y = floor((L - 1) × margin × (1 - slippage))  — collateral-side floor in deposit asset units.
+      const targetCollateralToAdd = new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1))
+      minAmountOut = this.decimalToBigInt(
+        targetCollateralToAdd.mul(new Decimal(1).minus(new Decimal(slippagePercent).div(100))),
         Decimal.ROUND_DOWN,
       )
-
-      if (flashBorrowAmount <= 0n) {
+      if (minAmountOut <= 0n) {
         throw new Error('Initial amount is too small for the selected multiplier')
       }
 
-      flashLoanFeeBps = Number(depositPool.pool.config.fee_config.flash_loan_fee_bps || 0)
-      flashRepaymentAmount = flashBorrowAmount + this.calculateFee(flashBorrowAmount, flashLoanFeeBps)
-      expectedAmountOut = flashRepaymentAmount
-      minAmountOut = flashRepaymentAmount
-
-      const expectedAmountsIn = await this.getExpectedAmountsIn(params.swapProviderAddress, flashRepaymentAmount, swapPath)
-      const quotedBorrowAmount = expectedAmountsIn[0]
-      if (quotedBorrowAmount == null || quotedBorrowAmount <= 0n) {
+      // Quote: how many DEBT tokens (X_quote) to receive Y collateral tokens?
+      const expectedAmountsIn = await this.getExpectedAmountsIn(params.swapProviderAddress, minAmountOut, swapPath)
+      const xQuote = expectedAmountsIn[0]
+      if (xQuote == null || xQuote <= 0n) {
         throw new Error('Router did not return an input quote for this multiply swap path')
       }
 
-      swapAmountIn = this.applySlippageUp(quotedBorrowAmount, slippagePercent)
-      depositAmount = initialAmount + flashBorrowAmount
-      finalBorrowAmount = this.grossUpAmountByFee(swapAmountIn, borrowFeeBps)
+      // X = ceil(X_quote × (1 + safety_bps)) — small buffer against router-internal rounding.
+      swapAmountIn = this.decimalToBigInt(
+        new Decimal(xQuote.toString()).mul(
+          new Decimal(1).plus(new Decimal(SWAP_PRINCIPAL_SAFETY_BPS).div(10_000)),
+        ),
+        Decimal.ROUND_UP,
+      )
+      flashBorrowAmount = swapAmountIn
+      flashRepaymentAmount = flashBorrowAmount + this.calculateFee(flashBorrowAmount, flashLoanFeeBps)
+
+      // Borrow.amount: exact when borrow_fee_bps==0; grossed up otherwise so wallet receives
+      // ≥ flashRepaymentAmount net of borrow fee. Gross-up is on a fixed integer (not a
+      // slippage worst case), so the resulting fee debt is exactly the legitimate borrow fee.
+      finalBorrowAmount = this.grossUpAmountByFee(flashRepaymentAmount, borrowFeeBps)
+      // AddCollateral.amount: literal margin + Y. If add_collateral_fee_bps > 0 the obligation
+      // collateral lands at (margin + Y) × (1 − fee/10000); UI should warn / size leverage down.
+      depositAmount = initialAmount + minAmountOut
+      // Real router-quoted output at swapAmountIn — same semantics as in borrow-margin above.
+      // We need this distinct from `minAmountOut` so that downstream consumers (price impact,
+      // realized leverage, maxTolerableSlippagePercent) reflect AMM economics only, not the
+      // user's slippage tolerance. Costs one extra router RPC per preview in deposit-margin.
+      const expectedAmountsOut = await this.getExpectedAmountsOut(params.swapProviderAddress, swapAmountIn, swapPath)
+      const quotedExpectedOut = expectedAmountsOut[expectedAmountsOut.length - 1]
+      // Defense in depth: router could in theory quote slightly under our minAmountOut for the
+      // exact same swap that getAmountIn(minAmountOut) supposedly priced, due to integer rounding
+      // in pool reserves. Floor at minAmountOut so the metric never goes negative or below the
+      // floor we're contractually requiring.
+      expectedAmountOut = quotedExpectedOut != null && quotedExpectedOut > minAmountOut
+        ? quotedExpectedOut
+        : minAmountOut
+    }
+
+    if (addCollateralFeeBps > 0) {
+      // Soft warning surfaced by throwing only if effective collateral after fee would drop
+      // below 99% of intended — practical safeguard against silent over-leverage.
+      const effective = new Decimal(depositAmount.toString())
+        .mul(new Decimal(10_000 - addCollateralFeeBps).div(10_000))
+      const intended = new Decimal(depositAmount.toString())
+      if (effective.div(intended).lt(0.99)) {
+        throw new Error(
+          `Pool charges add_collateral_fee_bps=${addCollateralFeeBps} which would erode ` +
+          `collateral by >1%. Lower leverage or contact the team to reconfigure the pool.`,
+        )
+      }
     }
 
     return {
@@ -230,76 +317,56 @@ export class MultiplyService extends BaseClient {
       minAmountOut,
       depositAmount,
       finalBorrowAmount,
+      priceImpactBps: await this.calculatePriceImpactBps(
+        params.swapProviderAddress,
+        swapAmountIn,
+        expectedAmountOut,
+        swapPath,
+      ),
     }
   }
 
   async buildOpenPositionTx(params: OpenMultiplyParams) {
     const preview = await this.getOpenPositionPreview(params)
-    const requests: Request[] = preview.marginAsset === 'deposit'
-      ? [
-          {
-            tag: 'FlashBorrow',
-            values: [{
-              amount: preview.flashBorrowAmount,
-              pool_address: params.depositPoolAddress,
-            }],
-          },
-          {
-            tag: 'Deposit',
-            values: [{
-              amount: preview.depositAmount,
-              pool_address: params.depositPoolAddress,
-            }],
-          },
-          {
-            tag: 'Borrow',
-            values: [{
-              amount: preview.finalBorrowAmount,
-              pool_address: params.borrowPoolAddress,
-            }],
-          },
-          {
-            tag: 'SwapForExactTokens',
-            values: [{
-              max_amount_in: preview.swapAmountIn,
-              amount_out: preview.flashRepaymentAmount,
-              path: preview.swapPath,
-              swap_provider: params.swapProviderAddress,
-            }],
-          },
-        ]
-      : [
-          {
-            tag: 'FlashBorrow',
-            values: [{
-              amount: preview.flashBorrowAmount,
-              pool_address: params.borrowPoolAddress,
-            }],
-          },
-          {
-            tag: 'SwapExactTokens',
-            values: [{
-              amount_in: preview.swapAmountIn,
-              min_amount_out: preview.minAmountOut,
-              path: preview.swapPath,
-              swap_provider: params.swapProviderAddress,
-            }],
-          },
-          {
-            tag: 'Deposit',
-            values: [{
-              amount: preview.minAmountOut,
-              pool_address: params.depositPoolAddress,
-            }],
-          },
-          {
-            tag: 'Borrow',
-            values: [{
-              amount: preview.finalBorrowAmount,
-              pool_address: params.borrowPoolAddress,
-            }],
-          },
-        ]
+
+    if (params.referrer != null) {
+      throw new Error('Multiply does not support a referrer; pass referrer=undefined')
+    }
+
+    // V3 batch: FlashBorrow(debt, X) → SwapExactTokens(debt→collateral, X, min Y)
+    //         → AddCollateral(collateral, anchor) → Borrow(debt, X+flash_fee grossed up).
+    const requests: Request[] = [
+      {
+        tag: 'FlashBorrow',
+        values: [{
+          amount: preview.flashBorrowAmount,
+          pool_address: params.borrowPoolAddress,
+        }],
+      },
+      {
+        tag: 'SwapExactTokens',
+        values: [{
+          amount_in: preview.swapAmountIn,
+          min_amount_out: preview.minAmountOut,
+          path: preview.swapPath,
+          swap_provider: params.swapProviderAddress,
+        }],
+      },
+      {
+        tag: 'AddCollateral',
+        values: [{
+          amount: preview.depositAmount,
+          pool_address: params.depositPoolAddress,
+        }],
+      },
+      {
+        tag: 'Borrow',
+        values: [{
+          amount: preview.finalBorrowAmount,
+          pool_address: params.borrowPoolAddress,
+        }],
+      },
+    ]
 
     const tx = await this.marketClient.submit_requests_batch({
       user: params.user,
@@ -321,7 +388,13 @@ export class MultiplyService extends BaseClient {
     const depositPosition = this.findDepositPosition(obligation, params.depositPoolAddress)
     const borrowPosition = this.findBorrowPosition(obligation, params.borrowPoolAddress)
 
-    const currentDepositAmount = this.calculateCurrentDepositAmount(depositPool, depositPosition.j_tokens)
+    // V3 stores margin+Y in `collateral`; V2 stores it as j_tokens (supply shares).
+    // If `collateral > 0` the position was opened V3-style → close via RemoveCollateral.
+    const collateralAmount = BigInt(depositPosition.collateral || 0n)
+    const hasOnChainCollateral = collateralAmount > 0n
+    const currentDepositAmount = hasOnChainCollateral
+      ? collateralAmount
+      : this.calculateCurrentDepositAmount(depositPool, depositPosition.j_tokens)
     const currentBorrowAmount = this.calculateCurrentBorrowAmount(borrowPool, borrowPosition.d_tokens)
 
     if (currentDepositAmount <= 0n) {
@@ -396,6 +469,7 @@ export class MultiplyService extends BaseClient {
       depositPool,
       borrowPool,
       marginAsset,
+      hasOnChainCollateral,
       currentDepositAmount,
       currentBorrowAmount,
       maxRepayAmount: fullCloseRepayAmount,
@@ -414,6 +488,17 @@ export class MultiplyService extends BaseClient {
       isFullClose,
       requiredAmountIn,
       maxReceivableAmount,
+      // Close swap: collateral → debt to fund the flash repay. The router was
+      // queried via `getExpectedAmountsIn` (exact-out semantics), but the probe
+      // helper uses `getExpectedAmountsOut` — both are quoting the same pool in
+      // the same direction, so the rate ratio still holds and the helper works
+      // unchanged. Inputs are the spent/received pair from the actual close.
+      priceImpactBps: await this.calculatePriceImpactBps(
+        params.swapProviderAddress,
+        quotedRequiredAmountIn,
+        flashRepaymentAmount,
+        swapPath,
+      ),
     }
   }
 
@@ -440,6 +525,10 @@ export class MultiplyService extends BaseClient {
       ? MAX_I128
       : preview.withdrawAmount
 
+    // V3 positions store collateral in `obligation.collateral`; release with RemoveCollateral.
+    // V2 positions store it as j_tokens (supply shares); release with Withdraw.
+    const collateralReleaseTag = preview.hasOnChainCollateral ? 'RemoveCollateral' : 'Withdraw'
+
     const requests: Request[] = [
       {
         tag: 'FlashBorrow',
@@ -456,7 +545,7 @@ export class MultiplyService extends BaseClient {
         }],
       },
       {
-        tag: 'Withdraw',
+        tag: collateralReleaseTag,
         values: [{
           amount: requestedWithdrawAmount,
           pool_address: params.depositPoolAddress,
@@ -593,6 +682,64 @@ export class MultiplyService extends BaseClient {
     return [response.result, amountOut]
   }
 
+  /**
+   * True depth-driven price impact in basis points: `1 − (execRate / probeRate)`,
+   * where `probeRate` is sampled by re-quoting the same path with a small probe
+   * input. Provider-agnostic: relies only on `get_amount_out`, which every swap
+   * provider in the system implements identically. Provider fee bakes into both
+   * quotes equally and cancels in the ratio, so this isolates pure depth impact
+   * from fee and from oracle/AMM divergence.
+   *
+   * Probe size is 1% of `swapAmountIn` (clamped to ≥ 1 stroop). Small enough
+   * that the probe's own depth impact is negligible (under-reports true impact
+   * by ~1% of itself, well within tooltip-precision); large enough to survive
+   * the provider's integer-division rounding in `get_amount_out`.
+   *
+   * Returns `undefined` on any failure path (provider error, degenerate inputs,
+   * non-positive probe output). Callers should treat `undefined` as "couldn't
+   * measure" and hide the metric, not as zero impact.
+   */
+  private async calculatePriceImpactBps(
+    swapProviderAddress: string,
+    swapAmountIn: bigint,
+    expectedAmountOut: bigint,
+    swapPath: string[],
+  ): Promise<number | undefined> {
+    if (swapAmountIn <= 0n || expectedAmountOut <= 0n) {
+      return undefined
+    }
+
+    const probeIn = swapAmountIn / 100n > 0n ? swapAmountIn / 100n : 1n
+    let probeOut: bigint
+    try {
+      const out = await this.getExpectedAmountsOut(swapProviderAddress, probeIn, swapPath)
+      probeOut = out[out.length - 1] ?? 0n
+    } catch {
+      return undefined
+    }
+    if (probeOut <= 0n) {
+      return undefined
+    }
+
+    // execRate  = expectedAmountOut / swapAmountIn   (provider-quoted, fee included)
+    // probeRate = probeOut / probeIn                 (provider-quoted, fee included)
+    // priceImpact = 1 − execRate / probeRate         (fee approximately cancels —
+    //   sub-bp residual from its effect on effective liquidity, not worth correcting)
+    const execRate = new Decimal(expectedAmountOut.toString()).div(new Decimal(swapAmountIn.toString()))
+    const probeRate = new Decimal(probeOut.toString()).div(new Decimal(probeIn.toString()))
+    if (probeRate.lte(0)) {
+      return undefined
+    }
+
+    const impact = new Decimal(1).minus(execRate.div(probeRate))
+    if (!impact.isFinite() || impact.lte(0)) {
+      // AMM in user's favor (rare, e.g. probe rounded against probeIn): floor
+      // at 0 rather than display a confusing negative.
+      return 0
+    }
+    return impact.mul(10_000).toNumber()
+  }
+
   private async quoteSwapExactOut(swapProviderAddress: string, amountIn: bigint, path: string[]): Promise<bigint> {
     if (amountIn <= 0n) {
       return 0n
@@ -610,7 +757,7 @@ export class MultiplyService extends BaseClient {
       networkPassphrase: this.networkPassphrase,
     }
 
-    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS) {
+    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS[this.rpc]) {
       return new AquaSwapProviderClient(options)
     }
 

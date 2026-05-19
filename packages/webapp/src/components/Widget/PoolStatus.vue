@@ -35,7 +35,7 @@ watch(() => pool, () => {
     >
       <j-pill-label
         color="rgb(213 160 52)"
-        variant="outline-warning"
+        variant="danger"
         size="sm"
       >
         Restricted

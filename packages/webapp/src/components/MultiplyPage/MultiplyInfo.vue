@@ -1,17 +1,17 @@
 <script lang="ts" setup>
 import { formatPrice } from '~/utils'
 
-const GUIDE_LINK = 'https://docs.alula.finance/guides/'
+const GUIDE_LINK = 'https://docs.alula.finance/guides/multiply/'
 
 const marketsStore = useMarketsStore()
 
 const loading = computed(() => marketsStore.state.loading)
 
-const multiplyStore = useMultiplyStore()
-const vaults = computed(() => multiplyStore.vaults)
+const multiplyTable = useMultiplyTableStore()
 
 const marketsInfo = computed(() => {
-  return vaults.value?.reduce((acc, el) => {
+  const activeVaults = multiplyTable.filteredVaults.flatMap(vault => vault.items)
+  return activeVaults?.reduce((acc, el) => {
     const depositPool = el.depositPoolData
     const assetDecimals = depositPool.pool.token_decimals
     const price = Number(el.price || 0)
@@ -60,11 +60,3 @@ const marketsInfo = computed(() => {
     </div>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.markets-info {
-  a {
-    color: $text-success;
-  }
-}
-</style>

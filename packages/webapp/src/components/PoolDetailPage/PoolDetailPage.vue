@@ -9,11 +9,10 @@ const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)
 const isMarketsLoaded = computed(() => Object.keys(marketsStore.state.markets).length > 0)
 
-const {
-  selectedMarketName,
-  selectedPoolAddress,
-  selectedPool,
-} = useMarketTable()
+const marketTableStore = useMarketTableStore()
+const selectedPool = computed(() => marketTableStore.selectedPool)
+const selectedPoolAddress = toRef(marketTableStore, 'selectedPoolAddress')
+const selectedMarketName = toRef(marketTableStore, 'selectedMarketName')
 
 provide('selectedPool', selectedPool)
 
@@ -78,31 +77,26 @@ watch(() => route.params.page, (tabValue) => {
 </script>
 
 <template>
-  <main>
-    <pool-detail-skeleton v-if="loading && !isMarketsLoaded" />
+  <pool-detail-skeleton v-if="loading && !isMarketsLoaded" />
+  <template
+    v-else
+  >
+    <template v-if="selectedPool">
+      <j-line-tab
+        v-model="activeTab"
+        :tabs="tabs"
+        style="margin-bottom: -12px;"
+      />
+      <pool-overview v-if="activeTab?.value === 'pool'" />
+      <pool-info-risks v-if="activeTab?.value === 'info'" />
+      <my-position v-if="activeTab?.value === 'position'" />
+    </template>
+
     <div
-      v-else
-      class="market-detail-page container"
+      v-else-if="!selectedPool && isMarketsLoaded"
+      class="no-data"
     >
-      <pool-detail-top />
-
-      <template v-if="selectedPool">
-        <j-line-tab
-          v-model="activeTab"
-          :tabs="tabs"
-          style="margin-bottom: -12px;"
-        />
-        <pool-overview v-if="activeTab?.value === 'pool'" />
-        <pool-info-risks v-if="activeTab?.value === 'info'" />
-        <my-position v-if="activeTab?.value === 'position'" />
-      </template>
-
-      <div
-        v-else-if="!selectedPool && isMarketsLoaded"
-        class="no-data"
-      >
-        Market or Pool not found
-      </div>
+      Market or Pool not found
     </div>
-  </main>
+  </template>
 </template>

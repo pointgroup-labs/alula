@@ -13,17 +13,19 @@ const dialog = defineModel({ default: false })
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="multiply-dialog dialog-default"
+    class-name="dialog-default"
   >
     <template #header>
-      <div class="multiply-dialog__title">
+      <div class="dialog-default__title">
         <span>Close Position</span>
       </div>
     </template>
 
-    <withdraw-multiply-window
-      :vault="data"
-      :opened="dialog"
-    />
+    <div class="dialog-default__body">
+      <withdraw-multiply-window
+        :vault="data"
+        :opened="dialog"
+      />
+    </div>
   </j-dialog>
 </template>

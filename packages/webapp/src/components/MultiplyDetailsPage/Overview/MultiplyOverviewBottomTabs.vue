@@ -23,7 +23,7 @@ const activeTab = ref(tabs[0])
     />
 
     <multiply-pool-info-overview v-if="activeTab?.value === 'info'" />
-    <multiply-pool-audits-overview v-if="activeTab?.value === 'audits'" />
+    <audits-overview-card v-if="activeTab?.value === 'audits'" />
   </section>
 </template>
 
