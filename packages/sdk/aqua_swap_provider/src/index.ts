@@ -49,9 +49,9 @@ export interface Client {
   swap_exact: ({user, path, amount_in, min_amount_out}: {user: string, path: Array<string>, amount_in: i128, min_amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
 
   /**
-   * Construct and simulate a swap_for_exact transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a get_amount_in transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  swap_for_exact: ({user, path, max_amount_in, amount_out}: {user: string, path: Array<string>, max_amount_in: i128, amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
+  get_amount_in: ({path, amount_out}: {path: Array<string>, amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
 
   /**
    * Construct and simulate a get_amount_out transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -59,9 +59,9 @@ export interface Client {
   get_amount_out: ({path, amount_in}: {path: Array<string>, amount_in: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
 
   /**
-   * Construct and simulate a get_amount_in transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a swap_for_exact transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_amount_in: ({path, amount_out}: {path: Array<string>, amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
+  swap_for_exact: ({user, path, max_amount_in, amount_out}: {user: string, path: Array<string>, max_amount_in: i128, amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
 
 }
 export class Client extends ContractClient {
@@ -84,18 +84,18 @@ export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAABAAAAAAAAAAAAAAACEFTUEVycm9yAAAABgAAAAAAAAAPT3Zlck9yVW5kZXJmbG93AAAAAAEAAAAAAAAAC0ludmFsaWRQYXRoAAAAAAIAAAAAAAAADlplcm9Td2FwUmVzdWx0AAAAAAADAAAAAAAAAA5OZWdhdGl2ZUFtb3VudAAAAAAABAAAAAAAAAATVG9rZW5Ob3RGb3VuZEluUG9vbAAAAAAFAAAAAAAAAA5BbW91bnRUb29MYXJnZQAAAAAABg==",
-        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAABHBvb2wAAAATAAAAAA==",
         "AAAAAAAAAAAAAAAKc3dhcF9leGFjdAAAAAAABAAAAAAAAAAEdXNlcgAAABMAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAAAAAAObWluX2Ftb3VudF9vdXQAAAAAAAsAAAABAAAACw==",
-        "AAAAAAAAAAAAAAAOc3dhcF9mb3JfZXhhY3QAAAAAAAQAAAAAAAAABHVzZXIAAAATAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAADW1heF9hbW91bnRfaW4AAAAAAAALAAAAAAAAAAphbW91bnRfb3V0AAAAAAALAAAAAQAAAAs=",
+        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAABHBvb2wAAAATAAAAAA==",
+        "AAAAAAAAAAAAAAANZ2V0X2Ftb3VudF9pbgAAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAKYW1vdW50X291dAAAAAAACwAAAAEAAAAL",
         "AAAAAAAAAAAAAAAOZ2V0X2Ftb3VudF9vdXQAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAEAAAAL",
-        "AAAAAAAAAAAAAAANZ2V0X2Ftb3VudF9pbgAAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAKYW1vdW50X291dAAAAAAACwAAAAEAAAAL" ]),
+        "AAAAAAAAAAAAAAAOc3dhcF9mb3JfZXhhY3QAAAAAAAQAAAAAAAAABHVzZXIAAAATAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAADW1heF9hbW91bnRfaW4AAAAAAAALAAAAAAAAAAphbW91bnRfb3V0AAAAAAALAAAAAQAAAAs=" ]),
       options
     )
   }
   public readonly fromJSON = {
     swap_exact: this.txFromJSON<i128>,
-        swap_for_exact: this.txFromJSON<i128>,
+        get_amount_in: this.txFromJSON<i128>,
         get_amount_out: this.txFromJSON<i128>,
-        get_amount_in: this.txFromJSON<i128>
+        swap_for_exact: this.txFromJSON<i128>
   }
 }
