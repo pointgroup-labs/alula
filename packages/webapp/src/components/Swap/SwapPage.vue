@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { SwapTokenOption } from '~/hooks/swap/use-swap'
+import type { SwapTokenOption } from '~/composables/swap/use-swap'
 import { bigintToNumber, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 definePageMeta({
