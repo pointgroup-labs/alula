@@ -5,6 +5,9 @@ use soroban_sdk::contracterror;
 /// RedStone `SEP-40` Adapter Error
 pub enum RS40ACError {
     InternalError = 0,
-    OverOrUnderflow = 1,
-    Unimplemented = 2,
+    BadConfig = 10,
+    Unimplemented = 11,
+    NoPendingAdmin = 12,
+    FeedForTokenAlreadyInUse = 13,
+    TokenForFeedAlreadyInUse = 14,
 }
