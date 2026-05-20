@@ -33,7 +33,10 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
 
   const uniqueAssets = computed(() => {
     for (const market of Object.values(allMarkets.value)) {
-      const poolsData = market.marketState.pools_data
+      const poolsData = market?.marketState?.pools_data
+      if (!poolsData) {
+        continue
+      }
       for (const pool of poolsData) {
         if (ASSETS_MAP.has(pool.pool.token_symbol)) {
           continue
