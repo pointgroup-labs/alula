@@ -12,6 +12,10 @@ declare global {
   const MAIN_MARKET_NAME: typeof import('../store/markets').MAIN_MARKET_NAME
   const Network: typeof import('../store/rpc').Network
   const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
+  const SOROBAN_: typeof import('../store/rpc').SOROBAN_
+  const SOROBAN_PUBLIC_RPC_URLS: typeof import('../store/rpc').SOROBAN_PUBLIC_RPC_URLS
+  const SOROBAN_RPC_URLS: typeof import('../store/rpc').SOROBAN_RPC_URLS
+  const SOROBAN_TESTNET_RPC_URLS: typeof import('../store/rpc').SOROBAN_TESTNET_RPC_URLS
   const XLM_NATIVE_RESERVE: typeof import('../composables/swap/use-swap').XLM_NATIVE_RESERVE
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
@@ -111,6 +115,7 @@ declare global {
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
+  const sorobanPublicNetworks: typeof import('../store/rpc').sorobanPublicNetworks
   const syncRef: typeof import('@vueuse/core').syncRef
   const syncRefs: typeof import('@vueuse/core').syncRefs
   const templateRef: typeof import('@vueuse/core').templateRef
@@ -406,6 +411,8 @@ declare module 'vue' {
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly MAIN_MARKET_NAME: UnwrapRef<typeof import('../store/markets')['MAIN_MARKET_NAME']>
     readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
+    readonly SOROBAN_PUBLIC_RPC_URLS: UnwrapRef<typeof import('../store/rpc')['SOROBAN_PUBLIC_RPC_URLS']>
+    readonly SOROBAN_TESTNET_RPC_URLS: UnwrapRef<typeof import('../store/rpc')['SOROBAN_TESTNET_RPC_URLS']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>

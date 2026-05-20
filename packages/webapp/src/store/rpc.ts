@@ -1,9 +1,21 @@
-import { RPC_URLS, SOROBAN_RPC_URLS } from '@alula/client-sdk'
+import { RPC_URLS, SOROBAN_RPC_URLS, SOROBAN_TESTNET_RPC_URL } from '@alula/client-sdk'
 
 export enum Network {
   Public = 'public',
   Testnet = 'testnet',
 }
+
+export const SOROBAN_PUBLIC_RPC_URLS = new Set([
+  'https://rpc.lightsail.network',
+  'https://stellar-soroban-public.nodies.app',
+  'https://stellar.api.onfinality.io/public',
+])
+
+export const SOROBAN_TESTNET_RPC_URLS = new Set([
+  SOROBAN_TESTNET_RPC_URL,
+  'https://stellar-soroban-testnet-public.nodies.app',
+  'https://rpc.ankr.com/stellar_testnet_soroban',
+])
 
 export const useRpcStore = defineStore('rpc', () => {
   const config = useRuntimeConfig()
