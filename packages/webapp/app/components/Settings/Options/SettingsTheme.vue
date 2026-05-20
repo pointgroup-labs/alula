@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { isDark } from '~/hooks/theme'
+import { isDark } from '~/composables/theme'
 </script>
 
 <template>

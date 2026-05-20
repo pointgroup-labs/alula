@@ -16,18 +16,13 @@ const isDev
   = process.env.NODE_ENV === 'development'
     || process.env.NUXT_PUBLIC_APP_ENV === 'dev'
 
-const sdkMarketEntry = resolve(__dirname, '../sdk/market/dist/src/index.js')
-const sdkMarketManagerEntry = resolve(__dirname, '../sdk/market_manager/dist/src/index.js')
-const sdkAquaSwapProviderEntry = resolve(__dirname, '../sdk/aqua_swap_provider/dist/src/index.js')
-const sdkSoroswapSwapProviderEntry = resolve(__dirname, '../sdk/soroswap_swap_provider/dist/src/index.js')
+const sdkMarketEntry = resolve(__dirname, '../sdk/market/dist/index.js')
+const sdkMarketManagerEntry = resolve(__dirname, '../sdk/market_manager/dist/index.js')
+const sdkAquaSwapProviderEntry = resolve(__dirname, '../sdk/aqua_swap_provider/dist/index.js')
+const sdkSoroswapSwapProviderEntry = resolve(__dirname, '../sdk/soroswap_swap_provider/dist/index.js')
 
 export default defineNuxtConfig({
-  // @ts-expect-error...
-  srcDir: 'src/',
-  dir: {
-    public: resolve(__dirname, 'public'),
-  },
-  ssr: process.env.NODE_ENV !== 'development',
+  ssr: false,
   devServer: {
     port: 3000,
   },
@@ -75,7 +70,7 @@ export default defineNuxtConfig({
         ],
         dts: 'types/auto-imports.d.ts',
         dirs: [
-          'hooks/**',
+          'composables/**',
           'store/**',
           'features/toast',
         ],
@@ -90,8 +85,8 @@ export default defineNuxtConfig({
         //   return svg.replace(/^<svg /, '<svg fill="currentColor" ')
         // },
         customCollections: {
-          app: FileSystemIconLoader('./src/assets/img/icons'),
-          metrics: FileSystemIconLoader('./src/assets/img/metrics'),
+          app: FileSystemIconLoader('./app/assets/img/icons'),
+          metrics: FileSystemIconLoader('./app/assets/img/metrics'),
         },
         // iconCustomizer(collection, icon, props) {
         //   if (collection === 'app') {
@@ -189,10 +184,14 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
+    strategy: 'no_prefix',
     restructureDir: false,
     defaultLocale: 'en',
     lazy: true,
     langDir: 'locales',
+    compilation: {
+      strictMessage: false,
+    },
     locales: [
       { code: 'en', name: 'English', file: 'en.json' },
       { code: 'ua', name: 'Ukraine', file: 'ua.json' },

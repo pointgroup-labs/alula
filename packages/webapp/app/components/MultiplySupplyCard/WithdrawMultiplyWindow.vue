@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
-import { useMultiplyWithdraw } from '~/hooks/multiply/withdraw'
+import { useMultiplyWithdraw } from '~/composables/multiply/withdraw'
 
 const {
   opened = false,
