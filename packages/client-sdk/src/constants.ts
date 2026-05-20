@@ -3,7 +3,7 @@ export const TESTNET_RPC_URL = 'https://horizon-testnet.stellar.org'
 export const PUBLIC_RPC_URL = 'https://horizon.stellar.org'
 
 export const SOROBAN_TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org'
-export const SOROBAN_PUBLIC_RPC_URL = 'https://soroban.stellar.org'
+export const SOROBAN_PUBLIC_RPC_URL = 'https://stellar-soroban-public.nodies.app'
 
 export const RPC_URLS: Record<string, string> = {
   testnet: TESTNET_RPC_URL,
@@ -16,7 +16,7 @@ export const SOROBAN_RPC_URLS: Record<string, string> = {
   public: SOROBAN_PUBLIC_RPC_URL,
 }
 
-export const MARKET_CONTRACT_ID = 'CC2UH552BIP6AHW4TG4M5UZGGPKXOVCDRQQQZ4N67CPBUEWWJD666JTC'
+export const MARKET_CONTRACT_ID = 'CDZMGP24Y77FJP2H2247B5AFSEGXYJVQMNOYSU3HPSDQ7LVSV32RHMP5'
 export const PUBLIC_CONTRACT_ID = 'CBQNZKCJFGVHUWGKAHT3BD7ZVPRBSQESSRFBYIBQQ46K7VKVOTN3Q6BU'
 
 export const SOROSWAP_PROVIDER_ADDRESS: Record<string, string> = {
