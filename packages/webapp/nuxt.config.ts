@@ -22,12 +22,7 @@ const sdkAquaSwapProviderEntry = resolve(__dirname, '../sdk/aqua_swap_provider/d
 const sdkSoroswapSwapProviderEntry = resolve(__dirname, '../sdk/soroswap_swap_provider/dist/src/index.js')
 
 export default defineNuxtConfig({
-  // @ts-expect-error...
-  srcDir: 'src/',
-  dir: {
-    public: resolve(__dirname, 'public'),
-  },
-  ssr: process.env.NODE_ENV !== 'development',
+  ssr: false,
   devServer: {
     port: 3000,
   },
@@ -90,8 +85,8 @@ export default defineNuxtConfig({
         //   return svg.replace(/^<svg /, '<svg fill="currentColor" ')
         // },
         customCollections: {
-          app: FileSystemIconLoader('./src/assets/img/icons'),
-          metrics: FileSystemIconLoader('./src/assets/img/metrics'),
+          app: FileSystemIconLoader('./app/assets/img/icons'),
+          metrics: FileSystemIconLoader('./app/assets/img/metrics'),
         },
         // iconCustomizer(collection, icon, props) {
         //   if (collection === 'app') {
@@ -189,10 +184,14 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
+    strategy: 'no_prefix',
     restructureDir: false,
     defaultLocale: 'en',
     lazy: true,
     langDir: 'locales',
+    compilation: {
+      strictMessage: false,
+    },
     locales: [
       { code: 'en', name: 'English', file: 'en.json' },
       { code: 'ua', name: 'Ukraine', file: 'ua.json' },
