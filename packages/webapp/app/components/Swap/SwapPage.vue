@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { SwapTokenOption } from '~/composables/swap/use-swap'
+import { XLM_NATIVE_RESERVE } from '~/composables/swap/use-swap'
 import { bigintToNumber, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 definePageMeta({
@@ -254,7 +255,6 @@ const amountRules = [
               class="arrow-icon"
             />
           </button>
-
         </template>
       </input-widget>
 

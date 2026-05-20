@@ -89,6 +89,7 @@ declare global {
   const onUnmounted: typeof import('vue').onUnmounted
   const onUpdated: typeof import('vue').onUpdated
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const parseMarkdownToHtml: typeof import('../composables/markdown').parseMarkdownToHtml
   const pausableWatch: typeof import('@vueuse/core').pausableWatch
   const preferredDark: typeof import('../composables/theme').preferredDark
   const provide: typeof import('vue').provide
@@ -379,6 +380,12 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
+  export type { LatestRequest } from '../composables/latest-request'
+  import('../composables/latest-request')
+  // @ts-ignore
+  export type { SwapTokenOption } from '../composables/swap/use-swap'
+  import('../composables/swap/use-swap')
+  // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
   // @ts-ignore
@@ -413,6 +420,7 @@ declare module 'vue' {
     readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
     readonly SOROBAN_PUBLIC_RPC_URLS: UnwrapRef<typeof import('../store/rpc')['SOROBAN_PUBLIC_RPC_URLS']>
     readonly SOROBAN_TESTNET_RPC_URLS: UnwrapRef<typeof import('../store/rpc')['SOROBAN_TESTNET_RPC_URLS']>
+    readonly XLM_NATIVE_RESERVE: UnwrapRef<typeof import('../composables/swap/use-swap')['XLM_NATIVE_RESERVE']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -426,6 +434,8 @@ declare module 'vue' {
     readonly createEventHook: UnwrapRef<typeof import('@vueuse/core')['createEventHook']>
     readonly createGlobalState: UnwrapRef<typeof import('@vueuse/core')['createGlobalState']>
     readonly createInjectionState: UnwrapRef<typeof import('@vueuse/core')['createInjectionState']>
+    readonly createLeveragePorisionState: UnwrapRef<typeof import('../composables/multiply/position')['createLeveragePorisionState']>
+    readonly createMyPositionState: UnwrapRef<typeof import('../composables/my-position')['createMyPositionState']>
     readonly createReactiveFn: UnwrapRef<typeof import('@vueuse/core')['createReactiveFn']>
     readonly createRef: UnwrapRef<typeof import('@vueuse/core')['createRef']>
     readonly createReusableTemplate: UnwrapRef<typeof import('@vueuse/core')['createReusableTemplate']>
@@ -449,6 +459,7 @@ declare module 'vue' {
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectLocal: UnwrapRef<typeof import('@vueuse/core')['injectLocal']>
     readonly isClient: UnwrapRef<typeof import('@vueuse/core')['isClient']>
+    readonly isDark: UnwrapRef<typeof import('../composables/theme')['isDark']>
     readonly isDefined: UnwrapRef<typeof import('@vueuse/core')['isDefined']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
@@ -477,9 +488,12 @@ declare module 'vue' {
     readonly onUnmounted: UnwrapRef<typeof import('vue')['onUnmounted']>
     readonly onUpdated: UnwrapRef<typeof import('vue')['onUpdated']>
     readonly onWatcherCleanup: UnwrapRef<typeof import('vue')['onWatcherCleanup']>
+    readonly parseMarkdownToHtml: UnwrapRef<typeof import('../composables/markdown')['parseMarkdownToHtml']>
     readonly pausableWatch: UnwrapRef<typeof import('@vueuse/core')['pausableWatch']>
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
+    readonly provideLeveragePosition: UnwrapRef<typeof import('../composables/multiply/position')['provideLeveragePosition']>
     readonly provideLocal: UnwrapRef<typeof import('@vueuse/core')['provideLocal']>
+    readonly provideMyPosition: UnwrapRef<typeof import('../composables/my-position')['provideMyPosition']>
     readonly reactify: UnwrapRef<typeof import('@vueuse/core')['reactify']>
     readonly reactifyObject: UnwrapRef<typeof import('@vueuse/core')['reactifyObject']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
@@ -509,6 +523,7 @@ declare module 'vue' {
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
+    readonly toggleDark: UnwrapRef<typeof import('../composables/theme')['toggleDark']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly tryOnBeforeMount: UnwrapRef<typeof import('@vueuse/core')['tryOnBeforeMount']>
     readonly tryOnBeforeUnmount: UnwrapRef<typeof import('@vueuse/core')['tryOnBeforeUnmount']>
@@ -518,7 +533,9 @@ declare module 'vue' {
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly unrefElement: UnwrapRef<typeof import('@vueuse/core')['unrefElement']>
     readonly until: UnwrapRef<typeof import('@vueuse/core')['until']>
+    readonly useAccordionMarketsHandler: UnwrapRef<typeof import('../composables/accortion-handler')['useAccordionMarketsHandler']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
+    readonly useAddTrustLine: UnwrapRef<typeof import('../composables/add-trustline')['useAddTrustLine']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
     readonly useArrayDifference: UnwrapRef<typeof import('@vueuse/core')['useArrayDifference']>
     readonly useArrayEvery: UnwrapRef<typeof import('@vueuse/core')['useArrayEvery']>
@@ -538,10 +555,12 @@ declare module 'vue' {
     readonly useBase64: UnwrapRef<typeof import('@vueuse/core')['useBase64']>
     readonly useBattery: UnwrapRef<typeof import('@vueuse/core')['useBattery']>
     readonly useBluetooth: UnwrapRef<typeof import('@vueuse/core')['useBluetooth']>
+    readonly useBorrowDialog: UnwrapRef<typeof import('../composables/market/borrow-dialog')['useBorrowDialog']>
     readonly useBreakpoints: UnwrapRef<typeof import('@vueuse/core')['useBreakpoints']>
     readonly useBroadcastChannel: UnwrapRef<typeof import('@vueuse/core')['useBroadcastChannel']>
     readonly useBrowserLocation: UnwrapRef<typeof import('@vueuse/core')['useBrowserLocation']>
     readonly useCached: UnwrapRef<typeof import('@vueuse/core')['useCached']>
+    readonly useChartFilter: UnwrapRef<typeof import('../composables/chart-filter')['useChartFilter']>
     readonly useClientStore: UnwrapRef<typeof import('../store/client')['useClientStore']>
     readonly useClipboard: UnwrapRef<typeof import('@vueuse/core')['useClipboard']>
     readonly useClipboardItems: UnwrapRef<typeof import('@vueuse/core')['useClipboardItems']>
@@ -578,6 +597,7 @@ declare module 'vue' {
     readonly useEventBus: UnwrapRef<typeof import('@vueuse/core')['useEventBus']>
     readonly useEventListener: UnwrapRef<typeof import('@vueuse/core')['useEventListener']>
     readonly useEventSource: UnwrapRef<typeof import('@vueuse/core')['useEventSource']>
+    readonly useExplorerLink: UnwrapRef<typeof import('../composables/explorer-link')['useExplorerLink']>
     readonly useEyeDropper: UnwrapRef<typeof import('@vueuse/core')['useEyeDropper']>
     readonly useFavicon: UnwrapRef<typeof import('@vueuse/core')['useFavicon']>
     readonly useFetch: UnwrapRef<typeof import('@vueuse/core')['useFetch']>
@@ -599,9 +619,13 @@ declare module 'vue' {
     readonly useIntervalFn: UnwrapRef<typeof import('@vueuse/core')['useIntervalFn']>
     readonly useKeyModifier: UnwrapRef<typeof import('@vueuse/core')['useKeyModifier']>
     readonly useLastChanged: UnwrapRef<typeof import('@vueuse/core')['useLastChanged']>
+    readonly useLatestRequest: UnwrapRef<typeof import('../composables/latest-request')['useLatestRequest']>
+    readonly useLeveragePosition: UnwrapRef<typeof import('../composables/multiply/position')['useLeveragePosition']>
     readonly useLocalStorage: UnwrapRef<typeof import('@vueuse/core')['useLocalStorage']>
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
     readonly useManualRefHistory: UnwrapRef<typeof import('@vueuse/core')['useManualRefHistory']>
+    readonly useMarket: UnwrapRef<typeof import('../composables/market')['useMarket']>
+    readonly useMarketActions: UnwrapRef<typeof import('../composables/market-actions')['useMarketActions']>
     readonly useMarketFilterStore: UnwrapRef<typeof import('../store/filter')['useMarketFilterStore']>
     readonly useMarketTableStore: UnwrapRef<typeof import('../store/market-table')['useMarketTableStore']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
@@ -614,10 +638,14 @@ declare module 'vue' {
     readonly useMouse: UnwrapRef<typeof import('@vueuse/core')['useMouse']>
     readonly useMouseInElement: UnwrapRef<typeof import('@vueuse/core')['useMouseInElement']>
     readonly useMousePressed: UnwrapRef<typeof import('@vueuse/core')['useMousePressed']>
+    readonly useMultiplyOpen: UnwrapRef<typeof import('../composables/multiply/open')['useMultiplyOpen']>
     readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
     readonly useMultiplyTableStore: UnwrapRef<typeof import('../store/multiply-table')['useMultiplyTableStore']>
+    readonly useMultiplyWithdraw: UnwrapRef<typeof import('../composables/multiply/withdraw')['useMultiplyWithdraw']>
+    readonly useMultisigSigner: UnwrapRef<typeof import('../composables/multisig')['useMultisigSigner']>
     readonly useMultisigStore: UnwrapRef<typeof import('../store/multisig')['useMultisigStore']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>
+    readonly useMyPosition: UnwrapRef<typeof import('../composables/my-position')['useMyPosition']>
     readonly useNavigatorLanguage: UnwrapRef<typeof import('@vueuse/core')['useNavigatorLanguage']>
     readonly useNetwork: UnwrapRef<typeof import('@vueuse/core')['useNetwork']>
     readonly useNow: UnwrapRef<typeof import('@vueuse/core')['useNow']>
@@ -642,6 +670,7 @@ declare module 'vue' {
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRecentActivityStore: UnwrapRef<typeof import('../store/recent-activity')['useRecentActivityStore']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>
+    readonly useRepayDialog: UnwrapRef<typeof import('../composables/market/repay-dialog')['useRepayDialog']>
     readonly useResizeObserver: UnwrapRef<typeof import('@vueuse/core')['useResizeObserver']>
     readonly useRpcStore: UnwrapRef<typeof import('../store/rpc')['useRpcStore']>
     readonly useSSRWidth: UnwrapRef<typeof import('@vueuse/core')['useSSRWidth']>
@@ -653,6 +682,7 @@ declare module 'vue' {
     readonly useSessionStorage: UnwrapRef<typeof import('@vueuse/core')['useSessionStorage']>
     readonly useShare: UnwrapRef<typeof import('@vueuse/core')['useShare']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
+    readonly useSmartReloader: UnwrapRef<typeof import('../composables/smart-reloader')['useSmartReloader']>
     readonly useSorted: UnwrapRef<typeof import('@vueuse/core')['useSorted']>
     readonly useSpeechRecognition: UnwrapRef<typeof import('@vueuse/core')['useSpeechRecognition']>
     readonly useSpeechSynthesis: UnwrapRef<typeof import('@vueuse/core')['useSpeechSynthesis']>
@@ -660,7 +690,9 @@ declare module 'vue' {
     readonly useStorage: UnwrapRef<typeof import('@vueuse/core')['useStorage']>
     readonly useStorageAsync: UnwrapRef<typeof import('@vueuse/core')['useStorageAsync']>
     readonly useStyleTag: UnwrapRef<typeof import('@vueuse/core')['useStyleTag']>
+    readonly useSupplyDialog: UnwrapRef<typeof import('../composables/market/supply-dialog')['useSupplyDialog']>
     readonly useSupported: UnwrapRef<typeof import('@vueuse/core')['useSupported']>
+    readonly useSwap: UnwrapRef<typeof import('../composables/swap/use-swap')['useSwap']>
     readonly useSwipe: UnwrapRef<typeof import('@vueuse/core')['useSwipe']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useTemplateRefsList: UnwrapRef<typeof import('@vueuse/core')['useTemplateRefsList']>
@@ -692,6 +724,7 @@ declare module 'vue' {
     readonly useVirtualList: UnwrapRef<typeof import('@vueuse/core')['useVirtualList']>
     readonly useWakeLock: UnwrapRef<typeof import('@vueuse/core')['useWakeLock']>
     readonly useWallet: UnwrapRef<typeof import('../store/wallet')['useWallet']>
+    readonly useWalletComposable: UnwrapRef<typeof import('../composables/wallet')['useWalletComposable']>
     readonly useWebNotification: UnwrapRef<typeof import('@vueuse/core')['useWebNotification']>
     readonly useWebSocket: UnwrapRef<typeof import('@vueuse/core')['useWebSocket']>
     readonly useWebWorker: UnwrapRef<typeof import('@vueuse/core')['useWebWorker']>
@@ -699,6 +732,7 @@ declare module 'vue' {
     readonly useWindowFocus: UnwrapRef<typeof import('@vueuse/core')['useWindowFocus']>
     readonly useWindowScroll: UnwrapRef<typeof import('@vueuse/core')['useWindowScroll']>
     readonly useWindowSize: UnwrapRef<typeof import('@vueuse/core')['useWindowSize']>
+    readonly useWithdrawDialog: UnwrapRef<typeof import('../composables/market/withdraw-dialog')['useWithdrawDialog']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>
     readonly watchArray: UnwrapRef<typeof import('@vueuse/core')['watchArray']>
     readonly watchAtMost: UnwrapRef<typeof import('@vueuse/core')['watchAtMost']>

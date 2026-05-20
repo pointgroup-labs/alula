@@ -70,7 +70,7 @@ export default defineNuxtConfig({
         ],
         dts: 'types/auto-imports.d.ts',
         dirs: [
-          'hooks/**',
+          'composables/**',
           'store/**',
           'features/toast',
         ],
