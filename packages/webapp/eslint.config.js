@@ -57,7 +57,7 @@ export default antfu(
     },
   },
   {
-    files: ['src/**/*.vue'],
+    files: ['app/**/*.vue'],
     name: 'VUE-FILES',
     rules: {
       // Vue specific rules

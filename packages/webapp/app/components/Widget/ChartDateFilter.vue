@@ -5,6 +5,7 @@ const {
 } = defineProps<{
   filters: { label: string, value: string | number }[]
   modelValue: { label: string, value: string | number }
+  disabled?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -28,6 +29,7 @@ const activeFilter = computed({
     <template #default="{ label, isActive, select }">
       <j-btn
         :variant="isActive ? 'ghost' : 'outline-ghost'"
+        :disabled="disabled"
         @click="select"
       >
         {{ label }}

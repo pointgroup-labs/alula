@@ -10,8 +10,6 @@ const userStore = useUserStore()
 
 const isObligationsLoading = computed(() => userStore.loading)
 
-const isMarkets = defineModel('isMarkets', { default: true })
-
 const router = useRouter()
 
 const marketTableStore = useMarketTableStore()
@@ -73,6 +71,11 @@ function onRowClicked(marketName: string, item: MarketTableItem) {
   router.push(`/lend/${marketAddress}/${poolAddress}/pool`)
 }
 
+function statistocRoute(marketName: string) {
+  const marketAddress = marketsStore.state.markets[marketName]?.address
+  router.push(`/statistics/${marketAddress}`)
+}
+
 function rowClass(item: any): any {
   if (!item) {
     return
@@ -84,11 +87,17 @@ function rowClass(item: any): any {
   return ''
 }
 
+const isNoMarketsData = computed(() => filteredMarkets.value.every(m => m?.tableItems?.length === 0))
+
+const isInitialized = ref(false)
+watch(loading, (val) => {
+  if (!val) { isInitialized.value = true }
+})
+
 watch([
   filteredMarkets,
   search,
 ], ([markets, s]) => {
-  isMarkets.value = markets.length > 0
   if ((markets.length > 0 && opened.value.length === 0) || s) {
     for (const market of markets) {
       if (!isOpened(market.marketName)) {
@@ -100,7 +109,7 @@ watch([
 </script>
 
 <template>
-  <div v-if="marketWithTableItems.length === 0 && loading">
+  <div v-if="marketWithTableItems.length === 0 && (loading || !isInitialized)">
     <market-table-skeleton v-if="width > 1024" />
     <market-table-skeleton-mobile v-else />
   </div>
@@ -136,6 +145,14 @@ watch([
             <market-info-badge v-if="market.assets.length > 0">
               <span data-name="title">Assets: </span>
               <span>{{ market.assets.length }}</span>
+            </market-info-badge>
+
+            <market-info-badge
+              v-if="market.assets.length > 0"
+              @click.stop="statistocRoute(market.marketName)"
+            >
+              <span data-name="title">Statistics: </span>
+              <i-app-export-icon />
             </market-info-badge>
           </div>
         </template>
@@ -326,13 +343,19 @@ watch([
       </j-accordion>
     </template>
 
+    <div
+      v-if="isNoMarketsData"
+      class="no-markets-found"
+    >
+      No Markets found
+    </div>
   </div>
 
   <div
     v-else
     class="no-markets-found"
   >
-    No markets
+    No Markets found
   </div>
 
   <client-only>

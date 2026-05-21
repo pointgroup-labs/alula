@@ -4,13 +4,11 @@ import { TermsWindow } from '~/features/terms'
 
 <template>
   <app-header />
-  <invalid-account-warning />
-  <main class="market-detail-page container">
-    <pool-detail-top />
+  <main class="container">
     <NuxtPage />
   </main>
   <app-footer />
   <client-only>
-    <TermsWindow />
+    <terms-window />
   </client-only>
 </template>

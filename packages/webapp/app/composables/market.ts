@@ -89,13 +89,13 @@ export function useMarket(state: MarketsState) {
   })
 
   const stop = watch(() => state.markets, async (markets) => {
-    const pools = Object.values(markets).flatMap(m => m.marketState.pools_data)
+    const pools = Object.values(markets).flatMap(m => m.marketState?.pools_data)
     if (pools?.length > 0) {
       const q = route.query
       selectedPoolAddress.value = q?.pool
       selectedMarketName.value = q?.market
 
-      if (!pools.some(p => p.pool.pool_address === q?.pool) || !selectedPoolAddress.value) {
+      if (!pools.some(p => p?.pool.pool_address === q?.pool) || !selectedPoolAddress.value) {
         stop()
         return
       }
