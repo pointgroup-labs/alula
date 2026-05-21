@@ -111,6 +111,14 @@ const isReady = computed(() => {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: $spacing-lg;
+
+    @media (max-width: $breakpoint-sm) {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    @media (max-width: $breakpoint-xs) {
+      grid-template-columns: 1fr;
+    }
   }
 
   .no-data {

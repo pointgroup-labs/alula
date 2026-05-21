@@ -16,6 +16,9 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 
   async function getPoolHistoryData(marketAddress: string, poolAddress: string, bucket?: PoolHistoryBucket) {
     try {
+      if (historyMap.value.has(`${marketAddress}-${poolAddress}-${bucket ?? '1d'}`)) {
+        return
+      }
       state.loading = true
       const data = await fetchPoolHistory(marketAddress, poolAddress, bucket)
       historyMap.value.set(`${marketAddress}-${poolAddress}-${bucket ?? '1d'}`, data)
@@ -43,15 +46,23 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
     }
     const market = route.params?.market as string
     const pool = route.params?.pool as string
+
     if (!market || !pool) {
       historyMap.value.clear()
       state.pool = undefined
       return
     }
-    await Promise.all([
-      getPoolHistoryData(market, pool, '1d'),
-      getPoolData(market, pool),
-    ])
+    if ('page' in route.params && route.params.page !== 'pool') {
+      return
+    }
+    if (historyMap.value.has(`${market}-${pool}-1d`)) {
+      return
+    }
+    const promises = [
+      () => getPoolHistoryData(market, pool, '1d'),
+      () => getPoolData(market, pool),
+    ]
+    await Promise.all(promises.map(cb => cb()))
   }, { immediate: true })
 
   return {

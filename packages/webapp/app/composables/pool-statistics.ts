@@ -123,7 +123,9 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   })
 
   const chartPoints = computed(() => {
-    return [...historyData.value]?.map((d) => {
+    const filterVal = Number(activeFilter.value.value)
+    const length = filterVal > 1 ? filterVal : historyData.value.length
+    return [...historyData.value]?.slice(0, length)?.map((d) => {
       const rawVal = Number(d[params.chartType])
       let value: number
       switch (params.chartType) {
@@ -179,9 +181,9 @@ type StatisticsComposableParams = {
 function bucketByFilterValue(val: number): PoolHistoryBucket {
   switch (val) {
     case 1: return '15m'
-    case 7: return '6h'
+    case 7: return '1d'
     case 31: return '1d'
-    case 360: return '1w'
+    case 360: return '1d'
     default: return '1d'
   }
 }

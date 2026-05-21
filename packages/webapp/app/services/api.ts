@@ -41,7 +41,7 @@ export function getPoolHistoryStartDate(bucket: PoolHistoryBucket): string {
       break
 
     case '1d':
-      date.setUTCDate(date.getUTCDate() - 31)
+      date.setUTCFullYear(date.getUTCFullYear() - 1)
       break
 
     case '1w':
