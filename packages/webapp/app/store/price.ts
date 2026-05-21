@@ -3,7 +3,7 @@ export const usePriceStore = defineStore('price', () => {
   const assetsPrices = ref<Record<string, number>>({})
 
   watch(() => marketsStore.state.markets, (markets) => {
-    if (!markets) {
+    if (!markets || !import.meta.client) {
       return
     }
     for (const market of Object.values(markets)) {
@@ -15,7 +15,7 @@ export const usePriceStore = defineStore('price', () => {
         assetsPrices.value[symbol] = priceUsd
       }
     }
-  })
+  }, { immediate: true })
   return {
     assetsPrices,
   }
