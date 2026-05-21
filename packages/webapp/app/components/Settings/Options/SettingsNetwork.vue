@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+import { capitalize } from 'vue'
+
+const selected = ref()
+
 const rpcStore = useRpcStore()
 
 const activeNetwork = ref()
@@ -60,6 +64,8 @@ function handleEdit(network: 'horizon' | 'soroban', isSave: boolean) {
   }
 }
 
+const stellarRPCList = computed(() => activeNetwork.value === 'testnet' ? SOROBAN_TESTNET_RPC_URLS : SOROBAN_PUBLIC_RPC_URLS)
+
 watch(activeNetwork, (n) => {
   rpcStore.setNetwork(n)
 })
@@ -67,6 +73,22 @@ watch(activeNetwork, (n) => {
 watch(() => rpcStore.network, (val) => {
   activeNetwork.value = val
 }, { once: true, immediate: true })
+
+watch(() => rpcStore.sorobanRPCUrl, (val) => {
+  if (!import.meta.client) {
+    return
+  }
+  selected.value = val && stellarRPCList.value.has(val) ? val : ''
+}, { immediate: true })
+
+watch(selected, (s) => {
+  if (!s || !import.meta.client) {
+    return
+  }
+  if (s) {
+    sorobanRPC.value = s
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -171,7 +193,7 @@ watch(() => rpcStore.network, (val) => {
       </j-input>
 
       <div class="network-rpc">
-        RPC URL
+        Soroban RPC URL
 
         <div class="network-rpc__url">
           {{ rpcStore.sorobanRPCUrl }}
@@ -190,6 +212,26 @@ watch(() => rpcStore.network, (val) => {
         />
       </div>
 
+      <div
+        v-if="isSorobanEdit"
+        class="default-networks"
+      >
+        {{ capitalize(activeNetwork) }} Networks:
+        <div
+          v-for="network in stellarRPCList"
+          :key="network"
+          class="network-item"
+        >
+
+          <BFormRadio
+            v-model="selected"
+            name="some-radios"
+            :value="network"
+          >{{ network }}
+          </BFormRadio>
+        </div>
+      </div>
+
       <j-input
         v-show="isSorobanEdit"
         v-model="sorobanRPC"
@@ -201,6 +243,9 @@ watch(() => rpcStore.network, (val) => {
         ]"
         @keypress.enter="handleEdit('soroban', true)"
       >
+        <template #label>
+          Custom RPC
+        </template>
         <template
           v-if="sorobanRPC"
           #append
@@ -312,9 +357,53 @@ watch(() => rpcStore.network, (val) => {
     }
   }
 
+  .default-networks {
+    position: relative;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: $text-primary;
+
+    .network-item {
+      .form-check {
+        display: flex;
+        align-items: center;
+        flex-direction: row-reverse;
+        justify-content: space-between;
+        padding: 0;
+
+        label {
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 400;
+          line-height: 14px;
+          color: $text-tertiary;
+          cursor: pointer;
+        }
+
+        .form-check-input {
+          box-shadow: none;
+          cursor: pointer;
+
+          &:checked {
+            background-color: $cyan;
+            border-color: $cyan;
+          }
+        }
+      }
+    }
+  }
+
   .rpc-input {
-    height: 34px;
     margin-top: -12px;
+
+    .j-input__label {
+      color: $text-primary;
+    }
 
     .input-group {
       height: 34px;

@@ -25,7 +25,7 @@
         "../sdk/soroswap_swap_provider/dist/src/index.d.ts"
       ],
       "~/*": [
-        "./src/*"
+        "./app/*"
       ],
       "#/*": [
         "./types/*"
