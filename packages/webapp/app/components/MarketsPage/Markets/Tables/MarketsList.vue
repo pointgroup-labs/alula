@@ -98,11 +98,25 @@ watch([
   filteredMarkets,
   search,
 ], ([markets, s]) => {
-  if ((markets.length > 0 && opened.value.length === 0) || s) {
+  if (markets.length === 0) {
+    return
+  }
+
+  const allCollapsed = opened.value.length === 0
+
+  if (allCollapsed && s) {
     for (const market of markets) {
       if (!isOpened(market.marketName)) {
         toggleOpen(market.marketName)
       }
+    }
+    return
+  }
+
+  if (allCollapsed) {
+    const mainMarket = markets.find(m => m.marketName === 'main') ?? markets[0]
+    if (mainMarket) {
+      toggleOpen(mainMarket.marketName)
     }
   }
 }, { immediate: true })
