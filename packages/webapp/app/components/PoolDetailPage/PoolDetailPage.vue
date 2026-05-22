@@ -39,6 +39,10 @@ const tabs = [{
 {
   label: 'Position',
   value: 'position',
+},
+{
+  label: 'Statistics',
+  value: 'statistics',
 }]
 
 const defaultTab = tabs[0]!
@@ -86,7 +90,27 @@ watch(() => route.params.page, (tabValue) => {
         v-model="activeTab"
         :tabs="tabs"
         style="margin-bottom: -12px;"
-      />
+      >
+        <template #tab="{ tab }">
+          <j-btn
+            v-if="tab.value === 'statistics'"
+            :to="`/statistics/${marketAddress}/${poolAddress}`"
+            class="tab-statistics"
+            size="xs"
+            variant="outlined-brand"
+            @click.stop
+          >
+            <i-app-statistics-icon />  Statistics
+          </j-btn>
+          <span
+            v-else
+            class="tab-label"
+          >
+            {{ tab.label }}
+          </span>
+
+        </template>
+      </j-line-tab>
       <pool-overview v-if="activeTab?.value === 'pool'" />
       <pool-info-risks v-if="activeTab?.value === 'info'" />
       <my-position v-if="activeTab?.value === 'position'" />
@@ -100,3 +124,29 @@ watch(() => route.params.page, (tabValue) => {
     </div>
   </template>
 </template>
+
+<style lang="scss">
+.j-line-tabs {
+  .overview-tab:has(.tab-statistics) {
+    margin-left: auto;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+  }
+
+  .tab-statistics {
+    text-decoration: none;
+    color: #fff;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+</style>

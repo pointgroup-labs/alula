@@ -55,6 +55,8 @@ declare module 'vue' {
     IAppPercentageSquareIcon: typeof import('~icons/app/percentage-square-icon')['default']
     IAppSearchIcon: typeof import('~icons/app/search-icon')['default']
     IAppSettingsIcon: typeof import('~icons/app/settings-icon')['default']
+    IAppStatisticsIcon: typeof import('~icons/app/statistics-icon')['default']
+    IAppStIcon: typeof import('~icons/app/st-icon')['default']
     IAppStrongboxIcon: typeof import('~icons/app/strongbox-icon')['default']
     IAppSuccessCircle: typeof import('~icons/app/success-circle')['default']
     IAppWarningIcon: typeof import('~icons/app/warning-icon')['default']

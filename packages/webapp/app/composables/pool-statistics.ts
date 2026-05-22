@@ -1,6 +1,6 @@
 import type { ApiHistoryData, PoolHistoryBucket } from '~/services'
 import { bpsToNumber } from '@alula/client-sdk'
-import { normalizeChartDate } from '~/utils/chart'
+import { chartDateHM, normalizeChartDate } from '~/utils/chart'
 
 const STATISTICS_DATE = [
   {
@@ -149,7 +149,7 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
           value = rawVal
       }
       return {
-        label: normalizeChartDate(String(d.start_time), false),
+        label: activeFilter.value.value === 1 ? chartDateHM(String(d.start_time)) : normalizeChartDate(String(d.start_time), false),
         date: String(d.start_time),
         value,
       }

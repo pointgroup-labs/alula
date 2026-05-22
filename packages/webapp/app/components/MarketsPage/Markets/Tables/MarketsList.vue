@@ -162,11 +162,11 @@ watch([
             </market-info-badge>
 
             <market-info-badge
-              v-if="market.assets.length > 0"
+              class="statistics-badge"
               @click.stop="statistocRoute(market.marketName)"
             >
               <span data-name="title">Statistics: </span>
-              <i-app-export-icon />
+              <i-app-statistics-icon style="width: 16px; height: 16px" />
             </market-info-badge>
           </div>
         </template>
@@ -394,15 +394,26 @@ watch([
 </template>
 
 <style lang="scss">
-.market-table {
-  .position {
-    .position-spinner {
-      position: relative !important;
-      background-color: transparent !important;
-      align-items: flex-end;
-      .spinner-border {
-        color: $text-tertiary !important;
+.table-wrapper {
+  .market-table {
+    .position {
+      .position-spinner {
+        position: relative !important;
+        background-color: transparent !important;
+        align-items: flex-end;
+        .spinner-border {
+          color: $text-tertiary !important;
+        }
       }
+    }
+  }
+
+  .statistics-badge {
+    border-color: rgba($cyan, 0.4);
+    &:hover {
+      border-color: rgba($cyan, 1);
+      color: $cyan;
+      cursor: pointer;
     }
   }
 }
