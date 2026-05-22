@@ -87,4 +87,14 @@ watch(() => activeTab.value?.value, (val) => {
   gap: 32px;
   padding-bottom: 72px;
 }
+
+.multiply-details__empty {
+  padding: 32px;
+  margin: 0 auto;
+  color: $navi-50;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+}
 </style>
