@@ -94,4 +94,5 @@ export type ApiHistoryData = {
   borrow_apy_bps: number
   utilization_bps: number
   tvl_usd_cents: string
+  oracle_price_usd: string
 }

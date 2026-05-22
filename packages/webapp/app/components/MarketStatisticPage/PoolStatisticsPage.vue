@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const statisticChartTypes = ['total_supplied', 'total_borrowed', 'supply_apy_bps', 'borrow_apy_bps', 'tvl_usd_cents', 'utilization_bps'] as const
+const statisticChartTypes = ['total_supplied', 'total_borrowed', 'supply_apy_bps', 'borrow_apy_bps', 'tvl_usd_cents', 'utilization_bps', 'oracle_price_usd'] as const
 
 const route = useRoute()
 
@@ -90,6 +90,16 @@ const backRoutePath = computed(() => `/statistics/${route.params.market}`)
 
     @media (max-width: $breakpoint-sm) {
       grid-template-columns: 1fr;
+    }
+
+    .pool-statistic-card {
+      &:last-child {
+        grid-column: span 2;
+
+        @media (max-width: $breakpoint-sm) {
+          grid-column: span 1;
+        }
+      }
     }
   }
 }

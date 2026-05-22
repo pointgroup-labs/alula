@@ -23,7 +23,6 @@ const STATISTICS_DATE = [
 
 export function usePoolStatistics(params: StatisticsComposableParams) {
   const statisticStore = useMarketStatisticsStore()
-  const priceStore = usePriceStore()
 
   const chartFilter = useChartFilter(STATISTICS_DATE, 2)
   const activeFilter = toRef(chartFilter, 'activeFilter')
@@ -35,7 +34,6 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
 
   const symbol = computed(() => pool.value?.symbol ?? '')
   const decimals = computed(() => pool.value?.decimals ?? 7)
-  const price = computed(() => priceStore.assetsPrices[symbol.value] ?? 0)
 
   const currencyOptions = computed(() => {
     const poolCurrencies = ['USD']
@@ -50,7 +48,10 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const selectedBucket = computed(() => bucketByFilterValue(Number(activeFilter.value.value) || 31))
 
   const historyData = computed(() => statisticStore.historyMap.get(`${marketAddress.value}-${poolAddress.value}-${selectedBucket.value}`) ?? [])
-  const lastDateData = computed(() => historyData.value[0]?.[params.chartType] ?? 0)
+
+  const currentHistoryData = computed(() => historyData.value.at(-1))
+  const currentChartTypeData = computed(() => currentHistoryData.value?.[params.chartType] ?? 0)
+  const currentPrice = computed(() => Number(currentHistoryData.value?.oracle_price_usd ?? 0))
 
   const cardLabel = computed(() => {
     switch (params.chartType) {
@@ -66,6 +67,8 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
         return 'TVL'
       case 'utilization_bps':
         return 'Utilization'
+      case 'oracle_price_usd':
+        return 'Price'
       default: return 'Statistic'
     }
   })
@@ -73,48 +76,57 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const cardValue = computed(() => {
     switch (params.chartType) {
       case 'total_supplied': {
-        const supplyNum = bigintToNumber(BigInt(Number(lastDateData.value)), decimals.value) || 0
-        const supplyUSD = Number(supplyNum) * price.value
+        const supplyNum = bigintToNumber(BigInt(Number(currentChartTypeData.value)), decimals.value) || 0
+        const supplyUSD = Number(supplyNum) * currentPrice.value
         return {
           raw: supplyUSD,
-          formatted: `$${shortenNumber(supplyUSD, 0, 0)}`,
+          formatted: `$${shortenNumber(supplyUSD, 2, 2)}`,
         }
       }
       case 'total_borrowed': {
-        const borrowNum = bigintToNumber(BigInt(Number(lastDateData.value)), decimals.value) || 0
-        const borrowUSD = Number(borrowNum) * price.value
+        const borrowNum = bigintToNumber(BigInt(Number(currentChartTypeData.value)), decimals.value) || 0
+        const borrowUSD = Number(borrowNum) * currentPrice.value
         return {
           raw: borrowUSD,
-          formatted: `$${shortenNumber(borrowUSD, 0, 0)}`,
+          formatted: `$${shortenNumber(borrowUSD, 2, 2)}`,
         }
       }
       case 'supply_apy_bps':{
-        const apy = Number(lastDateData.value) / 100
+        const apy = Number(currentChartTypeData.value) / 100
         return {
           raw: apy,
           formatted: `${truncatePercent(apy, 2)}%`,
         }
       }
       case 'borrow_apy_bps':{
-        const apy = Number(lastDateData.value) / 100
+        const apy = Number(currentChartTypeData.value) / 100
         return {
           raw: apy,
           formatted: `${truncatePercent(apy, 2)}%`,
         }
       }
       case 'tvl_usd_cents': {
-        const tvl = Number(lastDateData.value) / 100
+        const tvl = Number(currentChartTypeData.value) / 100
         return {
           raw: tvl,
-          formatted: `$${shortenNumber(tvl, 0, 0)}`,
+          formatted: `$${shortenNumber(tvl, 2, 2)}`,
         }
       }
 
       case 'utilization_bps': {
-        const utilization = bpsToNumber(Number(lastDateData.value))
+        const utilization = bpsToNumber(Number(currentChartTypeData.value))
         return {
           raw: utilization,
           formatted: `${truncatePercent(utilization, 2)}%`,
+        }
+      }
+
+      case 'oracle_price_usd': {
+        const num = Number(currentChartTypeData.value) || 0
+        const price = num < 0.01 ? '<0.01' : shortenNumber(num, 2, 2)
+        return {
+          raw: num,
+          formatted: `$${price}`,
         }
       }
 
@@ -131,8 +143,9 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
       switch (params.chartType) {
         case 'total_supplied':
         case 'total_borrowed': {
+          const price = Number(d.oracle_price_usd ?? 0)
           const num = bigintToNumber(BigInt(rawVal), decimals.value) || 0
-          value = currency.value === 'USD' ? Number(num) * price.value : Number(num)
+          value = currency.value === 'USD' ? Number(num) * price : Number(num)
           break
         }
         case 'supply_apy_bps':
