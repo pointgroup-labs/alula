@@ -10,7 +10,10 @@ const pool = computed(() => statisticsStore.state.pool)
 
 const assetData = computed(() => pool.value?.symbol ? getFullTokenData(pool.value.symbol) : undefined)
 
-const backRoutePath = computed(() => `/statistics/${route.params.market}`)
+const backRoutePath = computed(() => {
+  const path = globalThis.history.state.back ?? `/statistics/${route.params.market}`
+  return path
+})
 </script>
 
 <template>
@@ -51,10 +54,15 @@ const backRoutePath = computed(() => `/statistics/${route.params.market}`)
   gap: 32px;
 
   .asset-statistic__top {
-    min-height: 45px;
+    min-height: 52px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+
+    @media (max-width: $breakpoint-xs) {
+      min-height: 45px;
+      gap: 12px;
+    }
 
     .asset-data {
       display: flex;

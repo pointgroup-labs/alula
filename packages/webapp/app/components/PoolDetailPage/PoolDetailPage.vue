@@ -53,8 +53,12 @@ function resolveTab(tabValue?: string | null) {
 
 const activeTab = ref(resolveTab(route.params.page as string | undefined))
 
+function statisticsRoute() {
+  router.push(`/statistics/${marketAddress}/${poolAddress}`)
+}
+
 watch(activeTab, (tab) => {
-  if (!tab?.value) {
+  if (!tab?.value || tab.value === 'statistics') {
     return
   }
 
@@ -92,16 +96,13 @@ watch(() => route.params.page, (tabValue) => {
         style="margin-bottom: -12px;"
       >
         <template #tab="{ tab }">
-          <j-btn
+          <span
             v-if="tab.value === 'statistics'"
-            :to="`/statistics/${marketAddress}/${poolAddress}`"
-            class="tab-statistics"
-            size="xs"
-            variant="outlined-brand"
-            @click.stop
+            class="tab-statistics tab-label"
+            @click.stop="statisticsRoute"
           >
             <i-app-statistics-icon />  Statistics
-          </j-btn>
+          </span>
           <span
             v-else
             class="tab-label"
@@ -128,13 +129,10 @@ watch(() => route.params.page, (tabValue) => {
 <style lang="scss">
 .j-line-tabs {
   .overview-tab:has(.tab-statistics) {
-    margin-left: auto;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
+    padding: 0;
   }
-
   .tab-statistics {
+    padding: 0 6px 9px;
     text-decoration: none;
     color: #fff;
     font-weight: 500;
@@ -142,6 +140,7 @@ watch(() => route.params.page, (tabValue) => {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    margin-bottom: -1px;
 
     svg {
       width: 18px;

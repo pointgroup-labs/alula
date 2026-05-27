@@ -71,11 +71,6 @@ function onRowClicked(marketName: string, item: MarketTableItem) {
   router.push(`/lend/${marketAddress}/${poolAddress}/pool`)
 }
 
-function statistocRoute(marketName: string) {
-  const marketAddress = marketsStore.state.markets[marketName]?.address
-  router.push(`/statistics/${marketAddress}`)
-}
-
 function rowClass(item: any): any {
   if (!item) {
     return
@@ -161,13 +156,7 @@ watch([
               <span>{{ market.assets.length }}</span>
             </market-info-badge>
 
-            <market-info-badge
-              class="statistics-badge"
-              @click.stop="statistocRoute(market.marketName)"
-            >
-              <span data-name="title">Statistics: </span>
-              <i-app-statistics-icon style="width: 16px; height: 16px" />
-            </market-info-badge>
+            <statistics-route-btn :market-name="market.marketName" />
           </div>
         </template>
 
@@ -405,15 +394,6 @@ watch([
           color: $text-tertiary !important;
         }
       }
-    }
-  }
-
-  .statistics-badge {
-    border-color: rgba($cyan, 0.4);
-    &:hover {
-      border-color: rgba($cyan, 1);
-      color: $cyan;
-      cursor: pointer;
     }
   }
 }

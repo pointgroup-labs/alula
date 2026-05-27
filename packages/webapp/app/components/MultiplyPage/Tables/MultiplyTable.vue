@@ -4,12 +4,10 @@ import { capitalize } from 'vue'
 import { truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
-const router = useRouter()
 
 const marketActions = useMarketActions()
 const userStore = useUserStore()
 
-const marketStore = useMarketsStore()
 const multiplyStore = useMultiplyStore()
 const multiplyTableStore = useMultiplyTableStore()
 const {
@@ -60,13 +58,6 @@ function borrowApyPercent(item: any): number {
   return bpsToNumber(Number(item?.borrowPoolData?.apy?.borrow_bps || 0)) * 100
 }
 
-function statistocRoute(marketName: any) {
-  const address = marketStore.state.markets[marketName]?.address
-  if (address) {
-    router.push(`/statistics/${address}`)
-  }
-}
-
 watch([
   filteredVaults,
   search,
@@ -112,13 +103,7 @@ watch([
               <span>{{ vault.items.length }}</span>
             </market-info-badge>
 
-            <market-info-badge
-              class="statistics-badge"
-              @click.stop="statistocRoute(vault.market)"
-            >
-              <span data-name="title">Statistics: </span>
-              <i-app-statistics-icon style="width: 16px; height: 16px" />
-            </market-info-badge>
+            <statistics-route-btn :market-name="vault.market" />
           </div>
 
         </template>
@@ -337,15 +322,6 @@ watch([
 
     .market-table__asset__info {
       margin-left: 12px;
-    }
-  }
-
-  .statistics-badge {
-    border-color: rgba($cyan, 0.4);
-    &:hover {
-      border-color: rgba($cyan, 1);
-      color: $cyan;
-      cursor: pointer;
     }
   }
 }

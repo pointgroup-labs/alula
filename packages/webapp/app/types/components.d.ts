@@ -182,6 +182,7 @@ declare module 'vue' {
     Sidebar: typeof import('./../components/Sidebar/Sidebar.vue')['default']
     SidebarPanel: typeof import('./../components/Sidebar/SidebarPanel.vue')['default']
     SlippageSelect: typeof import('./../components/Widget/SlippageSelect.vue')['default']
+    StatisticsRouteBtn: typeof import('./../components/MarketStatisticPage/StatisticsRouteBtn.vue')['default']
     StatisticUtilRateChart: typeof import('./../components/MarketStatisticPage/chart/StatisticUtilRateChart.vue')['default']
     SupplyCard: typeof import('./../components/SupplyCard/SupplyCard.vue')['default']
     SupplyDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/SupplyDialog.vue')['default']
