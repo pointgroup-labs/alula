@@ -3,7 +3,7 @@ export const TESTNET_RPC_URL = 'https://horizon-testnet.stellar.org'
 export const PUBLIC_RPC_URL = 'https://horizon.stellar.org'
 
 export const SOROBAN_TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org'
-export const SOROBAN_PUBLIC_RPC_URL = 'https://stellar-soroban-public.nodies.app'
+export const SOROBAN_PUBLIC_RPC_URL = 'https://rpc.lightsail.network'
 
 export const RPC_URLS: Record<string, string> = {
   testnet: TESTNET_RPC_URL,
