@@ -17,7 +17,19 @@ const { width } = useWindowSize()
         height="486"
         style="border-radius: 12px;"
         :full-width="width < 1024"
+        class="stake-card-skeleton"
       />
     </div>
   </div>
 </template>
+
+
+<style lang="scss">
+.market-detail-page {
+  .stake-card-skeleton {
+    @media (max-width: $breakpoint-xs) {
+      min-width: 0 !important;
+    }
+  }
+}
+</style>

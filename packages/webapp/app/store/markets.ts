@@ -108,10 +108,10 @@ export const useMarketsStore = defineStore('markets', () => {
       state.markets = marketsByName
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error: any) {
-      console.log(error)
+      console.error(error)
       toast.create({
         title: 'Error',
-        body: String(error?.message || error),
+        body: toast.parseErrorMessage(error),
         variant: 'danger',
       })
     } finally {

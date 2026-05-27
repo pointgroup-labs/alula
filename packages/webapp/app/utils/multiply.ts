@@ -129,3 +129,26 @@ export function calcMultiplyObligationNetApy({
 
   return supplyApy * multiplier - borrowApy * (multiplier - 1)
 }
+
+export function getApyRangeForMultiplier({
+  supplyApy,
+  borrowApy,
+  maxMultiplier,
+}: {
+  supplyApy: number
+  borrowApy: number
+  maxMultiplier: number
+}) {
+  const apyAtMinMultiplier = supplyApy
+  const apyAtMaxMultiplier = calcMultiplyObligationNetApy({
+    suppliedUsd: maxMultiplier,
+    borrowedUsd: Math.max(maxMultiplier - 1, 0),
+    supplyApy,
+    borrowApy,
+  })
+
+  return {
+    minApy: Math.min(apyAtMinMultiplier, apyAtMaxMultiplier),
+    maxApy: Math.max(apyAtMinMultiplier, apyAtMaxMultiplier),
+  }
+}

@@ -3,7 +3,7 @@ export const TESTNET_RPC_URL = 'https://horizon-testnet.stellar.org'
 export const PUBLIC_RPC_URL = 'https://horizon.stellar.org'
 
 export const SOROBAN_TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org'
-export const SOROBAN_PUBLIC_RPC_URL = 'https://stellar-soroban-public.nodies.app'
+export const SOROBAN_PUBLIC_RPC_URL = 'https://rpc.lightsail.network'
 
 export const RPC_URLS: Record<string, string> = {
   testnet: TESTNET_RPC_URL,
@@ -26,7 +26,7 @@ export const SOROSWAP_PROVIDER_ADDRESS: Record<string, string> = {
 
 export const AQUA_PROVIDER_ADDRESS: Record<string, string> = {
   testnet: 'CAAMNEXA7BOLMJKHDWNWLW6NQONLW3D6EXIKBBDJJEIDOGJYXRD7PJG4',
-  public: '',
+  public: 'CCIKCDHGZ7EZFVL4YK72L6RGIW5IY4PEYCDXSQA5ZEIZTJOCZLEA4TMF',
 }
 
 export const MAX_I128 = 170_141_183_460_469_231_731_687_303_715_884_105_727n

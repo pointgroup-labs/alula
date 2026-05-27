@@ -4,6 +4,7 @@ import { capitalize } from 'vue'
 import { truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
+
 const marketActions = useMarketActions()
 const userStore = useUserStore()
 
@@ -101,6 +102,8 @@ watch([
               <span data-name="title">Strategies: </span>
               <span>{{ vault.items.length }}</span>
             </market-info-badge>
+
+            <statistics-route-btn :market-name="vault.market" />
           </div>
 
         </template>
