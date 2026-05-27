@@ -4,6 +4,7 @@ import { fetchPoolData, fetchPoolHistory } from '~/services'
 export const useMarketStatisticsStore = defineStore('market-statistics', () => {
   const state = reactive<MarketStatisticsState>({
     pool: undefined,
+    pairPool: undefined,
     loading: false,
   })
 
@@ -11,8 +12,11 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 
   const route = useRoute()
 
+  const routePoolAddresses = computed(() => parseRoutePoolAddresses(route.params?.pool as string | undefined))
+
   const marketAddress = computed(() => route.params.market as string)
-  const poolAddress = computed(() => route.params.pool as string)
+  const poolAddress = computed(() => routePoolAddresses.value.poolAddress)
+  const pairPoolAddress = computed(() => routePoolAddresses.value.pairPoolAddress)
 
   async function getPoolHistoryData(marketAddress: string, poolAddress: string, bucket?: PoolHistoryBucket) {
     try {
@@ -30,10 +34,10 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
     }
   }
 
-  async function getPoolData(marketAddress: string, poolAddress: string) {
+  async function getPoolData(marketAddress: string, poolAddress: string, target: 'pool' | 'pairPool' = 'pool') {
     try {
       const data = await fetchPoolData(marketAddress, poolAddress)
-      state.pool = data
+      state[target] = data
       console.log(`%c[Pool Data]`, 'color: #1dc978', data)
     } catch (error) {
       console.error(error)
@@ -42,26 +46,44 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 
   watch(route, async () => {
     if (!import.meta.client) {
-      return
-    }
-    const market = route.params?.market as string
-    const pool = route.params?.pool as string
-
-    if (!market || !pool) {
       historyMap.value.clear()
       state.pool = undefined
+      state.pairPool = undefined
+      return
+    }
+    const marketAddr = route.params?.market as string
+    const { poolAddress: poolAddr, pairPoolAddress: pairPoolAddr } = parseRoutePoolAddresses(route.params?.pool as string | undefined)
+
+    if (!marketAddr || !poolAddr) {
+      historyMap.value.clear()
+      state.pool = undefined
+      state.pairPool = undefined
       return
     }
     if ('page' in route.params && route.params.page !== 'pool') {
       return
     }
-    if (historyMap.value.has(`${market}-${pool}-1d`)) {
+
+    const hasPrimaryHistory = historyMap.value.has(`${marketAddr}-${poolAddr}-1d`)
+    const hasPairHistory = !pairPoolAddr || historyMap.value.has(`${marketAddr}-${pairPoolAddr}-1d`)
+    const hasPrimaryPoolData = state.pool?.pool === poolAddr
+    const hasPairPoolData = !pairPoolAddr || state.pairPool?.pool === pairPoolAddr
+
+    if (hasPrimaryHistory && hasPairHistory && hasPrimaryPoolData && hasPairPoolData) {
       return
     }
+
     const promises = [
-      () => getPoolHistoryData(market, pool, '1d'),
-      () => getPoolData(market, pool),
+      () => hasPrimaryHistory ? Promise.resolve() : getPoolHistoryData(marketAddr, poolAddr, '1d'),
+      () => hasPrimaryPoolData ? Promise.resolve() : getPoolData(marketAddr, poolAddr),
     ]
+
+    if (pairPoolAddr) {
+      promises.push(() => hasPairHistory ? Promise.resolve() : getPoolHistoryData(marketAddr, pairPoolAddr, '1d'), () => hasPairPoolData ? Promise.resolve() : getPoolData(marketAddr, pairPoolAddr, 'pairPool'))
+    } else {
+      state.pairPool = undefined
+    }
+
     await Promise.all(promises.map(cb => cb()))
   }, { immediate: true })
 
@@ -71,6 +93,7 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 
     marketAddress,
     poolAddress,
+    pairPoolAddress,
 
     getPoolHistoryData,
   }
@@ -79,4 +102,14 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 type MarketStatisticsState = {
   loading: boolean
   pool: ApiPoolData | undefined
+  pairPool: ApiPoolData | undefined
+}
+
+function parseRoutePoolAddresses(poolParam?: string) {
+  const [poolAddress, pairPoolAddress] = poolParam?.split(':') ?? []
+
+  return {
+    poolAddress: poolAddress ?? '',
+    pairPoolAddress: pairPoolAddress || undefined,
+  }
 }

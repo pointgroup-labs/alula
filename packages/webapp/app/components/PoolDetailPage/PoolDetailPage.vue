@@ -127,24 +127,26 @@ watch(() => route.params.page, (tabValue) => {
 </template>
 
 <style lang="scss">
-.j-line-tabs {
-  .overview-tab:has(.tab-statistics) {
-    padding: 0;
-  }
-  .tab-statistics {
-    padding: 0 6px 9px;
-    text-decoration: none;
-    color: #fff;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: -1px;
+.market-detail-page {
+  .j-line-tabs {
+    .overview-tab:has(.tab-statistics) {
+      padding: 0;
+    }
+    .tab-statistics {
+      padding: 0 6px 9px;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: -1px;
 
-    svg {
-      width: 18px;
-      height: 18px;
+      svg {
+        width: 18px;
+        height: 18px;
+      }
     }
   }
 }

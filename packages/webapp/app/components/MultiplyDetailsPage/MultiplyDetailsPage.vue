@@ -19,6 +19,10 @@ const tabs = [{
 {
   label: 'Position',
   value: 'position',
+},
+{
+  label: 'Statistics',
+  value: 'statistics',
 }]
 
 const defaultTab = tabs[0]!
@@ -29,8 +33,12 @@ function resolveTab(tabValue?: string | null) {
 
 const activeTab = ref(resolveTab(route.params.page as string | undefined))
 
+function statisticsRoute() {
+  router.push(`/statistics/${selectedVault.value?.marketAddress}/${selectedVault.value?.pairKey}`)
+}
+
 watch(() => activeTab.value?.value, (val) => {
-  if (!val) {
+  if (!val || val === 'statistics') {
     return
   }
 
@@ -60,7 +68,24 @@ watch(() => activeTab.value?.value, (val) => {
       v-model="activeTab"
       :tabs="tabs"
       style="margin-bottom: -12px;"
-    />
+    >
+      <template #tab="{ tab }">
+        <span
+          v-if="tab.value === 'statistics'"
+          class="tab-statistics tab-label"
+          @click.stop="statisticsRoute"
+        >
+          <i-app-statistics-icon />  Statistics
+        </span>
+        <span
+          v-else
+          class="tab-label"
+        >
+          {{ tab.label }}
+        </span>
+
+      </template>
+    </j-line-tab>
 
     <multiply-details-overview
       v-if="activeTab.value === 'pool'"
@@ -97,6 +122,28 @@ watch(() => activeTab.value?.value, (val) => {
     font-weight: 400;
     line-height: 16px;
     gap: 12px;
+  }
+
+  .j-line-tabs {
+    .overview-tab:has(.tab-statistics) {
+      padding: 0;
+    }
+    .tab-statistics {
+      padding: 0 6px 9px;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: -1px;
+
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
   }
 }
 </style>

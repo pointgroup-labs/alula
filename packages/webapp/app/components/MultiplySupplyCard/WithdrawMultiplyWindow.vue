@@ -270,7 +270,7 @@ const closeDetailsSteps = computed(() => {
               <j-loading-spinner
                 v-if="previewLoading"
                 width="14px"
-                style="margin-left: auto;"
+                style="margin-left: auto; padding: 0;"
               />
             </div>
           </template>

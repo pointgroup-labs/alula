@@ -376,7 +376,7 @@ function isUserHaveMultiply(): boolean {
               <j-loading-spinner
                 v-if="loadingPreview"
                 width="14px"
-                style="margin-left: auto;"
+                style="margin-left: auto; padding: 0;"
               />
             </div>
           </template>

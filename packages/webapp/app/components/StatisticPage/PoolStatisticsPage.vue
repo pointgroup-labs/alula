@@ -7,8 +7,10 @@ const { getFullTokenData } = useTokensStore()
 
 const statisticsStore = useMarketStatisticsStore()
 const pool = computed(() => statisticsStore.state.pool)
+const pairPool = computed(() => statisticsStore.state.pairPool)
 
 const assetData = computed(() => pool.value?.symbol ? getFullTokenData(pool.value.symbol) : undefined)
+const pairAssetData = computed(() => pairPool.value?.symbol ? getFullTokenData(pairPool.value.symbol) : undefined)
 
 const backRoutePath = computed(() => {
   const path = globalThis.history.state.back ?? `/statistics/${route.params.market}`
@@ -31,9 +33,24 @@ const backRoutePath = computed(() => {
           :src="assetData?.icon"
           alt="asset icon"
         >
+        <img
+          v-if="pairAssetData?.icon"
+          :src="pairAssetData?.icon"
+          alt="asset icon"
+        >
         <div class="asset-data__coin">
-          <span class="symbol">{{ assetData?.symbol }}</span>
-          <span class="name">{{ assetData?.name }}</span>
+          <span class="symbol">
+            {{ assetData?.symbol }}
+            <template v-if="pairAssetData?.symbol">
+              / {{ pairAssetData?.symbol }}
+            </template>
+          </span>
+          <span class="name">
+            {{ assetData?.name }}
+            <template v-if="pairAssetData?.symbol">
+              / {{ pairAssetData?.name }}
+            </template>
+          </span>
         </div>
       </div>
     </div>
@@ -67,7 +84,7 @@ const backRoutePath = computed(() => {
     .asset-data {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 12px;
       font-size: 18px;
       font-weight: 500;
 
@@ -76,6 +93,10 @@ const backRoutePath = computed(() => {
         height: 38px;
         object-fit: contain;
         border-radius: 50%;
+
+        &:not(:first-child) {
+          margin-left: -18px;
+        }
       }
 
       &__coin {

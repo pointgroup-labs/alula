@@ -28,26 +28,39 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const activeFilter = toRef(chartFilter, 'activeFilter')
 
   const pool = computed(() => statisticStore.state.pool)
+  const pairPool = computed(() => statisticStore.state.pairPool)
 
   const marketAddress = computed(() => statisticStore.marketAddress)
   const poolAddress = computed(() => statisticStore.poolAddress)
+  const pairPoolAddress = computed(() => statisticStore.pairPoolAddress)
 
-  const symbol = computed(() => pool.value?.symbol ?? '')
+  const symbol = computed(() => formatAssetSymbol(pool.value?.symbol))
   const decimals = computed(() => pool.value?.decimals ?? 7)
+  const pairSymbol = computed(() => formatAssetSymbol(pairPool.value?.symbol))
+  const pairDecimals = computed(() => pairPool.value?.decimals ?? 7)
+  const hasPairPool = computed(() => Boolean(pairPool.value && pairPoolAddress.value))
 
   const currencyOptions = computed(() => {
-    const poolCurrencies = ['USD']
-    if (symbol.value) {
-      const name = symbol.value === 'native' ? 'XLM' : symbol.value
-      poolCurrencies.push(name)
-    }
-    return poolCurrencies
+    return ['USD', 'Token']
   })
-  const currency = ref(currencyOptions.value[0])
+  const currency = ref<string>(currencyOptions.value[0] ?? 'USD')
+
+  watch(currencyOptions, (options) => {
+    if (!options.includes(currency.value)) {
+      currency.value = options[0] ?? 'USD'
+    }
+  }, { immediate: true })
 
   const selectedBucket = computed(() => bucketByFilterValue(Number(activeFilter.value.value) || 31))
 
   const historyData = computed(() => statisticStore.historyMap.get(`${marketAddress.value}-${poolAddress.value}-${selectedBucket.value}`) ?? [])
+  const pairHistoryData = computed(() => {
+    if (!pairPoolAddress.value) {
+      return []
+    }
+
+    return statisticStore.historyMap.get(`${marketAddress.value}-${pairPoolAddress.value}-${selectedBucket.value}`) ?? []
+  })
 
   const currentHistoryData = computed(() => historyData.value.at(-1))
   const currentChartTypeData = computed(() => currentHistoryData.value?.[params.chartType] ?? 0)
@@ -137,41 +150,26 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const chartPoints = computed(() => {
     const filterVal = Number(activeFilter.value.value)
     const length = filterVal > 1 ? filterVal : historyData.value.length
-    return [...historyData.value]?.slice(0, length)?.map((d) => {
-      const rawVal = Number(d[params.chartType])
-      let value: number
-      switch (params.chartType) {
-        case 'total_supplied':
-        case 'total_borrowed': {
-          const price = Number(d.oracle_price_usd ?? 0)
-          const num = bigintToNumber(BigInt(rawVal), decimals.value) || 0
-          value = currency.value === 'USD' ? Number(num) * price : Number(num)
-          break
-        }
-        case 'supply_apy_bps':
-        case 'borrow_apy_bps':
-          value = rawVal / 100
-          break
-        case 'tvl_usd_cents':
-          value = rawVal / 100
-          break
-        case 'utilization_bps':
-          value = bpsToNumber(rawVal)
-          break
-        default:
-          value = rawVal
-      }
-      return {
-        label: activeFilter.value.value === 1 ? chartDateHM(String(d.start_time)) : normalizeChartDate(String(d.start_time), false),
-        date: String(d.start_time),
-        value,
-      }
-    })
+    return buildChartPoints(historyData.value, length, params.chartType, decimals.value, currency.value, filterVal)
+  })
+
+  const pairChartPoints = computed(() => {
+    const filterVal = Number(activeFilter.value.value)
+    const length = filterVal > 1 ? filterVal : pairHistoryData.value.length
+    return buildChartPoints(pairHistoryData.value, length, params.chartType, pairDecimals.value, currency.value, filterVal)
   })
 
   watch(activeFilter, async (f) => {
     const bucket = bucketByFilterValue(Number(f.value))
+    if (!statisticStore.marketAddress || !statisticStore.poolAddress) {
+      return
+    }
+
     await statisticStore.getPoolHistoryData(statisticStore.marketAddress, statisticStore.poolAddress, bucket)
+
+    if (statisticStore.pairPoolAddress) {
+      await statisticStore.getPoolHistoryData(statisticStore.marketAddress, statisticStore.pairPoolAddress, bucket)
+    }
   })
 
   return {
@@ -181,6 +179,10 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
     chartFilter,
     historyData,
     chartPoints,
+    symbol,
+    pairChartPoints,
+    pairSymbol,
+    hasPairPool,
 
     currencyOptions,
     currency,
@@ -199,4 +201,54 @@ function bucketByFilterValue(val: number): PoolHistoryBucket {
     case 360: return '1d'
     default: return '1d'
   }
+}
+
+function buildChartPoints(
+  history: ApiHistoryData[],
+  length: number,
+  chartType: keyof ApiHistoryData,
+  decimals: number,
+  currency: string,
+  filterValue: number,
+) {
+  return [...history].slice(0, length).map((d) => {
+    const rawVal = Number(d[chartType])
+    let value: number
+
+    switch (chartType) {
+      case 'total_supplied':
+      case 'total_borrowed': {
+        const price = Number(d.oracle_price_usd ?? 0)
+        const num = bigintToNumber(BigInt(rawVal), decimals) || 0
+        value = currency === 'USD' ? Number(num) * price : Number(num)
+        break
+      }
+      case 'supply_apy_bps':
+      case 'borrow_apy_bps':
+        value = rawVal / 100
+        break
+      case 'tvl_usd_cents':
+        value = rawVal / 100
+        break
+      case 'utilization_bps':
+        value = bpsToNumber(rawVal)
+        break
+      default:
+        value = rawVal
+    }
+
+    return {
+      label: filterValue === 1 ? chartDateHM(String(d.start_time)) : normalizeChartDate(String(d.start_time), false),
+      date: String(d.start_time),
+      value,
+    }
+  })
+}
+
+function formatAssetSymbol(symbol?: string) {
+  if (!symbol) {
+    return ''
+  }
+
+  return symbol === 'native' ? 'XLM' : symbol
 }

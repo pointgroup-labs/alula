@@ -101,8 +101,6 @@ watch(dialog, async (isOpen) => {
 onUnmounted(() => {
   cleanUp()
 })
-
-console.log(filteredOptions.value)
 </script>
 
 <template>

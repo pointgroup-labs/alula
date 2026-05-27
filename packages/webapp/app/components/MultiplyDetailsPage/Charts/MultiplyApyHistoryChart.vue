@@ -3,7 +3,6 @@ import type { ECharts, EChartsOption } from 'echarts'
 import type { ApiHistoryData } from '~/services'
 import { bpsToNumber } from '@alula/client-sdk'
 import * as echarts from 'echarts'
-import { fetchPoolHistory } from '~/services'
 import { normalizeChartDate } from '~/utils/chart'
 import { calcMultiplyObligationNetApy, getApyRangeForMultiplier } from '~/utils/multiply'
 
@@ -13,6 +12,7 @@ const MAX_APY_COLOR = '#f59e0b'
 const MULTIPLIER_COLOR = '#47cd89'
 
 const route = useRoute()
+const statisticsStore = useMarketStatisticsStore()
 
 const multiplyStore = useMultiplyStore()
 const selectedVault = computed(() => multiplyStore.selectedVault)
@@ -25,8 +25,34 @@ const hasPosition = computed(() => !!position.value)
 const chartFilter = useChartFilter()
 const activeFilter = toRef(chartFilter, 'activeFilter')
 
-const supplyHistory = ref<ApiHistoryData[]>([])
-const borrowHistory = ref<ApiHistoryData[]>([])
+const marketAddress = computed(() => route.params.market as string)
+const pairAddresses = computed(() => {
+  const pair = route.params.pair as string | undefined
+  const [supplyPoolAddress, borrowPoolAddress] = pair?.split(':') ?? []
+
+  return {
+    supplyPoolAddress: supplyPoolAddress ?? '',
+    borrowPoolAddress: borrowPoolAddress ?? '',
+  }
+})
+
+const supplyHistory = computed<ApiHistoryData[]>(() => {
+  const { supplyPoolAddress } = pairAddresses.value
+  if (!marketAddress.value || !supplyPoolAddress) {
+    return []
+  }
+
+  return statisticsStore.historyMap.get(`${marketAddress.value}-${supplyPoolAddress}-1d`) ?? []
+})
+
+const borrowHistory = computed<ApiHistoryData[]>(() => {
+  const { borrowPoolAddress } = pairAddresses.value
+  if (!marketAddress.value || !borrowPoolAddress) {
+    return []
+  }
+
+  return statisticsStore.historyMap.get(`${marketAddress.value}-${borrowPoolAddress}-1d`) ?? []
+})
 
 const supplyData = computed(() => supplyHistory.value.slice(0, Number(activeFilter.value.value)))
 const borrowData = computed(() => borrowHistory.value.slice(0, Number(activeFilter.value.value)))
@@ -158,8 +184,9 @@ const option = computed<EChartsOption>(() => {
   return {
     backgroundColor: 'transparent',
     animation: true,
+    animationDelay: 0,
     animationDuration: 500,
-    animationDurationUpdate: 400,
+    animationDurationUpdate: 500,
     animationEasingUpdate: 'cubicOut',
 
     grid: {
@@ -318,8 +345,16 @@ function render() {
   chart.setOption(option.value, { notMerge: false, replaceMerge: ['series'], lazyUpdate: true })
 }
 
-watch(option, () => {
-  render()
+const debounceRender = useDebounceFn(render, 500)
+
+watch(option, (next, prev) => {
+  console.log('next', next)
+  console.log('prev', prev)
+  if (JSON.stringify(next) === JSON.stringify(prev)) {
+    return
+  }
+
+  debounceRender()
 })
 
 onBeforeUnmount(() => {
@@ -345,32 +380,15 @@ onMounted(async () => {
   window.addEventListener('resize', () => chart?.resize())
 })
 
-watch(route, async (r) => {
-  const market = r.params.market as string
-  const pair = r.params.pair as string
-  if (!market || !pair) {
+watch(pairAddresses, async ({ supplyPoolAddress, borrowPoolAddress }) => {
+  if (!marketAddress.value || !supplyPoolAddress || !borrowPoolAddress) {
     return
   }
-  const [supplyPoolAdderss, borrowPoolAddress] = pair.split(':')
-  if (!supplyPoolAdderss || !borrowPoolAddress) {
-    return
-  }
-  const promises = [
-    () => fetchPoolHistory(market, supplyPoolAdderss, '1d'),
-    () => fetchPoolHistory(market, borrowPoolAddress, '1d'),
-  ]
-  const [supplyData, borrowData] = await Promise.all(promises.map(p => p()))
-  console.group('%c[Leverage Pool History]', 'color: #1dc978; font-weight: bold;')
 
-  console.log('%cSupply APY:', 'color: #4fc3f7', supplyData)
-  console.log('%cBorrow APY:', 'color: #ffb74d', borrowData)
-
-  console.groupEnd()
-  if (!supplyData || !borrowData) {
-    return
-  }
-  supplyHistory.value = supplyData
-  borrowHistory.value = borrowData
+  await Promise.all([
+    statisticsStore.getPoolHistoryData(marketAddress.value, supplyPoolAddress, '1d'),
+    statisticsStore.getPoolHistoryData(marketAddress.value, borrowPoolAddress, '1d'),
+  ])
 }, { immediate: true })
 </script>
 
