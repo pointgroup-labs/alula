@@ -348,8 +348,6 @@ function render() {
 const debounceRender = useDebounceFn(render, 500)
 
 watch(option, (next, prev) => {
-  console.log('next', next)
-  console.log('prev', prev)
   if (JSON.stringify(next) === JSON.stringify(prev)) {
     return
   }
