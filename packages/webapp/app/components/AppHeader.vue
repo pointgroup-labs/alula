@@ -2,6 +2,7 @@
 import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
 import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
+import statisticsTabIcon from '~/assets/img/icons/statistics-icon.svg?raw'
 import { useFeatureToggle } from '~/features/features-toggle'
 
 const { width } = useWindowSize()
@@ -21,6 +22,12 @@ const tabs = computed(() => {
     route: '/portfolio',
     icon: accountTabIcon,
     shortLabel: 'Portfolio',
+  },
+  {
+    label: 'Statistics',
+    route: '/statistics',
+    icon: statisticsTabIcon,
+    shortLabel: 'Statistics',
   }]
 
   if (isEnabled('multiply')) {
