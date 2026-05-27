@@ -10,8 +10,6 @@ const userStore = useUserStore()
 
 const isObligationsLoading = computed(() => userStore.loading)
 
-const isMarkets = defineModel('isMarkets', { default: true })
-
 const router = useRouter()
 
 const marketTableStore = useMarketTableStore()
@@ -84,23 +82,43 @@ function rowClass(item: any): any {
   return ''
 }
 
+const isNoMarketsData = computed(() => filteredMarkets.value.every(m => m?.tableItems?.length === 0))
+
+const isInitialized = ref(false)
+watch(loading, (val) => {
+  if (!val) { isInitialized.value = true }
+})
+
 watch([
   filteredMarkets,
   search,
 ], ([markets, s]) => {
-  isMarkets.value = markets.length > 0
-  if ((markets.length > 0 && opened.value.length === 0) || s) {
+  if (markets.length === 0) {
+    return
+  }
+
+  const allCollapsed = opened.value.length === 0
+
+  if (allCollapsed && s) {
     for (const market of markets) {
       if (!isOpened(market.marketName)) {
         toggleOpen(market.marketName)
       }
+    }
+    return
+  }
+
+  if (allCollapsed) {
+    const mainMarket = markets.find(m => m.marketName === 'main') ?? markets[0]
+    if (mainMarket) {
+      toggleOpen(mainMarket.marketName)
     }
   }
 }, { immediate: true })
 </script>
 
 <template>
-  <div v-if="marketWithTableItems.length === 0 && loading">
+  <div v-if="marketWithTableItems.length === 0 && (loading || !isInitialized)">
     <market-table-skeleton v-if="width > 1024" />
     <market-table-skeleton-mobile v-else />
   </div>
@@ -137,6 +155,8 @@ watch([
               <span data-name="title">Assets: </span>
               <span>{{ market.assets.length }}</span>
             </market-info-badge>
+
+            <statistics-route-btn :market-name="market.marketName" />
           </div>
         </template>
 
@@ -326,13 +346,19 @@ watch([
       </j-accordion>
     </template>
 
+    <div
+      v-if="isNoMarketsData"
+      class="no-markets-found"
+    >
+      No Markets found
+    </div>
   </div>
 
   <div
     v-else
     class="no-markets-found"
   >
-    No markets
+    No Markets found
   </div>
 
   <client-only>
@@ -357,14 +383,16 @@ watch([
 </template>
 
 <style lang="scss">
-.market-table {
-  .position {
-    .position-spinner {
-      position: relative !important;
-      background-color: transparent !important;
-      align-items: flex-end;
-      .spinner-border {
-        color: $text-tertiary !important;
+.table-wrapper {
+  .market-table {
+    .position {
+      .position-spinner {
+        position: relative !important;
+        background-color: transparent !important;
+        align-items: flex-end;
+        .spinner-border {
+          color: $text-tertiary !important;
+        }
       }
     }
   }

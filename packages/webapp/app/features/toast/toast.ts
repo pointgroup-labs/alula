@@ -3,6 +3,7 @@ import { useToastController } from 'bootstrap-vue-next'
 
 import AlertToast from '~/features/toast/components/AlertToast.vue'
 import DefaultToast from '~/features/toast/components/DefaultToast.vue'
+import { parseErrorMessage } from './utils'
 import './assets/styles/toast.scss'
 
 export type ToastAction = {
@@ -97,5 +98,6 @@ export function useToast() {
 
   return {
     create,
+    parseErrorMessage,
   }
 }

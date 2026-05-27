@@ -3,6 +3,7 @@ import type { MultiplyPositionItem, MultiplyVaultItem } from '~/types/table'
 import { AQUA_PROVIDER_ADDRESS, bpsToNumber, calculateMultiplyMaxLeverage, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { calculateCurrentMultiplier } from '~/utils'
+import { calcMultiplyObligationNetApy, getApyRangeForMultiplier } from '~/utils/multiply'
 import { buildMultiplyPairKey } from '~/utils/obligation'
 
 export const useMultiplyStore = defineStore('multiply', () => {
@@ -52,9 +53,14 @@ export const useMultiplyStore = defineStore('multiply', () => {
             continue
           }
 
-          const supplyBps = bpsToNumber(Number(depositPoolData.apy.supply_bps || 0))
-          const borrowBps = bpsToNumber(Number(borrowPoolData.apy.borrow_bps || 0))
-          const apyAtMaxMultiplier = (supplyBps * maxMultiplier - borrowBps * Math.max(maxMultiplier - 1, 0)) * 100
+          const supplyApy = bpsToNumber(Number(depositPoolData.apy.supply_bps || 0)) * 100
+          const borrowApy = bpsToNumber(Number(borrowPoolData.apy.borrow_bps || 0)) * 100
+          const { maxApy } = getApyRangeForMultiplier({
+            supplyApy,
+            borrowApy,
+            maxMultiplier,
+          })
+          const apyAtMaxMultiplier = maxApy
 
           items.push({
             pairKey: buildMultiplyPairKey(depositPoolData.pool.pool_address, borrowPoolData.pool.pool_address),

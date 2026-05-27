@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { Pool } from '@alula/market-sdk'
+import { getApyRangeForMultiplier } from '~/utils/multiply'
 
 const { width } = useWindowSize()
 
@@ -17,11 +18,15 @@ const borrowAsset = computed(() => selectedVault.value?.borrowAsset)
 const price = computed(() => selectedVault.value?.price ?? 0)
 
 const maxMultiplier = computed(() => selectedVault.value?.maxMultiplier ?? 0)
+
 const maxApy = computed(() => {
   const depositApy = (selectedVault.value?.depositPoolData.apy.supply_bps ?? 0) / 100
   const borrowApy = (selectedVault.value?.borrowPoolData.apy.borrow_bps ?? 0) / 100
-  const maxApy = depositApy * maxMultiplier.value - borrowApy * (maxMultiplier.value - 1)
-  return maxApy || 0
+  return getApyRangeForMultiplier({
+    supplyApy: depositApy,
+    borrowApy,
+    maxMultiplier: maxMultiplier.value,
+  }).maxApy || 0
 })
 
 const myApyClass = computed(() => {
