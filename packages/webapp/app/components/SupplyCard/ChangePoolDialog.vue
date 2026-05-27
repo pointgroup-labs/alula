@@ -21,6 +21,8 @@ const search = ref()
 const marketsStore = useMarketsStore()
 const { nativeBalance, getAssetBalance } = useWalletComposable()
 
+const selectedPoolAddress = computed(() => marketsStore.selectedPoolAddress)
+
 const options = computed(() => {
   return marketsStore.selectedMarketPools
     ?.filter(p => !filteredPositions.includes(p.pool.pool_address))
@@ -99,6 +101,8 @@ watch(dialog, async (isOpen) => {
 onUnmounted(() => {
   cleanUp()
 })
+
+console.log(filteredOptions.value)
 </script>
 
 <template>
@@ -106,6 +110,7 @@ onUnmounted(() => {
     v-model="dialog"
     v-model:search="search"
     search-placeholder="Search token in current market"
+    class="change-pool-dialog"
   >
     <div
       v-if="filteredOptions.length > 0"
@@ -136,6 +141,13 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <div
+          v-if="selectedPoolAddress === option.value"
+          class="selected-badge"
+        >
+          Selected
+        </div>
+
         <div class="balance-data">
           <div class="label">My Balance</div>
           <div class="value">${{ formatPrice(option.balance, 2, 2) }}</div>
@@ -153,7 +165,7 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss">
-.select-entity-dialog {
+.change-pool-dialog {
   .pool-list {
     display: flex;
     flex-direction: column;
@@ -243,6 +255,17 @@ onUnmounted(() => {
         }
       }
     }
+  }
+
+  .selected-badge {
+    font-size: 10px;
+    line-height: 1;
+    color: #111;
+    padding: 4px 6px;
+    border-radius: 999px;
+    background-color: $cyan;
+    margin-bottom: auto;
+    margin-left: -2px;
   }
 }
 </style>

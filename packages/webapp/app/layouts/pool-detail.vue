@@ -11,6 +11,6 @@ import { TermsWindow } from '~/features/terms'
   </main>
   <app-footer />
   <client-only>
-    <TermsWindow />
+    <terms-window />
   </client-only>
 </template>

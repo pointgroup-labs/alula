@@ -35,7 +35,6 @@ const marketsInfo = computed(() => {
           :href="GUIDE_LINK"
           target="_blank"
           rel="noopener noreferrer nofollow"
-          class="text-positive "
         >How it works</a>
       </div>
     </div>
