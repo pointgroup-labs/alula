@@ -77,6 +77,7 @@ const backRoutePath = computed(() => {
     min-height: 52px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 16px;
 
     @media (max-width: $breakpoint-xs) {
