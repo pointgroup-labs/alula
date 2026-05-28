@@ -28,6 +28,7 @@ declare module 'vue' {
     ClearFiltersBtn: typeof import('./../components/Filters/ClearFiltersBtn.vue')['default']
     CollapseAllBtn: typeof import('./../components/Filters/CollapseAllBtn.vue')['default']
     CollateralAssetsFilter: typeof import('./../components/Filters/CollateralAssetsFilter.vue')['default']
+    CompareAssetSelect: typeof import('./../components/StatisticPage/CompareAssetSelect.vue')['default']
     ConnectWallet: typeof import('./../components/ConnectWallet.vue')['default']
     CopyToClipboard: typeof import('./../components/CopyToClipboard.vue')['default']
     CustomMixedChart: typeof import('./../components/CustomMixedChart.vue')['default']

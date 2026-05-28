@@ -1,5 +1,4 @@
 import type { ApiHistoryData, PoolHistoryBucket } from '~/services'
-import { bpsToNumber } from '@alula/client-sdk'
 import { chartDateHM, normalizeChartDate } from '~/utils/chart'
 
 const STATISTICS_DATE = [
@@ -134,7 +133,7 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
       }
 
       case 'utilization_bps': {
-        const utilization = bpsToNumber(Number(chartData))
+        const utilization = Number(chartData) / 100
         return {
           raw: utilization,
           formatted: `${truncatePercent(utilization, 2)}%`,
@@ -240,7 +239,7 @@ function buildChartPoints(
         value = rawVal / 100
         break
       case 'utilization_bps':
-        value = bpsToNumber(rawVal)
+        value = rawVal / 100
         break
       default:
         value = rawVal

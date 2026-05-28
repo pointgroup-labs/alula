@@ -13,7 +13,8 @@ const assetData = computed(() => pool.value?.symbol ? getFullTokenData(pool.valu
 const pairAssetData = computed(() => pairPool.value?.symbol ? getFullTokenData(pairPool.value.symbol) : undefined)
 
 const backRoutePath = computed(() => {
-  const path = globalThis.history.state.back ?? `/statistics/${route.params.market}`
+  const backPath = globalThis.history.state.back?.includes('statistics') ? undefined : globalThis.history.state.back
+  const path = backPath ?? `/statistics/${route.params.market}`
   return path
 })
 </script>
@@ -53,6 +54,8 @@ const backRoutePath = computed(() => {
           </span>
         </div>
       </div>
+
+      <compare-asset-select />
     </div>
     <div class="asset-statistic-wrapper">
       <pool-statistics-card
