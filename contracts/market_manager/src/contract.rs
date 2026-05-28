@@ -61,7 +61,7 @@ pub trait MarketManager {
     fn get_admin(e: Env) -> Address;
 
     /// Returns `true` iff `market_address` was deployed via this manager's
-    /// [`deploy`] entrypoint
+    /// `deploy` entrypoint
     fn is_deployed_by_manager(e: Env, market_address: Address) -> bool;
 
     /// Returns a queued in market contract upgrade info for a
@@ -75,7 +75,7 @@ pub trait MarketManager {
     ///
     /// # Arguments
     /// * `market_address` - address of a market previously deployed by
-    ///   this manager. Must satisfy [`is_deployed_by_manager`].
+    ///   this manager. Must satisfy `is_deployed_by_manager`.
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the
     ///   network, that will be used as the new version of the target
     ///   market contract instance.
