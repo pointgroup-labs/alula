@@ -1,7 +1,7 @@
 use soroban_sdk::{Address, BytesN, Env, contracttype};
 
 use crate::{
-    constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD},
+    constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD, PERSISTENT_BUMP, PERSISTENT_THRESHOLD},
     error::MMCError,
 };
 
@@ -31,16 +31,26 @@ pub fn get_admin(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Admin).expect("Admin must exist")
 }
 
-// -- QueuedInMarketUpgrade --
+// -- QueuedInMarketUpgrade (persistent, per-market) --
 
 pub fn get_queued_in_market_upgrade(e: &Env, market_address: &Address) -> Option<QueuedInUpgrade> {
-    e.storage().instance().get(&DataKey::QueuedInMarketUpgrade(market_address.clone()))
+    let key = DataKey::QueuedInMarketUpgrade(market_address.clone());
+
+    let upgrade: Option<QueuedInUpgrade> = e.storage().persistent().get(&key);
+    if upgrade.is_some() {
+        extend_persistent(e, &key);
+    }
+
+    upgrade
 }
 pub fn set_queued_in_market_upgrade(e: &Env, market_address: &Address, upgrade: &QueuedInUpgrade) {
-    e.storage().instance().set(&DataKey::QueuedInMarketUpgrade(market_address.clone()), upgrade)
+    let key = DataKey::QueuedInMarketUpgrade(market_address.clone());
+    
+    e.storage().persistent().set(&key, upgrade);
+    extend_persistent(e, &key);
 }
 pub fn remove_queued_in_market_upgrade(e: &Env, market_address: &Address) {
-    e.storage().instance().remove(&DataKey::QueuedInMarketUpgrade(market_address.clone()));
+    e.storage().persistent().remove(&DataKey::QueuedInMarketUpgrade(market_address.clone()));
 }
 
 // -- QueuedInManagerUpgrade --
@@ -73,27 +83,46 @@ pub fn register_market(
     upgrade_in_queue_period: u64,
 ) -> Result<(), MMCError> {
     let key = DataKey::DeployedMarket(market_address.clone());
-    if e.storage().instance().has(&key) {
+    if e.storage().persistent().has(&key) {
         return Err(MMCError::MarketAlreadyExists);
     }
 
-    e.storage().instance().set(&key, &upgrade_in_queue_period);
+    e.storage().persistent().set(&key, &upgrade_in_queue_period);
+    extend_persistent(e, &key);
 
     Ok(())
 }
 
 pub fn is_market_deployed(e: &Env, market_address: &Address) -> bool {
-    e.storage().instance().has(&DataKey::DeployedMarket(market_address.clone()))
+    let key = DataKey::DeployedMarket(market_address.clone());
+
+    let exists = e.storage().persistent().has(&key);
+    if exists {
+        extend_persistent(e, &key);
+    }
+
+    exists
 }
 
 pub fn get_market_upgrade_in_queue_period(e: &Env, market_address: &Address) -> u64 {
-    e.storage()
-        .instance()
-        .get(&DataKey::DeployedMarket(market_address.clone()))
-        .expect("UpgradeInQueuePeriod must exist")
+    let key = DataKey::DeployedMarket(market_address.clone());
+
+    let period = e
+        .storage()
+        .persistent()
+        .get(&key)
+        .expect("UpgradeInQueuePeriod must exist");
+    extend_persistent(e, &key);
+
+    period
 }
 
 /// Instance storage bumper
 pub fn extend_instance(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+}
+
+/// Persistent per-market storage bumper
+pub fn extend_persistent(e: &Env, key: &DataKey) {
+    e.storage().persistent().extend_ttl(key, PERSISTENT_THRESHOLD, PERSISTENT_BUMP);
 }

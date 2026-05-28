@@ -4,7 +4,7 @@ use soroban_sdk::{
 };
 
 use crate::{
-    constants::MANAGER_UPGRADE_IN_QUEUE_SECONDS,
+    constants::{MANAGER_UPGRADE_IN_QUEUE_SECONDS, MIN_MARKET_UPGRADE_IN_QUEUE_SECONDS},
     error::MMCError,
     storage::{self, QueuedInUpgrade, extend_instance},
 };
@@ -137,6 +137,10 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance(&e);
         require_admin(&e);
+
+        if upgrade_in_queue_period < MIN_MARKET_UPGRADE_IN_QUEUE_SECONDS {
+            return Err(MMCError::BadUpgradeInQueuePeriod);
+        }
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_wasm_hash,

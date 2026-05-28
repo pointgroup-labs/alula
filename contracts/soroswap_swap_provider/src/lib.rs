@@ -71,7 +71,7 @@ impl ProxySwap for SoroSwapProviderContract {
             panic_with_error!(&e, SSPError::OverOrUnderflow);
         });
 
-        if received <= min_amount_out {
+        if received < min_amount_out {
             panic_with_error!(&e, SSPError::InvalidSwapResult);
         }
 
@@ -107,7 +107,7 @@ impl ProxySwap for SoroSwapProviderContract {
             panic_with_error!(&e, SSPError::OverOrUnderflow);
         });
 
-        if spent <= 0 {
+        if spent > max_amount_in {
             panic_with_error!(&e, SSPError::InvalidSwapResult);
         }
 
