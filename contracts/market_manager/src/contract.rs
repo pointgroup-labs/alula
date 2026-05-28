@@ -150,7 +150,7 @@ impl MarketManager for MarketManagerContract {
 
     fn get_admin(e: Env) -> Address {
         extend_instance(&e);
-        
+
         storage::get_admin(&e)
     }
 

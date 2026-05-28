@@ -562,7 +562,7 @@ impl Market for MarketContract {
         pool_config.validate(current_pool_config)?;
 
         storage::queue_in_pool_set(&e, &pool_address, &pool_config)?;
- 
+
         events::queue_in_pool_set(&e, pool_address, pool_config);
 
         Ok(())

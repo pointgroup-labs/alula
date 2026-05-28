@@ -199,7 +199,8 @@ fn get_last_price(
     let age = current_timestamp.saturating_sub(price_data.timestamp);
 
     let max_allowed_age = if oracle_config.is_price_update_periodic {
-        oracle_resolution.min(periodic_oracles_price_max_age)
+        // NB: +10s grace window so a slightly-late periodic update doesn't get rejected.
+        (oracle_resolution + 10).min(periodic_oracles_price_max_age)
     } else {
         oracle_resolution
     };
