@@ -1,6 +1,8 @@
-pub const MIN_RESOLUTION: u32 = 1;
 pub const REDSTONE_DECIMALS: u32 = 8;
 pub const REDSTONE_TS_PER_SEC: u64 = 1_000;
+
+pub const MIN_RESOLUTION: u32 = 60; // 60 seconds
+pub const MAX_RESOLUTION: u32 = 25 * 60 * 60; // 25 hours
 
 // -- TTL extension --
 

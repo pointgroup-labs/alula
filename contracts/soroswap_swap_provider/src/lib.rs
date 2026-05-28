@@ -22,7 +22,7 @@ const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 pub enum SSPError {
     OverOrUnderflow = 1,
     InvalidPath = 2,
-    ZeroSwapResult = 3,
+    InvalidSwapResult = 3,
 }
 
 #[contracttype]
@@ -71,8 +71,8 @@ impl ProxySwap for SoroSwapProviderContract {
             panic_with_error!(&e, SSPError::OverOrUnderflow);
         });
 
-        if received <= 0 {
-            panic_with_error!(&e, SSPError::ZeroSwapResult);
+        if received <= min_amount_out {
+            panic_with_error!(&e, SSPError::InvalidSwapResult);
         }
 
         received
@@ -108,7 +108,7 @@ impl ProxySwap for SoroSwapProviderContract {
         });
 
         if spent <= 0 {
-            panic_with_error!(&e, SSPError::ZeroSwapResult);
+            panic_with_error!(&e, SSPError::InvalidSwapResult);
         }
 
         spent

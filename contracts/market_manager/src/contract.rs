@@ -1,12 +1,12 @@
 #![allow(clippy::too_many_arguments)]
 use soroban_sdk::{
-    Address, BytesN, Env, Map, String, contract, contractclient, contractimpl, contracttype,
+    Address, BytesN, Env, String, contract, contractclient, contractimpl, contracttype,
 };
 
 use crate::{
-    constants::UPGRADE_IN_QUEUE_SECONDS,
+    constants::MANAGER_UPGRADE_IN_QUEUE_SECONDS,
     error::MMCError,
-    storage::{self, Config, QueuedInUpgrade, extend_instance},
+    storage::{self, QueuedInUpgrade, extend_instance},
 };
 
 mod market {
@@ -36,43 +36,54 @@ pub trait MarketManager {
     ///
     /// # Arguments
     /// * `salt` - salt bytes that are used to derive a deterministic market address
+    /// * `market_wasm_hash` - hash of a previously-uploaded market WASM
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
     /// * `oracle` - address of SEP-40—compliant oracle contract
     /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     /// * `params` - market initialization parameters
+    /// * `upgrade_in_queue_period` - upgrade timelock in
+    ///   seconds
     #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
+        market_wasm_hash: BytesN<32>,
         admin: Address,
         name: String,
         oracle: Address,
         insurance_fund: Address,
         params: MarketInitParams,
+        upgrade_in_queue_period: u64,
     ) -> Result<Address, MMCError>;
 
-    /// Returns a set of all lending markets deployed by the manager
-    fn get_markets(e: Env) -> Map<Address, ()>;
+    /// Returns contract's admin account address
+    fn get_admin(e: Env) -> Address;
 
-    /// Returns contract's [`Config`]
-    fn get_config(e: Env) -> Config;
+    /// Returns `true` iff `market_address` was deployed via this manager's
+    /// [`deploy`] entrypoint
+    fn is_deployed_by_manager(e: Env, market_address: Address) -> bool;
 
-    /// Returns the current active market WASM hash used for deployments and upgrades
-    fn get_market_wasm_hash(e: Env) -> BytesN<32>;
-
-    /// Returns a queued in market contract upgrade info if such exists
-    fn get_queued_in_market_upgrade(e: Env) -> Option<QueuedInUpgrade>;
+    /// Returns a queued in market contract upgrade info for a
+    /// deployed market, if such exists
+    fn get_queued_in_market_upgrade(e: Env, market_address: Address) -> Option<QueuedInUpgrade>;
 
     /// Returns a queued in manager contract upgrade info if such exists
     fn get_queued_in_manager_upgrade(e: Env) -> Option<QueuedInUpgrade>;
 
-    /// Queues in market upgrade
+    /// Queues in an upgrade for a deployed market.
     ///
     /// # Arguments
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network, that will be used as a
-    ///   version of the deployed market contract instances
-    fn queue_in_market_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MMCError>;
+    /// * `market_address` - address of a market previously deployed by
+    ///   this manager. Must satisfy [`is_deployed_by_manager`].
+    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the
+    ///   network, that will be used as the new version of the target
+    ///   market contract instance.
+    fn queue_in_market_upgrade(
+        e: Env,
+        market_address: Address,
+        new_wasm_hash: BytesN<32>,
+    ) -> Result<(), MMCError>;
 
     /// Queues in manager upgrade
     ///
@@ -81,14 +92,14 @@ pub trait MarketManager {
     ///   version of the depl contract instances
     fn queue_in_manager_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MMCError>;
 
-    /// Cancels a market upgrade if such exists in a queue
-    fn cancel_market_upgrade(e: Env) -> Result<(), MMCError>;
+    /// Cancels the upgrade queued for a single market, if one exists.
+    fn cancel_market_upgrade(e: Env, market_address: Address) -> Result<(), MMCError>;
 
     /// Cancels a manager upgrade if such exists in a queue
     fn cancel_manager_upgrade(e: Env) -> Result<(), MMCError>;
 
     /// Applies a queued in market upgrade
-    fn apply_market_upgrade(e: Env) -> Result<(), MMCError>;
+    fn apply_market_upgrade(e: Env, market_address: Address) -> Result<(), MMCError>;
 
     /// Applies a queued in manager upgrade
     fn apply_manager_upgrade(e: Env) -> Result<(), MMCError>;
@@ -116,49 +127,43 @@ impl MarketManager for MarketManagerContract {
     fn deploy(
         e: Env,
         salt: BytesN<32>,
+        market_wasm_hash: BytesN<32>,
         market_admin: Address,
         name: String,
         oracle: Address,
         insurance_fund: Address,
         params: MarketInitParams,
+        upgrade_in_queue_period: u64,
     ) -> Result<Address, MMCError> {
         extend_instance(&e);
-
-        let Config { admin, market_wasm_hash } = storage::get_config(&e);
-        admin.require_auth();
+        require_admin(&e);
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_wasm_hash,
             (name, market_admin, oracle, insurance_fund, e.current_contract_address(), params),
         );
 
-        storage::register_market(&e, &market_address)?;
+        storage::register_market(&e, &market_address, upgrade_in_queue_period)?;
 
         Ok(market_address)
     }
 
-    fn get_markets(e: Env) -> Map<Address, ()> {
+    fn get_admin(e: Env) -> Address {
         extend_instance(&e);
-
-        storage::get_markets(&e).unwrap_or(Map::new(&e))
+        
+        storage::get_admin(&e)
     }
 
-    fn get_config(e: Env) -> Config {
+    fn is_deployed_by_manager(e: Env, market_address: Address) -> bool {
         extend_instance(&e);
 
-        storage::get_config(&e)
+        storage::is_market_deployed(&e, &market_address)
     }
 
-    fn get_market_wasm_hash(e: Env) -> BytesN<32> {
+    fn get_queued_in_market_upgrade(e: Env, market_address: Address) -> Option<QueuedInUpgrade> {
         extend_instance(&e);
 
-        storage::get_market_wasm_hash(&e)
-    }
-
-    fn get_queued_in_market_upgrade(e: Env) -> Option<QueuedInUpgrade> {
-        extend_instance(&e);
-
-        storage::get_queued_in_market_upgrade(&e)
+        storage::get_queued_in_market_upgrade(&e, &market_address)
     }
 
     fn get_queued_in_manager_upgrade(e: Env) -> Option<QueuedInUpgrade> {
@@ -167,11 +172,16 @@ impl MarketManager for MarketManagerContract {
         storage::get_queued_in_manager_upgrade(&e)
     }
 
-    fn queue_in_market_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MMCError> {
+    fn queue_in_market_upgrade(
+        e: Env,
+        market_address: Address,
+        new_wasm_hash: BytesN<32>,
+    ) -> Result<(), MMCError> {
         extend_instance(&e);
         require_admin(&e);
+        require_deployed_market(&e, &market_address)?;
 
-        if storage::get_queued_in_market_upgrade(&e).is_some() {
+        if storage::get_queued_in_market_upgrade(&e, &market_address).is_some() {
             return Err(MMCError::UpgradeAlreadyExists);
         }
 
@@ -179,7 +189,7 @@ impl MarketManager for MarketManagerContract {
             wasm_hash: new_wasm_hash,
             queued_in_timestamp: e.ledger().timestamp(),
         };
-        storage::set_queued_in_market_upgrade(&e, &upgrade);
+        storage::set_queued_in_market_upgrade(&e, &market_address, &upgrade);
 
         Ok(())
     }
@@ -201,15 +211,15 @@ impl MarketManager for MarketManagerContract {
         Ok(())
     }
 
-    fn cancel_market_upgrade(e: Env) -> Result<(), MMCError> {
+    fn cancel_market_upgrade(e: Env, market_address: Address) -> Result<(), MMCError> {
         extend_instance(&e);
         require_admin(&e);
 
-        if storage::get_queued_in_market_upgrade(&e).is_none() {
+        if storage::get_queued_in_market_upgrade(&e, &market_address).is_none() {
             return Err(MMCError::UpgradeDoesNotExist);
         }
 
-        storage::remove_queued_in_market_upgrade(&e);
+        storage::remove_queued_in_market_upgrade(&e, &market_address);
 
         Ok(())
     }
@@ -227,32 +237,29 @@ impl MarketManager for MarketManagerContract {
         Ok(())
     }
 
-    fn apply_market_upgrade(e: Env) -> Result<(), MMCError> {
+    fn apply_market_upgrade(e: Env, market_address: Address) -> Result<(), MMCError> {
         extend_instance(&e);
 
         let Some(QueuedInUpgrade { wasm_hash, queued_in_timestamp }) =
-            storage::get_queued_in_market_upgrade(&e)
+            storage::get_queued_in_market_upgrade(&e, &market_address)
         else {
             return Err(MMCError::UpgradeDoesNotExist);
         };
+        let upgrade_in_queue_period =
+            storage::get_market_upgrade_in_queue_period(&e, &market_address);
 
         if queued_in_timestamp
-            .checked_add(UPGRADE_IN_QUEUE_SECONDS)
+            .checked_add(upgrade_in_queue_period)
             .ok_or(MMCError::OverOrUnderflow)?
             > e.ledger().timestamp()
         {
             return Err(MMCError::UpgradeIsNotYetApplicable);
         }
 
-        if let Some(deployed_markets) = storage::get_markets(&e) {
-            for market_address in deployed_markets.keys() {
-                let market_client = market::Client::new(&e, &market_address);
-                market_client.upgrade(&wasm_hash);
-            }
-        }
+        let market_client = market::Client::new(&e, &market_address);
+        market_client.upgrade(&wasm_hash);
 
-        storage::set_market_wasm_hash(&e, &wasm_hash);
-        storage::remove_queued_in_market_upgrade(&e);
+        storage::remove_queued_in_market_upgrade(&e, &market_address);
 
         Ok(())
     }
@@ -267,7 +274,7 @@ impl MarketManager for MarketManagerContract {
         };
 
         if queued_in_timestamp
-            .checked_add(UPGRADE_IN_QUEUE_SECONDS)
+            .checked_add(MANAGER_UPGRADE_IN_QUEUE_SECONDS)
             .ok_or(MMCError::OverOrUnderflow)?
             > e.ledger().timestamp()
         {
@@ -304,13 +311,21 @@ impl MarketManager for MarketManagerContract {
 
 #[contractimpl]
 impl MarketManagerContract {
-    pub fn __constructor(e: Env, admin: Address, market_contract_wasm_hash: BytesN<32>) {
+    pub fn __constructor(e: Env, admin: Address) {
         storage::set_admin(&e, &admin);
-        storage::set_market_wasm_hash(&e, &market_contract_wasm_hash);
     }
 }
 
 #[inline(always)]
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
+}
+
+#[inline(always)]
+fn require_deployed_market(e: &Env, market_address: &Address) -> Result<(), MMCError> {
+    if !storage::is_market_deployed(e, market_address) {
+        return Err(MMCError::MarketNotDeployedByManager);
+    }
+
+    Ok(())
 }

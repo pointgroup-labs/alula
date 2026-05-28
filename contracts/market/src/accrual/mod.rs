@@ -76,7 +76,6 @@ mod test {
 
     use super::{Accrual, AccrualModel};
     use crate::{constants::*, error::MCError};
-    use soroban_sdk::Env;
 
     #[test]
     fn test_zero_seconds_passed() {

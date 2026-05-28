@@ -24,7 +24,7 @@ impl RedStoneSep40AdapterContract {
         resolution: u32,
         feeds: Map<Address, Address>,
     ) {
-        if resolution < MIN_RESOLUTION {
+        if !(MIN_RESOLUTION..=MAX_RESOLUTION).contains(&resolution) {
             panic_with_error!(&e, RS40ACError::BadConfig);
         }
 
@@ -72,7 +72,7 @@ impl RedStoneSep40AdapterContract {
         require_admin(&e);
         storage::extend_instance(&e);
 
-        if resolution < MIN_RESOLUTION {
+        if !(MIN_RESOLUTION..=MAX_RESOLUTION).contains(&resolution) {
             panic_with_error!(&e, RS40ACError::BadConfig);
         }
 
@@ -153,19 +153,11 @@ impl PriceFeedTrait for RedStoneSep40AdapterContract {
 
         let entry = client.try_read_price_data().ok()?.ok()?;
 
-        let feed_ts_secs = entry.package_timestamp / REDSTONE_TS_PER_SEC;
+        let timestamp = entry.package_timestamp / REDSTONE_TS_PER_SEC;
         let now = e.ledger().timestamp();
         let resolution = storage::get_resolution(&e);
 
-        // Reject timestamps from the future (misbehaving / malicious feed).
-        if feed_ts_secs > now {
-            events::FuturePriceRejected { token_address, feed_ts_secs, now }.publish(&e);
-
-            return None;
-        }
-        if now - feed_ts_secs > resolution as u64 {
-            events::StalePriceRejected { token_address, feed_ts_secs, now, resolution }.publish(&e);
-
+        if timestamp > now || now - timestamp > resolution as u64 {
             return None;
         }
 
@@ -174,12 +166,6 @@ impl PriceFeedTrait for RedStoneSep40AdapterContract {
         if price <= 0 {
             return None;
         }
-
-        // Since the heartbeat of a redstone oracle is expected to be 24h,
-        // it's important always to treat its price as the most fresh one
-        // to avoid cases when it's not changed enough for a few minutes, and causing
-        // the aggregated oracle to fail
-        let timestamp = e.ledger().timestamp();
 
         Some(PriceData { price, timestamp })
     }
