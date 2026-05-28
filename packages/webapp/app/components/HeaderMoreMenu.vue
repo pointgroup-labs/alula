@@ -12,6 +12,12 @@ const items: MoreMenuItem[] = [
     to: '/transparency',
     description: 'Live contracts, parameters, audits',
   },
+   {
+    kind: 'route',
+    label: 'Statistics',
+    to: '/statistics',
+    description: 'Live market & pool data',
+  },
   {
     kind: 'external',
     label: 'Documentation',

@@ -101,7 +101,7 @@ watch(() => route.params.page, (tabValue) => {
             class="tab-statistics tab-label"
             @click.stop="statisticsRoute"
           >
-            <i-app-statistics-icon />  Statistics
+            <i-app-statistics-icon />
           </span>
           <span
             v-else
@@ -130,18 +130,23 @@ watch(() => route.params.page, (tabValue) => {
 .market-detail-page {
   .j-line-tabs {
     .overview-tab:has(.tab-statistics) {
+      margin-left: auto;
       padding: 0;
     }
     .tab-statistics {
-      padding: 0 6px 9px;
+      padding: 0 6px 11px;
       text-decoration: none;
-      color: #fff;
+      color: $text-tertiary;
       font-weight: 500;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       margin-bottom: -1px;
+
+      &:hover {
+        color: $cyan;
+      }
 
       svg {
         width: 18px;

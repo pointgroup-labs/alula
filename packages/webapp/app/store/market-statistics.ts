@@ -12,7 +12,11 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
 
   const route = useRoute()
 
-  const routePoolAddresses = computed(() => parseRoutePoolAddresses(route.params?.pool as string | undefined))
+  const routePoolAddresses = computed(() => {
+    const poolParam = route.params?.pool ?? route.params?.pair
+    const poolParamString = Array.isArray(poolParam) ? poolParam[0] : poolParam
+    return parseRoutePoolAddresses(poolParamString)
+  })
 
   const marketAddress = computed(() => route.params.market as string)
   const poolAddress = computed(() => routePoolAddresses.value.poolAddress)
@@ -51,21 +55,23 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
       state.pairPool = undefined
       return
     }
-    const marketAddr = route.params?.market as string
-    const { poolAddress: poolAddr, pairPoolAddress: pairPoolAddr } = parseRoutePoolAddresses(route.params?.pool as string | undefined)
+    const marketAddrParam = route.params?.market as string
+    const poolAddrParam = route.params?.pool ?? route.params?.pair
+    const { poolAddress: poolAddr, pairPoolAddress: pairPoolAddr } = parseRoutePoolAddresses(poolAddrParam as string | undefined)
 
-    if (!marketAddr || !poolAddr) {
+    if (!marketAddrParam || !poolAddrParam) {
       historyMap.value.clear()
       state.pool = undefined
       state.pairPool = undefined
       return
     }
-    if ('page' in route.params && route.params.page !== 'pool') {
+
+    if ('page' in route.params && !['pool', 'statistics'].includes(route.params.page as string)) {
       return
     }
 
-    const hasPrimaryHistory = historyMap.value.has(`${marketAddr}-${poolAddr}-1d`)
-    const hasPairHistory = !pairPoolAddr || historyMap.value.has(`${marketAddr}-${pairPoolAddr}-1d`)
+    const hasPrimaryHistory = historyMap.value.has(`${marketAddrParam}-${poolAddr}-1d`)
+    const hasPairHistory = !pairPoolAddr || historyMap.value.has(`${marketAddrParam}-${pairPoolAddr}-1d`)
     const hasPrimaryPoolData = state.pool?.pool === poolAddr
     const hasPairPoolData = !pairPoolAddr || state.pairPool?.pool === pairPoolAddr
 
@@ -74,12 +80,16 @@ export const useMarketStatisticsStore = defineStore('market-statistics', () => {
     }
 
     const promises = [
-      () => hasPrimaryHistory ? Promise.resolve() : getPoolHistoryData(marketAddr, poolAddr, '1d'),
-      () => hasPrimaryPoolData ? Promise.resolve() : getPoolData(marketAddr, poolAddr),
+      () => hasPrimaryHistory ? Promise.resolve() : getPoolHistoryData(marketAddrParam, poolAddr, '1d'),
+      () => hasPrimaryPoolData ? Promise.resolve() : getPoolData(marketAddrParam, poolAddr),
     ]
 
     if (pairPoolAddr) {
-      promises.push(() => hasPairHistory ? Promise.resolve() : getPoolHistoryData(marketAddr, pairPoolAddr, '1d'), () => hasPairPoolData ? Promise.resolve() : getPoolData(marketAddr, pairPoolAddr, 'pairPool'))
+      promises.push(() => hasPairHistory
+        ? Promise.resolve()
+        : getPoolHistoryData(marketAddrParam, pairPoolAddr, '1d'), () => hasPairPoolData
+        ? Promise.resolve()
+        : getPoolData(marketAddrParam, pairPoolAddr, 'pairPool'))
     } else {
       state.pairPool = undefined
     }

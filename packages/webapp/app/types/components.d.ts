@@ -122,6 +122,7 @@ declare module 'vue' {
     MultiplyPage: typeof import('./../components/MultiplyPage/MultiplyPage.vue')['default']
     MultiplyPoolInfoOverview: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyPoolInfoOverview.vue')['default']
     MultiplySelect: typeof import('./../components/MultiplyPage/MultiplySelect.vue')['default']
+    MultiplyStatistics: typeof import('./../components/MultiplyDetailsPage/Statistics/MultiplyStatistics.vue')['default']
     MultiplySupplyBorrowOverview: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplySupplyBorrowOverview.vue')['default']
     MultiplySupplyCard: typeof import('./../components/MultiplySupplyCard/MultiplySupplyCard.vue')['default']
     MultiplySupplyOverview: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/SupplyBorrow/MultiplySupplyOverview.vue')['default']

@@ -5,8 +5,12 @@ import * as echarts from 'echarts'
 
 const {
   chartType,
+  onlyMarketAsset,
+  onlyPairAsset,
 } = defineProps<{
   chartType: keyof ApiHistoryData
+  onlyMarketAsset?: boolean
+  onlyPairAsset?: boolean
 }>()
 
 const {
@@ -21,7 +25,7 @@ const {
   hasPairPool,
   currencyOptions,
   currency,
-} = usePoolStatistics({ chartType })
+} = usePoolStatistics({ chartType, onlyPairAsset })
 
 const statisticsStore = useMarketStatisticsStore()
 
@@ -76,7 +80,7 @@ function formatAxis(v: number) {
 
 function formatTooltip(v: number) {
   if (isPercent.value) { return `${truncatePercent(v, 2)}%` }
-  if (isShowSelect.value && !isUsdValue.value) { return `${formatPrice(v, 5, 5)} ${currency.value}` }
+  if (isShowSelect.value && !isUsdValue.value) { return `${formatPrice(v, 5, 5)}` }
   return `$${formatPrice(v, 2, 2)}`
 }
 
@@ -88,8 +92,9 @@ const option = computed<EChartsOption>(() => {
   const labels = chartPoints.value.map(p => p.label)
   const values = chartPoints.value.map(p => p.value)
   const pairValues = pairChartPoints.value.map(p => p.value)
-  const series: LineSeriesOption[] = [
-    {
+  const series: LineSeriesOption[] = []
+  if (!onlyPairAsset) {
+    series.push({
       name: symbol.value || 'Pool',
       type: 'line',
       data: values,
@@ -104,20 +109,39 @@ const option = computed<EChartsOption>(() => {
           { offset: 1, color: (areaColorMap[color] ?? areaColorMap['#22d3ee']!)[1] },
         ]),
       },
-    },
-  ]
+    })
+  }
 
-  if (hasPairPool.value && pairValues.length > 0) {
-    series.push({
+  if (hasPairPool.value && pairValues.length > 0 && !onlyMarketAsset) {
+    let pairSeria: LineSeriesOption = {
       name: pairSymbol.value || 'Pair',
       type: 'line',
       data: pairValues,
       smooth: 0.45,
       showSymbol: false,
-      lineStyle: { width: 2, color: pairColor, cap: 'round', join: 'round', type: 'dashed' },
-      itemStyle: { color: pairColor },
-      areaStyle: { opacity: 0 },
-    })
+    }
+    pairSeria = onlyPairAsset
+      ? {
+          ...pairSeria,
+          lineStyle: { width: 2, color, cap: 'round', join: 'round' },
+          itemStyle: { color },
+          areaStyle: {
+            opacity: 1,
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: (areaColorMap[color] ?? areaColorMap['#22d3ee']!)[0] },
+              { offset: 1, color: (areaColorMap[color] ?? areaColorMap['#22d3ee']!)[1] },
+            ]),
+          },
+        }
+      : {
+          ...pairSeria,
+          smooth: 0.45,
+          showSymbol: false,
+          lineStyle: { width: 2, color: pairColor, cap: 'round', join: 'round', type: 'dashed' },
+          itemStyle: { color: pairColor },
+          areaStyle: { opacity: 0 },
+        }
+    series.push(pairSeria)
   }
 
   return {

@@ -377,17 +377,6 @@ onMounted(async () => {
 
   window.addEventListener('resize', () => chart?.resize())
 })
-
-watch(pairAddresses, async ({ supplyPoolAddress, borrowPoolAddress }) => {
-  if (!marketAddress.value || !supplyPoolAddress || !borrowPoolAddress) {
-    return
-  }
-
-  await Promise.all([
-    statisticsStore.getPoolHistoryData(marketAddress.value, supplyPoolAddress, '1d'),
-    statisticsStore.getPoolHistoryData(marketAddress.value, borrowPoolAddress, '1d'),
-  ])
-}, { immediate: true })
 </script>
 
 <template>

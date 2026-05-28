@@ -22,12 +22,6 @@ const tabs = computed(() => {
     route: '/portfolio',
     icon: accountTabIcon,
     shortLabel: 'Portfolio',
-  },
-  {
-    label: 'Statistics',
-    route: '/statistics',
-    icon: statisticsTabIcon,
-    shortLabel: 'Statistics',
   }]
 
   if (isEnabled('multiply')) {
@@ -44,6 +38,17 @@ const tabs = computed(() => {
       route: '/swap',
       icon: multiplyTabIcon,
     })
+  }
+
+  if (width.value < 1024) {
+    navTabs.push(
+      {
+        label: 'Statistics',
+        route: '/statistics',
+        icon: statisticsTabIcon,
+        shortLabel: 'Statistics',
+      },
+    )
   }
   return navTabs
 })

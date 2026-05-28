@@ -27,6 +27,8 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const chartFilter = useChartFilter(STATISTICS_DATE, 2)
   const activeFilter = toRef(chartFilter, 'activeFilter')
 
+  const onlyPairAsset = computed(() => !!params.onlyPairAsset)
+
   const pool = computed(() => statisticStore.state.pool)
   const pairPool = computed(() => statisticStore.state.pairPool)
 
@@ -41,7 +43,7 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   const hasPairPool = computed(() => Boolean(pairPool.value && pairPoolAddress.value))
 
   const currencyOptions = computed(() => {
-    return ['USD', 'Token']
+    return ['USD', 'Asset']
   })
   const currency = ref<string>(currencyOptions.value[0] ?? 'USD')
 
@@ -63,8 +65,11 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   })
 
   const currentHistoryData = computed(() => historyData.value.at(-1))
+  const currentPairHistoryData = computed(() => pairHistoryData.value.at(-1))
   const currentChartTypeData = computed(() => currentHistoryData.value?.[params.chartType] ?? 0)
+  const currentPairChartTypeData = computed(() => currentPairHistoryData.value?.[params.chartType] ?? 0)
   const currentPrice = computed(() => Number(currentHistoryData.value?.oracle_price_usd ?? 0))
+  const currentPairPrice = computed(() => Number(currentPairHistoryData.value?.oracle_price_usd ?? 0))
 
   const cardLabel = computed(() => {
     switch (params.chartType) {
@@ -87,39 +92,41 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
   })
 
   const cardValue = computed(() => {
+    const chartData = onlyPairAsset.value ? currentPairChartTypeData.value : currentChartTypeData.value
+    const price = onlyPairAsset.value ? currentPairPrice.value : currentPrice.value
     switch (params.chartType) {
       case 'total_supplied': {
-        const supplyNum = bigintToNumber(BigInt(Number(currentChartTypeData.value)), decimals.value) || 0
-        const supplyUSD = Number(supplyNum) * currentPrice.value
+        const supplyNum = bigintToNumber(BigInt(Number(chartData)), decimals.value) || 0
+        const supplyUSD = Number(supplyNum) * price
         return {
           raw: supplyUSD,
           formatted: `$${shortenNumber(supplyUSD, 2, 2)}`,
         }
       }
       case 'total_borrowed': {
-        const borrowNum = bigintToNumber(BigInt(Number(currentChartTypeData.value)), decimals.value) || 0
-        const borrowUSD = Number(borrowNum) * currentPrice.value
+        const borrowNum = bigintToNumber(BigInt(Number(chartData)), decimals.value) || 0
+        const borrowUSD = Number(borrowNum) * price
         return {
           raw: borrowUSD,
           formatted: `$${shortenNumber(borrowUSD, 2, 2)}`,
         }
       }
       case 'supply_apy_bps':{
-        const apy = Number(currentChartTypeData.value) / 100
+        const apy = Number(chartData) / 100
         return {
           raw: apy,
           formatted: `${truncatePercent(apy, 2)}%`,
         }
       }
       case 'borrow_apy_bps':{
-        const apy = Number(currentChartTypeData.value) / 100
+        const apy = Number(chartData) / 100
         return {
           raw: apy,
           formatted: `${truncatePercent(apy, 2)}%`,
         }
       }
       case 'tvl_usd_cents': {
-        const tvl = Number(currentChartTypeData.value) / 100
+        const tvl = Number(chartData) / 100
         return {
           raw: tvl,
           formatted: `$${shortenNumber(tvl, 2, 2)}`,
@@ -127,7 +134,7 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
       }
 
       case 'utilization_bps': {
-        const utilization = bpsToNumber(Number(currentChartTypeData.value))
+        const utilization = bpsToNumber(Number(chartData))
         return {
           raw: utilization,
           formatted: `${truncatePercent(utilization, 2)}%`,
@@ -135,7 +142,7 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
       }
 
       case 'oracle_price_usd': {
-        const num = Number(currentChartTypeData.value) || 0
+        const num = Number(chartData) || 0
         const price = num < 0.01 ? '<0.01' : shortenNumber(num, 2, 2)
         return {
           raw: num,
@@ -191,6 +198,8 @@ export function usePoolStatistics(params: StatisticsComposableParams) {
 
 type StatisticsComposableParams = {
   chartType: keyof ApiHistoryData
+  onlyMarketAsset?: boolean
+  onlyPairAsset?: boolean
 }
 
 function bucketByFilterValue(val: number): PoolHistoryBucket {
