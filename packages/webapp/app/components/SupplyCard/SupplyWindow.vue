@@ -248,7 +248,12 @@ const rewardsEarnings = computedAsync(async () => {
     v-if="amount && amount > 0 && selectedPool || opened"
     class="collateral mt-3"
   >
-    <div class="collateral-label">Collateral Only</div>
+    <div class="collateral-label d-flex align-items-center gap-2">Collateral Only
+
+      <info-tooltip>
+        Use your deposit as collateral without making it available for borrowing.
+      </info-tooltip>
+    </div>
 
     <j-toggle
       v-model="collateralOnly"
