@@ -45,7 +45,6 @@ pub fn get_queued_in_market_upgrade(e: &Env, market_address: &Address) -> Option
 }
 pub fn set_queued_in_market_upgrade(e: &Env, market_address: &Address, upgrade: &QueuedInUpgrade) {
     let key = DataKey::QueuedInMarketUpgrade(market_address.clone());
-    
     e.storage().persistent().set(&key, upgrade);
     extend_persistent(e, &key);
 }
@@ -107,11 +106,7 @@ pub fn is_market_deployed(e: &Env, market_address: &Address) -> bool {
 pub fn get_market_upgrade_in_queue_period(e: &Env, market_address: &Address) -> u64 {
     let key = DataKey::DeployedMarket(market_address.clone());
 
-    let period = e
-        .storage()
-        .persistent()
-        .get(&key)
-        .expect("UpgradeInQueuePeriod must exist");
+    let period = e.storage().persistent().get(&key).expect("UpgradeInQueuePeriod must exist");
     extend_persistent(e, &key);
 
     period
