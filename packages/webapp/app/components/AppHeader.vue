@@ -108,11 +108,7 @@ watch(() => route.path, (p) => {
 <style lang="scss">
 header {
   border-bottom: 1px solid $border-primary;
-  // Lift the header above page content (was 1) so its inline popovers — like
-  // the More-menu dropdown — can stack over sticky panels, charts, and other
-  // page elements that create their own stacking contexts. 100 is high enough
-  // to win against regular content but stays well below modal layers.
-  z-index: 100;
+  z-index: 0;
   position: relative;
 
   .header-wrapper {
