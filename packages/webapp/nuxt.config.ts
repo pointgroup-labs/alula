@@ -223,6 +223,7 @@ export default defineNuxtConfig({
         multiply: isDev,
         network: isDev,
         swap: isDev,
+        mcp: isDev,
       },
     },
   },
