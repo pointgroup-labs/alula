@@ -36,7 +36,7 @@ const isActive = computed(() => items.some(
   <j-popover
     position="bottom"
     placement="bottom-start"
-    :teleport-to-body="false"
+    :teleport-to-body="true"
     hover
     no-fade
     close-popup
