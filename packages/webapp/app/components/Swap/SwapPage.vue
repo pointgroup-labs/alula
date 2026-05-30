@@ -25,6 +25,8 @@ const {
   loading,
   error,
   submitting,
+  txFee,
+  isLoadingFee,
   isReady,
   flip,
   quote,
@@ -121,6 +123,8 @@ const sameToken = computed(() =>
   !!fromToken.value && !!toToken.value
   && fromToken.value.tokenAddress === toToken.value.tokenAddress,
 )
+
+const nativeFee = computed(() => fromToken.value?.isNative ? XLM_NATIVE_RESERVE + txFee.value : 0)
 
 const buttonLabel = computed(() => {
   if (!isConnected.value) {
@@ -226,7 +230,7 @@ const amountRules = [
 
       <input-widget
         v-model="amount"
-        :fee="XLM_NATIVE_RESERVE"
+        :fee="nativeFee"
         :balance="fromBalance"
         :limit="fromBalance"
         :price="fromToken?.price ?? 0"
@@ -353,6 +357,20 @@ const amountRules = [
             :loading="loading"
             @pin="pinRoute"
           />
+        </div>
+        <div
+          v-if="isConnected && (isLoadingFee || txFee > 0)"
+          class="swap-card__quote-row"
+        >
+          <span>Transaction Fee</span>
+          <span class="text-num">
+            <j-loading-spinner
+              v-if="isLoadingFee && !txFee"
+              width="14px"
+              style="margin: 0 0 0 auto;"
+            />
+            <template v-else>{{ txFee }} XLM</template>
+          </span>
         </div>
       </div>
 
