@@ -60,18 +60,26 @@ const defaultRender
 md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
   const token = tokens[idx]
 
+  if (!token) {
+    return defaultRender(tokens, idx, options, env, self)
+  }
+
   const hrefIndex = token.attrIndex('href')
 
-  if (hrefIndex >= 0) {
-    let href = token.attrs![hrefIndex][1]
+  if (hrefIndex >= 0 && token.attrs && token.attrs[hrefIndex]) {
+    let href = token.attrs[hrefIndex][1]
+
+    if (!href) {
+      return defaultRender(tokens, idx, options, env, self)
+    }
 
     // ✅ 1. replace ../ links
     if (href.startsWith('../')) {
-      href = `https://docs.jpool.one/${href.replace(/^\.\.\//, '')}`
-      token.attrs![hrefIndex][1] = href
+      href = `https://docs.alula.finance/${href.replace(/^\.\.\//, '')}`
+      token.attrs[hrefIndex][1] = href
     }
 
-    const isInternalAppLink = href.includes('app.jpool.one')
+    const isInternalAppLink = href.includes('app.alula.finance')
 
     // ✅ 2. external links → open in new tab
     if (!isInternalAppLink) {
@@ -79,8 +87,8 @@ md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
 
       if (targetIndex < 0) {
         token.attrPush(['target', '_blank'])
-      } else {
-        token.attrs![targetIndex][1] = '_blank'
+      } else if (token.attrs && token.attrs[targetIndex]) {
+        token.attrs[targetIndex][1] = '_blank'
       }
 
       // rel (avoid duplicates)

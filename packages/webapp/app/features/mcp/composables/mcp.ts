@@ -1,11 +1,33 @@
 import { fetchMCP } from '../api/api'
 import { parseMd, typeText } from '../utils'
 
+const bpsToPct = (x: bigint) => Number(x) / 100
+
 export function useMcp() {
   const sessionId = crypto.randomUUID()
 
   const route = useRoute()
   const router = useRouter()
+
+  const marketsTableStore = useMarketTableStore()
+  const preparedMarkets = computed(() => marketsTableStore.marketWithTableItems?.map((m) => {
+    const { assets, marketSize, tableItems, ...rest } = m
+    const marketPools = tableItems?.map((a) => {
+      const { raw, action, assetDecimals, asset, ...rest } = a
+      const symbol = asset.symbol
+      const kink2_ur_bps = raw.pool.config.interest_rate_model.values[0].kink2_ur_bps ?? 8000n
+      const close_ltv = bpsToPct(BigInt(kink2_ur_bps)) || 80
+      return {
+        ...rest,
+        symbol,
+        close_ltv,
+      }
+    })
+    return {
+      ...rest,
+      marketPools,
+    }
+  }))
 
   const isOpen = ref(false)
   const hasUnreadMessage = ref(false)
@@ -37,18 +59,20 @@ export function useMcp() {
   }
 
   function generateArgs() {
-    // const { path, params } = route
-    // const args: Record<string, unknown> = {
-    //   publicKey: publicKey.value?.toBase58(),
-    // }
-    // if (path.includes('validators') && 'vote' in params) {
-    //   const vote = params.vote
-    //   const epoch = 'epoch' in route.query ? route.query.epoch : String(epochStore.epochNumber)
-    //   args.voteId = String(vote)
-    //   args.epoch = String(epoch)
-    // }
+    const { params } = route
+    const marketsData = preparedMarkets.value
+    const args: Record<string, unknown> = {}
+    if (params?.market) {
+      args.market = params.market
+    }
+    if (params?.pool) {
+      args.pool = params.pool
+    }
+    if (marketsData) {
+      args.marketsData = marketsData
+    }
 
-    return {}
+    return args
   }
 
   async function sendMessage() {
