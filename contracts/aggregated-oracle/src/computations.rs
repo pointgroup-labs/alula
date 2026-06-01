@@ -153,8 +153,6 @@ fn get_last_price(
     let mut price_data = if let Some(price_data) = price_data {
         price_data
     } else {
-        // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
-        // in the first try. The same holds for the second try
         events::OracleUnawareOfAssetVariant {
             asset: asset.clone(),
             oracle_address: oracle_config.address.clone(),
@@ -162,8 +160,6 @@ fn get_last_price(
         }
         .publish(e);
 
-        // NB: It might be possible that an oracle contains information about the asset's price as
-        // another [`Asset`] variant
         let another_variant_asset = match &asset {
             Asset::Other(_symbol) => Asset::Stellar(token_address.clone()),
             Asset::Stellar(token_address) => {

@@ -5,7 +5,7 @@ pub const INSTANCE_BUMP: u32 = 41 * LEDGERS_PER_DAY;
 
 /// -- Periodic oracles price max age bounds --
 pub const MIN_PERIODIC_ORACLES_PRICE_MAX_AGE: u64 = 60;
-pub const MAX_PERIODIC_ORACLES_PRICE_MAX_AGE: u64 = 24 * 60 * 60;
+pub const MAX_PERIODIC_ORACLES_PRICE_MAX_AGE: u64 = 12 * 60 * 60;
 
 /// -- Misc --
 pub const BPS_FACTOR: i128 = 10_000;
