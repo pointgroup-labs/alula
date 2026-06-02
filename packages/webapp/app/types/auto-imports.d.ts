@@ -216,6 +216,8 @@ declare global {
   const useEventSource: typeof import('@vueuse/core').useEventSource
   const useExplorerLink: typeof import('../composables/explorer-link').useExplorerLink
   const useEyeDropper: typeof import('@vueuse/core').useEyeDropper
+  const useFarmsS: typeof import('../store/farms').useFarmsS
+  const useFarmsStore: typeof import('../store/farms').useFarmsStore
   const useFavicon: typeof import('@vueuse/core').useFavicon
   const useFetch: typeof import('@vueuse/core').useFetch
   const useFileDialog: typeof import('@vueuse/core').useFileDialog
@@ -395,6 +397,9 @@ declare global {
   // @ts-ignore
   export type { SwapTokenOption } from '../composables/swap/use-swap'
   import('../composables/swap/use-swap')
+  // @ts-ignore
+  export type { FarmsState, FarmView, RewardView, FarmingPositionView } from '../store/farms'
+  import('../store/farms')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
@@ -612,6 +617,7 @@ declare module 'vue' {
     readonly useEventSource: UnwrapRef<typeof import('@vueuse/core')['useEventSource']>
     readonly useExplorerLink: UnwrapRef<typeof import('../composables/explorer-link')['useExplorerLink']>
     readonly useEyeDropper: UnwrapRef<typeof import('@vueuse/core')['useEyeDropper']>
+    readonly useFarmsStore: UnwrapRef<typeof import('../store/farms')['useFarmsStore']>
     readonly useFavicon: UnwrapRef<typeof import('@vueuse/core')['useFavicon']>
     readonly useFetch: UnwrapRef<typeof import('@vueuse/core')['useFetch']>
     readonly useFileDialog: UnwrapRef<typeof import('@vueuse/core')['useFileDialog']>
