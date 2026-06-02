@@ -220,7 +220,6 @@ export default defineNuxtConfig({
       TWITTER_DESCRIPTION: process.env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
       APP_ENV: process.env.NUXT_PUBLIC_APP_ENV,
       featureToggle: {
-        multiply: isDev,
         network: isDev,
         swap: isDev,
         mcp: isDev,

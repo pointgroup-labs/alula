@@ -22,15 +22,12 @@ const tabs = computed(() => {
     route: '/portfolio',
     icon: accountTabIcon,
     shortLabel: 'Portfolio',
+  },
+  {
+    label: 'Multiply',
+    route: '/multiply',
+    icon: multiplyTabIcon,
   }]
-
-  if (isEnabled('multiply')) {
-    navTabs.splice(1, 0, {
-      label: 'Multiply',
-      route: '/multiply',
-      icon: multiplyTabIcon,
-    })
-  }
 
   if (isEnabled('swap')) {
     navTabs.splice(2, 0, {
