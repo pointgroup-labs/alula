@@ -1,0 +1,72 @@
+$label-variants: (
+  cyan: (
+    background-color: $brand-700,
+    color: $text-brand,
+  ),
+  indigo: (
+    background-color: $indigo-800,
+    color: $text-brand-secondary,
+  ),
+  warning: (
+    background-color: rgba(240, 177, 0, 0.1),
+    color: $warning,
+  ),
+  supply: (
+    background-color: lab(77.4225% -36.0465 -25.8871/0.1),
+    color: $cyan,
+  ),
+  borrow: (
+    background-color: rgba(99, 102, 241, 0.1),
+    color: $indigo,
+  ),
+  success: (
+    background-color: rgba(0, 201, 80, 0.1),
+    color: $success,
+  ),
+  danger: (
+    background-color: rgba(240, 68, 56, 0.1),
+    color: $danger,
+  ),
+);
+
+$label-sizes: (
+  lg: (
+    font-size: 16px,
+    font-weight: 700,
+  ),
+  md: (
+    font-size: 14px,
+    font-weight: 600,
+  ),
+  sm: (
+    font-size: 12px,
+    font-weight: 700,
+    line-height: 16px,
+  ),
+);
+
+.j-pill-label {
+  width: fit-content;
+  padding: 2px 10px;
+  font-family: $font-JetBrainsMono;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 16px;
+  border-radius: $radius-full;
+
+  @each $name, $zises in $label-sizes {
+    &.j-pill-label--#{$name} {
+      @each $prop, $value in $zises {
+        #{$prop}: #{$value};
+      }
+    }
+  }
+
+  @each $name, $styles in $label-variants {
+    &.j-pill-label--#{$name} {
+      @each $prop, $value in $styles {
+        #{$prop}: #{$value};
+      }
+    }
+  }
+}

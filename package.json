@@ -4,21 +4,25 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "pnpm@10.20.0",
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "sdk": "pnpm -F {./packages/sdk}",
+    "sdk": "pnpm --filter ./packages/sdk",
+    "webapp": "pnpm --filter ./packages/webapp",
+    "alula": "tsx packages/cli/src/index.ts",
+    "cli": "tsx packages/cli/src/index.ts",
     "test": "vitest",
     "lint": "eslint --cache .",
     "lint:fix": "pnpm lint --fix"
   },
-  "devDependencies": {
-    "@antfu/eslint-config": "^6.2.0",
-    "@types/node": "^24.10.0",
-    "eslint": "^9.39.0",
-    "eslint-plugin-format": "^1.1.0",
-    "typescript": "^5.9.3"
-  },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.4.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^8.2.0",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-format": "^2.0.1",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.3"
   }
 }

@@ -25,7 +25,7 @@ fn test_storage_ttl_extension() {
     });
 
     // Extend individual user's storage
-    contract_client.deposit(user, &usdc_pool_address, &1);
+    contract_client.deposit(&ObligationKey::new(user.clone()), &usdc_pool_address, &1, &None);
 
     e.as_contract(&contract_id, || {
         assert_eq!(
@@ -71,7 +71,7 @@ fn test_storage_ttl_extension() {
     });
 
     // Deposit once more to bump shared persistent token storage
-    contract_client.deposit(user, &usdc_pool_address, &1);
+    contract_client.deposit(&ObligationKey::new(user.clone()), &usdc_pool_address, &1, &None);
 
     e.as_contract(&contract_id, || {
         assert_eq!(
@@ -99,7 +99,7 @@ fn test_storage_ttl_extension() {
     });
 
     // Read user's obligation to bump individual user's storage TTL
-    contract_client.deposit(user, &usdc_pool_address, &1);
+    contract_client.deposit(&ObligationKey::new(user.clone()), &usdc_pool_address, &1, &None);
 
     e.as_contract(&contract_id, || {
         assert_eq!(

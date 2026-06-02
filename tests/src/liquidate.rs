@@ -1,9 +1,9 @@
 #![cfg(test)]
 
 use market::{
-    constants::BPS_FACTOR,
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D},
     error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
+    obligation::ObligationKey,
 };
 use soroban_sdk::{
     Address,
@@ -14,7 +14,7 @@ use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_unparameterized_ltv_bps,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_initially_borrowed, get_obligation_j_tokens_as_tokens,
-    get_obligation_unpaid_interest,
+    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
 struct LiquidationTest {
@@ -37,20 +37,23 @@ impl LiquidationTest {
         let liquidator = fixture.users[2].clone();
 
         fixture.contract_client.deposit(
-            &liquidity_provider,
+            &ObligationKey::new(liquidity_provider.clone()),
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
         fixture.contract_client.add_collateral(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
 
         fixture.contract_client.borrow(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &borrow_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -58,14 +61,7 @@ impl LiquidationTest {
 
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
-        let pool_config = PoolConfig {
-            health_config: PoolHealthConfig {
-                liability_factor_bps: (BPS_FACTOR * 11) / 10,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let fixture = TestMarketFixture::new_with_pool_config(pool_config);
+        let fixture = TestMarketFixture::new();
         let (borrow_pool_address, collateral_pool_address) =
             (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
@@ -74,16 +70,27 @@ impl LiquidationTest {
         let liquidator = fixture.users[2].clone();
 
         fixture.contract_client.deposit(
-            &liquidity_provider,
+            &ObligationKey::new(liquidity_provider.clone()),
             &borrow_pool_address,
             &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
+            &None,
         );
 
         let collateral = DEFAULT_DEPOSIT_AMOUNT;
         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
 
-        fixture.contract_client.add_collateral(&borrower, &collateral_pool_address, &collateral);
-        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount);
+        fixture.contract_client.add_collateral(
+            &ObligationKey::new(borrower.clone()),
+            &collateral_pool_address,
+            &collateral,
+            &None,
+        );
+        fixture.contract_client.borrow(
+            &ObligationKey::new(borrower.clone()),
+            &borrow_pool_address,
+            &borrow_amount,
+            &None,
+        );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
     }
@@ -98,20 +105,23 @@ impl LiquidationTest {
         let liquidator = fixture.users[2].clone();
 
         fixture.contract_client.deposit(
-            &liquidity_provider,
+            &ObligationKey::new(liquidity_provider.clone()),
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.deposit(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
         fixture.contract_client.borrow(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -127,25 +137,29 @@ impl LiquidationTest {
         let liquidator = fixture.users[2].clone();
 
         fixture.contract_client.deposit(
-            &liquidity_provider,
+            &ObligationKey::new(liquidity_provider.clone()),
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.add_collateral(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.deposit(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.borrow(
-            &borrower,
+            &ObligationKey::new(borrower.clone()),
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -246,8 +260,7 @@ fn test_liquidate_healthy_position_fails() {
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &1,
@@ -262,29 +275,17 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.wait_n_years(3);
 
-    let borrow_pool_before = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_before =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_before = test.debt();
-
-    test.fixture.contract_client.liquidate(
-        &test.liquidator,
-        &test.borrower,
-        &None,
-        &test.borrow_pool_address,
-        &test.collateral_pool_address,
-        &0,
-        &0,
+    assert_eq!(
+        test.fixture.contract_client.try_liquidate(
+            &test.liquidator,
+            &ObligationKey::new(test.borrower.clone()),
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &0,
+            &0,
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
-
-    let borrow_pool_after = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_after =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_after = test.debt();
-
-    assert_eq!(debt_before, debt_after);
-    assert_eq!(borrow_pool_before, borrow_pool_after);
-    assert_eq!(collateral_pool_before, collateral_pool_after);
 }
 
 #[test]
@@ -294,25 +295,23 @@ fn test_liquidate_negative_amount() {
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &-1,
         &0,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &0,
         &-1,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 }
 
 #[test]
@@ -322,11 +321,10 @@ fn test_liquidate_self_fails() {
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.borrower,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 
@@ -340,11 +338,10 @@ fn test_liquidate_nonexistent_user_fails() {
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
-        &fake_user,
-        &None,
+        &ObligationKey::new(fake_user),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 
@@ -364,14 +361,13 @@ fn test_liquidate_exceeds_close_factor_fails() {
     assert_eq!(
         test.fixture.contract_client.try_liquidate(
             &test.liquidator,
-            &test.borrower,
-            &None,
+            &ObligationKey::new(test.borrower.clone()),
             &test.borrow_pool_address,
             &test.collateral_pool_address,
             &over_limit_amount,
             &1,
         ),
-        Err(Ok(MCError::LiquidationExceedsCloseFactor))
+        Err(Ok(MCError::InvalidLiquidationInputs))
     );
 }
 
@@ -387,8 +383,7 @@ fn test_excessive_demanded_collateral_amount() {
     assert_eq!(
         test.fixture.contract_client.try_liquidate(
             &test.liquidator,
-            &test.borrower,
-            &None,
+            &ObligationKey::new(test.borrower.clone()),
             &test.borrow_pool_address,
             &test.collateral_pool_address,
             &liquidation_amount,
@@ -413,8 +408,7 @@ fn test_liquidate_at_exact_close_factor() {
     let collateral_seized_amount = 15_000;
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -442,8 +436,7 @@ fn test_insolvent_liquidation_can_exceed_close_factor() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -462,21 +455,22 @@ fn test_liquidate_deposit_successful() {
     let debt_before = test.debt();
     let deposit_before = test.total_supplied();
     let liquidation_amount = test.liquidation_amount_from_percentage(10);
-    let collateral_amount = test.liquidation_amount_from_percentage(10);
+    let min_demanded_collateral = test.collateral();
 
     assert_eq!(
-        test.fixture.contract_client.try_get_user_obligation(&test.liquidator),
+        test.fixture
+            .contract_client
+            .try_get_user_obligation(&ObligationKey::new(test.liquidator.clone())),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
-        &collateral_amount,
+        &min_demanded_collateral,
     );
 
     let debt_after = test.debt();
@@ -496,7 +490,7 @@ fn test_liquidate_deposit_successful() {
         deposit_before,
         deposit_after
     );
-    assert!(collateral_amount <= liquidator_j_tokens_tokens);
+    assert!(min_demanded_collateral <= liquidator_j_tokens_tokens);
 }
 
 #[test]
@@ -510,8 +504,7 @@ fn test_liquidating_solvent_debt_reduces_ltv() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -534,8 +527,7 @@ fn test_liquidating_insolvent_debt_increases_ltv() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -560,8 +552,7 @@ fn test_liquidate_both_plain_collateral_and_shares() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -569,7 +560,9 @@ fn test_liquidate_both_plain_collateral_and_shares() {
     );
 
     assert_eq!(
-        test.fixture.contract_client.try_get_user_obligation(&test.borrower),
+        test.fixture
+            .contract_client
+            .try_get_user_obligation(&ObligationKey::new(test.borrower.clone())),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
 }
@@ -577,6 +570,7 @@ fn test_liquidate_both_plain_collateral_and_shares() {
 #[test]
 fn test_min_collateral_seized() {
     let test = LiquidationTest::risky();
+
     test.wait_n_years(3);
 
     let debt_before = test.debt();
@@ -585,12 +579,18 @@ fn test_min_collateral_seized() {
     let liquidation_amount = (2 * debt_before) / 3;
     let collateral_amount = ((deposit_before + collateral_before) / 2) + 100;
 
-    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
+    let update_in_queue_period =
+        test.fixture.contract_client.get_global_state().update_in_queue_period;
+
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
+    test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);
+    test.fixture.contract_client.apply_market_update();
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -610,7 +610,17 @@ fn test_min_collateral_seized() {
 #[test]
 fn test_liquidated_all_mixed_collateral() {
     let test = LiquidationTest::risky_with_both_as_a_collateral();
+
+    let update_in_queue_period =
+        test.fixture.contract_client.get_global_state().update_in_queue_period;
+
     test.wait_n_years(3);
+
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
+    test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);
+    test.fixture.contract_client.apply_market_update();
 
     let debt_before = test.debt();
     let deposit_before = test.total_supplied();
@@ -618,12 +628,9 @@ fn test_liquidated_all_mixed_collateral() {
     let liquidation_amount = debt_before;
     let collateral_amount = deposit_before + collateral_before;
 
-    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
-
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -648,8 +655,7 @@ fn test_liquidate_same_pool_fails() {
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.borrow_pool_address,
         &1,
@@ -671,8 +677,7 @@ fn test_liquidate_multiple_small() {
     for i in 1..=3 {
         let result = test.fixture.contract_client.try_liquidate(
             &test.liquidator,
-            &test.borrower,
-            &None,
+            &ObligationKey::new(test.borrower.clone()),
             &test.borrow_pool_address,
             &test.collateral_pool_address,
             &small_amount,
@@ -712,8 +717,7 @@ fn test_liquidate_with_interest_accrual() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
@@ -735,8 +739,7 @@ fn test_liquidate_unpaid_interest_only() {
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
-        &test.borrower,
-        &None,
+        &ObligationKey::new(test.borrower.clone()),
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &unpaid_interest,
@@ -751,4 +754,102 @@ fn test_liquidate_unpaid_interest_only() {
     assert_eq!(new_unpaid_interest, 0);
     assert_eq!(new_initially_borrowed, new_debt);
     assert_eq!(initially_borrowed_before, initially_borrowed_after);
+}
+
+#[test]
+fn test_liquidation_increases_borrow_pool_total_available() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let pool_available_before =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_before =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    let liquidation_amount = test.max_liquidation_amount();
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &1,
+    );
+
+    let pool_available_after =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_after =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    assert_eq!(
+        pool_available_after,
+        pool_available_before + liquidation_amount,
+        "Repaid debt must flow into total_available"
+    );
+    assert_eq!(
+        pool_borrowed_after,
+        pool_borrowed_before - liquidation_amount,
+        "Repaid debt must reduce total_borrowed"
+    );
+}
+
+#[test]
+fn test_liquidate_with_excess_repay_amount_refunds_difference() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let liquidator_borrow_token_before = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let liquidator_collateral_token_before =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    let contract_borrow_token_before =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let actual_debt = test.debt();
+
+    let overshoot = 500;
+    let repay_amount = actual_debt + overshoot;
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &repay_amount,
+        &0,
+    );
+
+    let liquidator_borrow_token_after = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let contract_borrow_token_after =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let liquidator_net_spend = liquidator_borrow_token_before - liquidator_borrow_token_after;
+    assert_eq!(
+        liquidator_net_spend, actual_debt,
+        "Liquidator should only pay the actual debt ({actual_debt}), not the full repay_amount \
+         ({repay_amount}). Net spend was {liquidator_net_spend}"
+    );
+
+    let contract_borrow_token_increase = contract_borrow_token_after - contract_borrow_token_before;
+    assert_eq!(
+        contract_borrow_token_increase, actual_debt,
+        "Contract borrow-token balance should increase by actual debt"
+    );
+
+    let liquidator_collateral_token_after =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    assert!(
+        liquidator_collateral_token_after > liquidator_collateral_token_before,
+        "Liquidator should receive collateral"
+    );
+
+    assert_eq!(
+        get_obligation_d_tokens_as_tokens(
+            &test.fixture.e,
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.borrow_pool_address,
+        ),
+        Err(MCError::ObligationDoesNotExist)
+    );
 }

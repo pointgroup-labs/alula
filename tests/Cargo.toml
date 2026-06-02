@@ -9,13 +9,13 @@ doctest = false
 
 [dependencies]
 arbitrary = { version = "1", features = ["derive"] }
+insurance-fund-interface = { workspace = true }
 sep-40-oracle = { workspace = true, features = ["testutils"] }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
-[dependencies.farms]
-path = "../contracts/farms"
-features = ["testutils"]
+[dependencies.controlled_insurance_fund]
+path = "../contracts/controlled_insurance_fund"
 
 [dependencies.market]
 path = "../contracts/market"
@@ -23,3 +23,6 @@ features = ["testutils"]
 
 [dependencies.market_manager]
 path = "../contracts/market_manager"
+
+[dependencies.proxy-swap-interface]
+workspace = true

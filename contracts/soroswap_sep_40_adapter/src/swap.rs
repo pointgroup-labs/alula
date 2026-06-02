@@ -29,6 +29,9 @@ pub fn get_price(e: &Env, token_address: Address) -> Option<i128> {
             .checked_div(token_reserve)
             .unwrap_or_else(|| panic_with_error!(e, SS40ACError::OverOrUnderflow))
     };
+    if price <= 0 {
+        return None;
+    }
 
     Some(price)
 }

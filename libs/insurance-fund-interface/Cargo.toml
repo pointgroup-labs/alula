@@ -1,0 +1,11 @@
+[package]
+name = "insurance-fund-interface"
+version = "0.1.0"
+
+edition.workspace = true
+
+publish = false
+description = "Insurance fund contract interface for cross-contract calls"
+
+[dependencies]
+soroban-sdk = { workspace = true }

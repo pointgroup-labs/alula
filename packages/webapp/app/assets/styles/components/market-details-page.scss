@@ -1,0 +1,196 @@
+.market-detail-page {
+  display: flex !important;
+  flex-direction: column;
+  gap: 32px;
+
+  h3 {
+    margin: 0;
+  }
+
+  .separator-vert {
+    height: 44px;
+    background-color: $border-primary;
+  }
+
+  .stat-card {
+    background-color: $bg-card;
+    border: 1px solid $border-primary;
+    border-radius: $radius-2xl;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid $border-primary;
+      padding: 14px 20px;
+
+      @media (max-width: $breakpoint-sm) {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .title {
+        font-size: 14px;
+        color: $text-primary;
+      }
+    }
+
+    &__body {
+      padding: 16px;
+    }
+  }
+
+  .market-details-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    @media (max-width: $breakpoint-sm) {
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .asset-data {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 500;
+
+      img {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+      }
+
+      &__coin {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+
+        span[data='symbol'] {
+          color: $text-tertiary;
+          font-size: 12px;
+          opacity: 0.8;
+        }
+      }
+    }
+
+    .pool-metrics {
+      display: flex;
+      align-items: stretch;
+      gap: 24px;
+      margin-left: auto;
+
+      @media (max-width: $breakpoint-sm) {
+        margin: 16px auto 0;
+        overflow-x: auto;
+      }
+
+      &__item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        font-size: 12px;
+        color: $text-tertiary;
+
+        span {
+          font-size: 14px;
+          color: $text-primary;
+        }
+
+        span:nth-child(1) {
+          font-size: $text-xs;
+          color: $text-tertiary;
+          letter-spacing: 0.05em;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          @media (max-width: $breakpoint-sm) {
+            align-items: flex-start;
+            gap: 8px;
+
+            i {
+              margin-top: 4px;
+            }
+          }
+        }
+
+        span:nth-child(2) {
+          font-family: $font-JetBrainsMono;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 30px;
+        }
+
+        .supply {
+          color: $cyan;
+        }
+
+        .borrow {
+          color: $indigo;
+        }
+      }
+    }
+  }
+
+  .market-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid $navi-50;
+
+    @media (max-width: $breakpoint-sm) {
+      align-items: normal;
+      flex-direction: column-reverse;
+      gap: 24px;
+    }
+  }
+
+  .market-overview {
+    display: flex;
+    gap: 16px;
+
+    @media (max-width: $breakpoint-sm) {
+      flex-direction: column-reverse;
+    }
+
+    .overview-wrapper {
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .supply-card {
+      position: sticky;
+      top: 20px;
+
+      @media (max-width: $breakpoint-sm) {
+        max-width: initial;
+        width: 100%;
+        position: relative;
+        top: 0;
+      }
+    }
+
+    section {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+  }
+
+  .no-data {
+    padding: $spacing-4xl;
+    margin: 0 auto;
+    color: $text-secondary;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 16px;
+  }
+}

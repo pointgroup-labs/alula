@@ -1,0 +1,350 @@
+$btn-variants: (
+  primary: (
+    bg: #fff,
+    color: $dark,
+    outline: 1px solid #fff,
+    hoverBg: $navi-50,
+    hoverColor: $dark,
+    focusOutline: 1px solid $navi-50,
+  ),
+
+  secondary: (
+    bg: $navi-700,
+    color: $navi-25,
+    outline: 1px solid $navi-500,
+    hoverBg: $navi-500,
+    hoverColor: $navi-25,
+    focusBg: $navi-500,
+    focusOutline: 1px solid $navi-400,
+  ),
+
+  brand: (
+    bg: $brand-50,
+    color: $dark,
+    outline: 1px solid $brand-50,
+    hoverBg: $brand-100,
+    hoverColor: $dark,
+    focusBg: $brand-100,
+    focusOutline: 1px solid $brand-100,
+  ),
+
+  outlined-brand: (
+    bg: $brand-700,
+    color: $navi-25,
+    outline: 1px solid $brand-500,
+    hoverBg: $brand-500,
+    hoverColor: $brand-50,
+    focusBg: $brand-700,
+    focusOutline: 1px solid $brand-400,
+  ),
+
+  brand-secondary: (
+    bg: $indigo-50,
+    color: $dark,
+    outline: 1px solid $indigo-50,
+    hoverBg: $indigo-100,
+    hoverColor: $dark,
+    focusBg: $indigo-100,
+    focusOutline: 1px solid $indigo-100,
+  ),
+
+  outlined-brand-secondary: (
+    bg: $indigo-700,
+    color: $navi-25,
+    outline: 1px solid $indigo-500,
+    hoverBg: $indigo-500,
+    hoverColor: $indigo-50,
+    focusBg: $indigo-700,
+    focusOutline: 1px solid $indigo-300,
+  ),
+
+  outlined-accent: (
+    bg: rgba(245, 159, 11, 0.15),
+    color: $navi-25,
+    outline: 1px solid rgba(245, 159, 11, 0.3),
+    hoverBg: rgba(245, 159, 11, 0.3),
+    hoverColor: $orange-50,
+    focusBg: rgba(245, 159, 11, 0.3),
+    focusOutline: 1px solid rgba(245, 159, 11, 0.6),
+  ),
+
+  outline-positive: (
+    bg: rgba(4, 62, 31, 0.3),
+    color: $navi-25,
+    outline: 1px solid rgba(29, 201, 120, 0.15),
+    hoverBg: rgba(5, 69, 34, 0.5),
+    hoverColor: rgb(29, 201, 120),
+    focusBg: rgba(5, 69, 34, 0.5),
+    focusOutline: 1px solid rgba(29, 201, 120, 0.4),
+  ),
+
+  outlined-negative: (
+    bg: rgba(251, 71, 71, 0.1),
+    color: $navi-25,
+    outline: 1px solid rgba(251, 71, 71, 0.3),
+    hoverBg: rgba(251, 71, 71, 0.15),
+    hoverColor: rgb(251, 71, 71),
+    focusBg: rgba(251, 71, 71, 0.15),
+    focusOutline: 1px solid rgba(251, 71, 71, 0.7),
+  ),
+
+  ghost: (
+    bg: color-mix(in oklab, $secondary 40%, transparent),
+    color: #fff,
+    outline: 1px solid rgba(107, 122, 148, 0.2),
+    hoverBg: color-mix(in oklab, $secondary 60%, transparent),
+    hoverColor: #fff,
+    focusOutline: 1px solid rgba(107, 122, 148, 0.2),
+  ),
+
+  success: (
+    color: $dark,
+  ),
+
+  accent: (
+    bg: $accent,
+    color: $dark,
+    hoverBg: lighten($accent, 10%),
+    focusBg: lighten($accent, 10%),
+  ),
+
+  purple: (
+    bg: $indigo,
+    color: #fff,
+    hoverBg: lighten($indigo, 4%),
+    focusBg: lighten($indigo, 4%),
+  ),
+
+  cyan: (
+    bg: $cyan,
+    color: $dark,
+    hoverBg: lighten($cyan, 10%),
+    focusBg: lighten($cyan, 10%),
+  ),
+
+  positive: (
+    bg: $success,
+    color: $dark,
+    hoverBg: lighten($success, 10%),
+    focusBg: lighten($success, 10%),
+  ),
+
+  negative: (
+    bg: $danger,
+    color: $dark,
+    hoverBg: lighten($danger, 10%),
+    focusBg: lighten($danger, 10%),
+  ),
+
+  outline-accent: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(242, 176, 26, 0.1),
+    hoverBg: rgba(252, 157, 16, 0.1),
+    hoverColor: $indigo,
+    focusOutline: 1px solid rgba(242, 176, 26, 0.4),
+  ),
+
+  outline-success: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(16, 185, 129, 0.1),
+    hoverBg: rgba(0, 201, 80, 0.1),
+    hoverColor: #17b26a,
+    focusOutline: 1px solid rgba(0, 201, 80, 0.4),
+  ),
+);
+
+$btn-size: (
+  lg: (
+    height: 48px,
+  ),
+  md: (
+    height: 40px,
+  ),
+  sm: (
+    height: 32px,
+  ),
+  xs: (
+    padding: 8px 16px,
+    font-size: 12px,
+    font-weight: 700,
+    line-height: 100%,
+    border-radius: $radius-xs,
+  ),
+);
+
+.btn {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+  font-family: $font-family-base !important;
+  border: none !important;
+  transition: $transition-base !important;
+
+  &:active {
+    border-color: transparent !important;
+  }
+
+  @each $name, $variant in $btn-variants {
+    &.btn-#{$name} {
+      --bs-btn-disabled-bg: #{$navi-600};
+      --bs-btn-disabled-color: #{$navi-300};
+      --bs-btn-hover-color: #{map-get($variant, color)};
+      --bs-btn-active-color: #{map-get($variant, color)};
+      --loading-spinner-color: #{map-get($variant, hoverColor)};
+
+      background: map-get($variant, bg);
+      color: map-get($variant, color);
+      outline: map-get($variant, outline);
+
+      &:hover {
+        background: map-get($variant, hoverBg);
+        color: map-get($variant, hoverColor);
+        outline: map-get($variant, focusOutline);
+      }
+
+      &:focus,
+      &:active {
+        outline: map-get($variant, focusOutline);
+        background-color: map-get($variant, focusBg) !important;
+      }
+
+      &.disabled {
+        outline: none !important;
+      }
+    }
+  }
+
+  @each $size, $styles in $btn-size {
+    &.btn-#{$size} {
+      @each $prop, $value in $styles {
+        #{$prop}: #{$value};
+      }
+    }
+  }
+
+  &.btn-success {
+    color: #fff;
+
+    &:hover,
+    &:active,
+    &:disabled {
+      color: #fff !important;
+    }
+
+    svg path {
+      stroke: #fff;
+    }
+  }
+
+  &.btn-rounded {
+    border-radius: 50%;
+    padding: 0;
+
+    @each $size, $value in (lg: 46px, md: 40px) {
+      &.btn-#{$size} {
+        width: $value;
+        height: $value;
+      }
+    }
+  }
+
+  @each $name, $size in (default: 16px, lg: 16px) {
+    &.btn-#{$name} {
+      .btn-icon-left,
+      .btn-icon-right {
+        width: $size;
+        height: $size;
+      }
+    }
+  }
+
+  &.btn-primary {
+    .btn-icon-left,
+    .btn-icon-right {
+      path {
+        stroke: #fff;
+      }
+    }
+  }
+
+  .btn-icon-left,
+  .btn-icon-right {
+    transition: transform $transition-base ease;
+  }
+
+  &:hover {
+    .btn-icon-left {
+      transform: translateX(-4px);
+    }
+    .btn-icon-right {
+      transform: translateX(4px);
+    }
+  }
+
+  &:disabled {
+    border-color: transparent !important;
+  }
+
+  &:has(.loading-btn-spinner) {
+    pointer-events: none;
+    .btn-content {
+      opacity: 0;
+    }
+  }
+
+  .btn-content {
+    line-height: normal;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transform: translateY(-1px);
+  }
+
+  .loading-btn-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--loading-spinner-color, #fff);
+
+    .spinner-border {
+      width: 1rem;
+      height: 1rem;
+      border-width: 2px;
+    }
+  }
+}
+
+.btn-close {
+  mask: url(~/assets/img/icons/cross-icon.svg) no-repeat center;
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border: none;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.theme-dark {
+  .btn-secondary {
+    // background-color: $neutral-900;
+    // border-color: $neutral-900;
+    // color: #fff;
+
+    &:active {
+      // background-color: lighten($neutral-900, 10%);
+      // border-color: lighten($neutral-900, 10%);
+      // color: #fff;
+    }
+  }
+}

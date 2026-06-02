@@ -3,6 +3,7 @@
 use market::{
     constants::*,
     error::MCError,
+    obligation::ObligationKey,
     pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{
@@ -12,8 +13,7 @@ use soroban_sdk::{
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
-    TestMarketFixture, get_earn_obligation_borrow_position, get_earn_obligation_j_tokens_as_tokens,
-    get_obligation_collateral, get_obligation_initially_borrowed,
+    TestMarketFixture, get_obligation_collateral, get_obligation_initially_borrowed,
     get_obligation_j_tokens_as_tokens, get_pool_total_available, get_pool_total_collateral,
     get_pool_total_supply,
 };
@@ -26,7 +26,12 @@ fn test_deposit() {
     let creditor = &users[0];
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
@@ -53,15 +58,19 @@ fn test_deposit() {
 
 #[test]
 fn test_deposit_zero() {
-    let TestMarketFixture { contract_client, usdc_token_address, gold_pool_address, users, .. } =
+    let TestMarketFixture { contract_client, usdc_token_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.deposit(creditor, &usdc_token_address, &0);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_after, pool_before);
+    assert_eq!(
+        contract_client.try_deposit(
+            &ObligationKey::new(creditor.clone()),
+            &usdc_token_address,
+            &0,
+            &None
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -78,10 +87,20 @@ fn test_exceed_supply_limit() {
         TestMarketFixture::new_with_pool_config(pool_config);
     let creditor = &users[0];
 
-    contract_client.deposit(creditor, &usdc_token_address, &SUPPLY_LIMIT);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &usdc_token_address,
+        &SUPPLY_LIMIT,
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &usdc_token_address, &1),
+        contract_client.try_deposit(
+            &ObligationKey::new(creditor.clone()),
+            &usdc_token_address,
+            &1,
+            &None
+        ),
         Err(Ok(MCError::PoolSupplyLimitExceeded)),
     );
 }
@@ -93,7 +112,12 @@ fn test_add_collateral() {
     let creditor = &users[0];
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
@@ -115,11 +139,15 @@ fn test_add_collateral_zero() {
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.add_collateral(creditor, &gold_pool_address, &0);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_before, pool_after);
+    assert_eq!(
+        contract_client.try_add_collateral(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &0,
+            &None
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -129,8 +157,13 @@ fn test_add_collateral_negative() {
     let creditor = &users[0];
 
     assert_eq!(
-        contract_client.try_add_collateral(creditor, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeInputAmount))
+        contract_client.try_add_collateral(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &-1,
+            &None
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -142,7 +175,16 @@ fn test_deposit_non_existing_tokens() {
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &DEPOSIT_AMOUNT).is_err());
+    assert!(
+        contract_client
+            .try_deposit(
+                &ObligationKey::new(creditor.clone()),
+                &gold_pool_address,
+                &DEPOSIT_AMOUNT,
+                &None
+            )
+            .is_err()
+    );
 }
 
 #[test]
@@ -152,8 +194,13 @@ fn test_deposit_negative() {
     let creditor = &users[0];
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeInputAmount))
+        contract_client.try_deposit(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &-1,
+            &None
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -165,7 +212,12 @@ fn test_deposit_pool_does_not_exist() {
     let missing_pool_address = Address::generate(&e);
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &missing_pool_address, &DEFAULT_DEPOSIT_AMOUNT),
+        contract_client.try_deposit(
+            &ObligationKey::new(creditor.clone()),
+            &missing_pool_address,
+            &DEFAULT_DEPOSIT_AMOUNT,
+            &None
+        ),
         Err(Ok(MCError::PoolDoesNotExist))
     );
 }
@@ -179,8 +231,18 @@ fn test_deposit_multiple_shareholders() {
     let creditor_2 = &users[1];
     let borrower = &users[2];
 
-    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(creditor_2, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.deposit(
+        &ObligationKey::new(creditor_1.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(creditor_2.clone()),
+        &gold_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     let pool_available = get_pool_total_available(&contract_client, &gold_pool_address);
     let obligation_1_j_tokens_as_tokens =
@@ -199,8 +261,18 @@ fn test_deposit_multiple_shareholders() {
     // - Borrow to have a non-zero supply APY -
     const BORROWER_BORROWED: i128 = DEFAULT_DEPOSIT_AMOUNT / 3;
 
-    contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.borrow(borrower, &gold_pool_address, &BORROWER_BORROWED);
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &BORROWER_BORROWED,
+        &None,
+    );
 
     // - Wait 1 month -
 
@@ -224,80 +296,4 @@ fn test_deposit_multiple_shareholders() {
     assert!(pool_total_supply > (3 * DEFAULT_DEPOSIT_AMOUNT) / 2);
     assert!(obligation_1_j_tokens_as_tokens > DEFAULT_DEPOSIT_AMOUNT);
     assert!(obligation_2_j_tokens_as_tokens > DEFAULT_DEPOSIT_AMOUNT / 2);
-}
-
-#[test]
-fn test_deposit_earn() {
-    let TestMarketFixture {
-        e, contract_client, gold_pool_address, users, gold_token_client, ..
-    } = TestMarketFixture::new();
-    let creditor = &users[0];
-
-    let creditor_balance_before = gold_token_client.balance(creditor);
-
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    let creditor_balance_after = gold_token_client.balance(creditor);
-    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
-    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let obligation_j_tokens_as_tokens =
-        get_earn_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
-            .unwrap();
-
-    assert_eq!(
-        creditor_balance_before.checked_sub(creditor_balance_after).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT
-    );
-    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(
-        get_earn_obligation_borrow_position(&contract_client, creditor, &gold_pool_address),
-        Err(MCError::BorrowPositionDoesNotExist)
-    );
-}
-
-#[test]
-fn test_earn_deposit_is_isolated() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        gold_token_client,
-        usdc_pool_address,
-        ..
-    } = TestMarketFixture::new();
-    let creditor = &users[0];
-    let liquidity_provider = &users[0];
-
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    assert_eq!(
-        contract_client.try_borrow(creditor, &usdc_pool_address, &1),
-        Err(Ok(MCError::ObligationDoesNotExist))
-    );
-
-    // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-    contract_client.deposit_earn(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // - Try withdraw all -
-
-    let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    let creditor_balance_after = gold_token_client.balance(creditor);
-
-    let creditor_balance_diff =
-        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-    assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
-
-    // - Withdraw from the earn obligation -
-
-    let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    let creditor_balance_after = gold_token_client.balance(creditor);
-
-    let creditor_balance_diff =
-        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-    assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 }

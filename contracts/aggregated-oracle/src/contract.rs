@@ -1,7 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
+    Address, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 use crate::{
@@ -45,13 +45,11 @@ impl AggregatedOracleContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-        base_asset_symbol: Symbol, // TODO: Use `Asset` before deployment
+        base_asset: Asset,
         decimals: u32,
         max_age: u64,
         oracles: Vec<OracleConfigInput>,
     ) {
-        let base_asset = Asset::Other(base_asset_symbol);
-
         const MIN_MAX_AGE: u64 = 360;
         const MAX_MAX_AGE: u64 = 3_600;
 
@@ -66,32 +64,37 @@ impl AggregatedOracleContract {
             panic_with_error!(e, AOCError::InvalidOraclesAmount);
         }
 
-        storage::set_admin(&e, admin);
+        storage::set_admin(&e, &admin);
         storage::set_decimals(&e, decimals);
         storage::set_max_age(&e, max_age);
         storage::set_base_asset(&e, base_asset);
         register_oracles(&e, oracles, max_age);
 
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
     }
 
-    /// Gives away the admin role
-    pub fn give_away_admin(e: Env, new_admin: Address) {
+    /// Proposes a new oracle's admin
+    pub fn propose_new_admin(e: Env, proposed_admin: Address) -> Result<(), AOCError> {
         require_admin(&e);
+        storage::extend_instance(&e);
 
-        storage::set_admin(&e, new_admin);
+        storage::set_proposed_admin(&e, &proposed_admin);
+
+        Ok(())
     }
 
-    // NB: The ability to update the contract must be removed before the mainnet deployment
-    /// Upgrades the aggregated oracle contract
-    ///
-    /// # Arguments
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
-    ///   new version of the contract
-    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        require_admin(&e);
+    // Accepts the proposal to become a new admin
+    pub fn accept_proposed_admin(e: Env) -> Result<(), AOCError> {
+        storage::extend_instance(&e);
 
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(AOCError::ProposedAdminIsNotSet)?;
+        proposed_admin.require_auth();
+
+        storage::set_admin(&e, &proposed_admin);
+        storage::remove_proposed_admin(&e);
+
+        Ok(())
     }
 
     /// Adds an asset to the aggregation list
@@ -109,7 +112,7 @@ impl AggregatedOracleContract {
         max_dev_bps: u32,
         max_dev_consecutive_diff_secs: u64,
     ) -> Result<(), AOCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         require_admin(&e);
 
         storage::add_asset(&e, ticker, token_address, max_dev_bps, max_dev_consecutive_diff_secs)?;
@@ -119,23 +122,16 @@ impl AggregatedOracleContract {
 
     /// Returns the list of all aggregated oracles configurations
     pub fn get_oracles(e: Env) -> Vec<OracleConfig> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_oracles(&e)
-    }
-
-    // TODO: Remove before deployment..
-    pub fn address_lastprice(e: Env, asset_address: Address) -> Option<PriceData> {
-        let stellar_asset = Asset::Stellar(asset_address);
-
-        process_lastprice(&e, &stellar_asset)
     }
 }
 
 #[contractimpl]
 impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     fn base(e: Env) -> Asset {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_base_asset(&e)
     }
@@ -143,18 +139,20 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     /// # Important:
     /// Returns a list of registered assets as [`Asset::Stellar`] variants
     fn assets(e: Env) -> Vec<Asset> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_assets(&e)
     }
 
     fn decimals(e: Env) -> u32 {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_decimals(&e)
     }
 
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
+        storage::extend_instance(&e);
+
         process_lastprice(&e, &asset)
     }
 }
@@ -191,7 +189,7 @@ fn require_admin(e: &Env) {
 }
 
 fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
-    storage::extend_instance_storage(e);
+    storage::extend_instance(e);
 
     let Asset::Stellar(token_address) = asset else {
         // Oracle supports only assets existing as tokens on the Stellar ledger
@@ -204,11 +202,10 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         return None;
     }
 
-    let price: i128 = compute_median(e, token_address)?;
-
     let current_timestamp = e.ledger().timestamp();
 
-    let res_lastprice = PriceData { price, timestamp: current_timestamp };
+    // Compute median price and get the oldest timestamp from source oracles
+    let res_lastprice = compute_median(e, token_address)?;
 
     if let Some(previous_median_lastprice) =
         storage::get_previous_median_lastprice(e, token_address)
@@ -224,7 +221,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
         if time_diff <= asset_data.max_dev_consecutive_diff_secs {
             // Check price deviation
-            let abs_price_diff = price.checked_sub(cached_price)?.abs();
+            let abs_price_diff = res_lastprice.price.checked_sub(cached_price)?.abs();
 
             let div_bps = abs_price_diff.fixed_div_ceil(cached_price, BPS_FACTOR)?;
             if div_bps > asset_data.max_dev_bps as i128 {

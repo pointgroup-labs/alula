@@ -5,36 +5,35 @@ use soroban_sdk::contracterror;
 pub enum MCError {
     // Core errors (0-99)
     InternalError = 0,
-    NegativeInputAmount = 1,
-    OverOrUnderflow = 2,
-
-    // Core Market errors
-    DependencyContractError = 10,
-    MarketIsNotOwned = 11,
-    BorrowForbiddenOnMarket = 12,
-    DepositForbiddenOnMarket = 13,
-    MarketIsFrozen = 14,
-    InvalidMarketUpdate = 15,
-    InvalidMarketStatusUpdate = 16,
-    IncorrectRequestType = 17,
-    TooManyPositions = 18,
-    MinCollateralValueIsNotMet = 19,
+    InvalidInputAmount = 1,
+    DependencyContractError = 2,
+    MarketIsNotOwned = 3,
+    BorrowForbiddenOnMarket = 4,
+    DepositForbiddenOnMarket = 5,
+    MarketIsFrozen = 6,
+    InvalidMarketConfigOrUpdate = 7,
+    IncorrectRequestType = 8,
+    OverOrUnderflow = 9,
+    TooManyPositions = 10,
+    MinCollateralValueIsNotMet = 11,
+    NonPositiveSharesAmount = 12,
 
     // Pool-related errors (100-199)
-    PoolAlreadyExists = 100,
+    InvalidInitialization = 100,
     PoolDoesNotExist = 101,
     InvalidLoanPoolConfig = 102,
     NotEnoughPoolFunds = 103,
     DepositPoolDoesNotExist = 104,
     BorrowPoolDoesNotExist = 105,
     CollateralPoolDoesNotExist = 106,
-    PoolAlreadyContainsQueuedInConfigUpdate = 107,
-    PoolDoesNotHaveQueuedInConfigUpdate = 108,
-    PoolConfigUpdateIsNotYetApplicable = 109,
-    BorrowForbiddenOnPool = 110,
-    DepositForbiddenOnPool = 111,
-    PoolIsFrozen = 112,
-    InvalidBootstrapPeriod = 113,
+    PoolAlreadyContainsQueuedPoolSet = 107,
+    PoolDoesNotHaveQueuedPoolSet = 108,
+    PoolSetIsNotYetApplicable = 109,
+    OperationForbiddenOnPool = 110,
+    MarketAlreadyContainsQueuedInConfigUpdate = 111,
+    MarketDoesNotHaveQueuedInConfigUpdate = 112,
+    MarketConfigUpdateIsNotYetApplicable = 113,
+    PoolBadDebtLocked = 114,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,
@@ -44,6 +43,7 @@ pub enum MCError {
     ScarcityCooldownPeriod = 204,
     BorrowPositionForAssetExists = 205,
     DepositPositionForAssetExists = 206,
+    UnhealthyOperation = 207,
 
     // Balance and limit errors (400-499)
     PoolSupplyLimitExceeded = 400,
@@ -52,20 +52,18 @@ pub enum MCError {
     // Oracle-related errors (500-599)
     OracleDoesNotKnowAssetPrice = 500,
     OracleStalePrice = 501,
+    NonPositiveOraclePrice = 502,
 
     // Health factor and liquidation errors (600-699)
     InvalidLiquidationInputs = 600,
     ObligationIsHealthy = 601,
-    LiquidationExceedsCloseFactor = 602,
+    ObligationContainsOpenCoverBadDebtRequests = 602,
     BadDebtCoverageCriterionIsNotMet = 603,
     AssetCannotBeUsedAsCollateral = 604,
     LiquidationExcessiveDemandedCollateral = 605,
 
-    // Leverage and swap errors (700-799)
-    InvalidLeverageMultiplier = 700,
-    InvalidSwapSlippage = 701,
-    MultiplyPairAlreadyExists = 702,
-    MultiplyPairDoesNotExist = 703,
-    LeveragePositionContainsBadDebt = 704,
-    InconsistentDepositWithLeverage = 705,
+    // Requests batching & swap errors (700-799)
+    InvalidSwap = 701,
+    FlashBorrowAlreadyRegistered = 702,
+    SwapSlippageExceeded = 703,
 }

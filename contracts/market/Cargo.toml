@@ -10,8 +10,10 @@ doctest = true
 
 [dependencies]
 enum_dispatch = { workspace = true }
-farms_interface = { path = "../../farms_interface" }
-moderc3156 = { path = "../../moderc3156" }
+farms-interface = { workspace = true }
+insurance-fund-interface = { workspace = true }
+moderc3156 = { workspace = true }
+proxy-swap-interface = { workspace = true }
 sep-40-oracle = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }

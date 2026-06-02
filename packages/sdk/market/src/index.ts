@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import { Address } from '@stellar/stellar-sdk';
+import { Address } from "@stellar/stellar-sdk";
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -7,7 +7,7 @@ import {
   MethodOptions,
   Result,
   Spec as ContractSpec,
-} from '@stellar/stellar-sdk/contract';
+} from "@stellar/stellar-sdk/contract";
 import type {
   u32,
   i32,
@@ -17,16 +17,15 @@ import type {
   i128,
   u256,
   i256,
-  AssembledTransactionOptions,
   Option,
-  Typepoint,
+  Timepoint,
   Duration,
-} from '@stellar/stellar-sdk/contract';
-export * from '@stellar/stellar-sdk'
-export * as contract from '@stellar/stellar-sdk/contract'
-export * as rpc from '@stellar/stellar-sdk/rpc'
+} from "@stellar/stellar-sdk/contract";
+export * from "@stellar/stellar-sdk";
+export * as contract from "@stellar/stellar-sdk/contract";
+export * as rpc from "@stellar/stellar-sdk/rpc";
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
@@ -34,99 +33,95 @@ if (typeof window !== 'undefined') {
 
 
 
-export type AccrualModel = {tag: "Compounded", values: void};
 
-export const MCError = {
-  0: {message:"InternalError"},
-  1: {message:"NegativeInputAmount"},
-  2: {message:"DependencyContractError"},
-  3: {message:"MarketIsNotOwned"},
-  4: {message:"BorrowForbiddenOnMarket"},
-  5: {message:"DepositForbiddenOnMarket"},
-  6: {message:"MarketIsFrozen"},
-  7: {message:"InvalidMarketUpdate"},
-  8: {message:"InvalidMarketStatusUpdate"},
-  9: {message:"IncorrectRequestType"},
-  10: {message:"OverOrUnderflow"},
-  11: {message:"TooManyPositions"},
-  12: {message:"MinCollateralValueIsNotMet"},
-  100: {message:"PoolAlreadyExists"},
-  101: {message:"PoolDoesNotExist"},
-  102: {message:"InvalidLoanPoolConfig"},
-  103: {message:"NotEnoughPoolFunds"},
-  104: {message:"DepositPoolDoesNotExist"},
-  105: {message:"BorrowPoolDoesNotExist"},
-  106: {message:"CollateralPoolDoesNotExist"},
-  107: {message:"PoolAlreadyContainsQueuedInConfigUpdate"},
-  108: {message:"PoolDoesNotHaveQueuedInConfigUpdate"},
-  109: {message:"PoolConfigUpdateIsNotYetApplicable"},
-  110: {message:"BorrowForbiddenOnPool"},
-  111: {message:"DepositForbiddenOnPool"},
-  112: {message:"PoolIsFrozen"},
-  113: {message:"InvalidBootstrapPeriod"},
-  200: {message:"ObligationDoesNotExist"},
-  201: {message:"DepositPositionDoesNotExist"},
-  202: {message:"BorrowPositionDoesNotExist"},
-  203: {message:"WithdrawScarcityOverLimit"},
-  204: {message:"ScarcityCooldownPeriod"},
-  205: {message:"BorrowPositionForAssetExists"},
-  206: {message:"DepositPositionForAssetExists"},
-  400: {message:"PoolSupplyLimitExceeded"},
-  401: {message:"PoolUtilizationRatioCapExceeded"},
-  500: {message:"OracleDoesNotKnowAssetPrice"},
-  501: {message:"OracleStalePrice"},
-  600: {message:"InvalidLiquidationInputs"},
-  601: {message:"ObligationIsHealthy"},
-  602: {message:"LiquidationExceedsCloseFactor"},
-  603: {message:"BadDebtCoverageCriterionIsNotMet"},
-  604: {message:"AssetCannotBeUsedAsCollateral"},
-  605: {message:"LiquidationExcessiveDemandedCollateral"},
-  700: {message:"InvalidLeverageMultiplier"},
-  701: {message:"InvalidSwapSlippage"},
-  702: {message:"MultiplyPairAlreadyExists"},
-  703: {message:"MultiplyPairDoesNotExist"},
-  704: {message:"LeveragePositionContainsBadDebt"},
-  705: {message:"InconsistentDepositWithLeverage"}
+export interface Obligation {
+  borrows: Map<string, BorrowPosition>;
+  deposits: Map<string, DepositPosition>;
+  insurance_fund_requests_ids: Map<readonly [string, u64], u64>;
+  positions_count: u32;
 }
 
 
+export interface RepayResult {
+  amount_to_send_back: i128;
+  d_tokens_to_burn: i128;
+  debt_repaid: i128;
+  operation_fees: OperationFees;
+}
 
 
+export interface BorrowResult {
+  borrower_new_debt: i128;
+  borrower_to_receive: i128;
+  d_tokens_to_issue: i128;
+  operation_fees: OperationFees;
+}
 
 
+export interface DepositResult {
+  deposited: i128;
+  j_tokens_to_issue: i128;
+  operation_fees: OperationFees;
+}
 
 
+export interface ObligationKey {
+  seed: Option<Buffer>;
+  user: string;
+}
 
 
+export interface OperationFees {
+  fee_sum: i128;
+  referrer_fee: i128;
+}
 
 
+export interface BorrowPosition {
+  d_tokens: i128;
+  originally_borrowed: i128;
+}
 
 
+export interface WithdrawResult {
+  deposit_decrease: i128;
+  j_tokens_to_burn: i128;
+  operation_fees: OperationFees;
+  withdrawer_to_receive: i128;
+}
 
 
+export interface DepositPosition {
+  collateral: i128;
+  j_tokens: i128;
+  last_scarcity_withdraw_ts: u64;
+  originally_deposited: i128;
+}
 
 
+export interface LiquidationResult {
+  amount_to_send_back: i128;
+  d_tokens_burned: i128;
+  debt_repaid: i128;
+  j_tokens_seized: i128;
+  plain_collateral_seized: i128;
+  tokens_from_j_tokens_seized: i128;
+}
 
 
+export interface AddCollateralResult {
+  added_collateral: i128;
+  operation_fees: OperationFees;
+}
 
 
+export interface RemoveCollateralResult {
+  collateral_decrease: i128;
+  collateral_remover_to_receive: i128;
+  operation_fees: OperationFees;
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-/**
- * Compound interest rates represented in basis points
- */
 export interface AnnualPercentageYields {
   borrow_bps: u32;
   supply_bps: u32;
@@ -163,10 +158,6 @@ max_apr_bps: i128;
 }
 
 
-/**
- * Represents the pool's plain data with additionally computed info. Intended to be used as a result of simulated read-only
- * invocations
- */
 export interface PoolData {
   apy: AnnualPercentageYields;
   d_token_rate_ceil_bps: i128;
@@ -178,365 +169,35 @@ export interface PoolData {
 }
 
 
-/**
- * Represents the entire market's data(for every pool) with additionally computed info. Intended to be used as a result of simulated read-only
- * invocations
- */
 export interface MarketData {
-  asset_decimals: u32;
   global_state: GlobalState;
-  multiply_pairs: Array<MultiplyPair>;
   oracle_price_decimals: u32;
   pools_data: Array<PoolData>;
 }
 
 
-export interface MultiplyPair {
-  /**
- * Address of a pool in a pair for a leveraged borrow
- */
-borrow_pool: string;
-  /**
- * Address of a pool in a pair for a leveraged deposit
- */
-deposit_pool: string;
-  /**
- * Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
- * [`LEVERAGE_SCALE`]
- */
-max_leverage_multiplier: u32;
-  /**
- * Deterministically computed unique seed per a pair, used to distinguish a user's multiply
- * pair obligation from others
- */
-seed: Buffer;
-}
-
-
-export interface ObligationKey {
-  seed: Option<Buffer>;
-  user: string;
-}
-
-
-export interface Obligation {
-  /**
- * Borrowed liquidity for the obligation, unique by borrow pool address
- */
-borrows: Map<string, BorrowPosition>;
-  /**
- * Deposited collateral for the obligation, unique by deposit pool address
- */
-deposits: Map<string, DepositPosition>;
-  /**
- * Count of non-empty positions
- */
-positions_count: u32;
-}
-
-
-export interface BorrowPosition {
-  /**
- * Amount of the total debt shares that the obligation contains
- */
-d_tokens: i128;
-  /**
- * Originally borrowed token amount. I.e., if the user borrows 100 tokens and 20 tokens
- * have been accrued with time as additional debt - this value remains 100. If, after that, the user repays the amount
- * that exceeds the debt accrual(like 30) - the value becomes 90. If the user instead borrows 10 tokens, the
- * value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
- * of accrued unpaid interest
- */
-originally_borrowed: i128;
-}
-
-
-export interface DepositPosition {
-  /**
- * Accumulated value of collateral that doesn't accrue interest
- */
-collateral: i128;
-  /**
- * A share of total supplied tokens in the pool that obligation contains
- */
-j_tokens: i128;
-  /**
- * Timestamp of when the last scarcity withdraw took place
- */
-last_scarcity_withdraw_ts: u64;
-  /**
- * Originally deposited token amount. I.e., if the user deposits 100 tokens and 20 tokens
- * have been accrued with time - this value remains 100. If, after that, the user withdraws the amount
- * that exceeds the accrual(like 30) - the value becomes 90 (same goes for when `j_tokens` are seized
- * as collateral by a liquidator. If the user instead deposits 10 tokens, the
- * value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
- * of received supply interest
- */
-originally_deposited: i128;
-}
-
-
-/**
- * Generally represents computed fees issued by any possible operation on a market
- */
-export interface ComputedFees {
-  /**
- * Sum of `market_fee` and `host_fee`
- */
-fee_sum: i128;
-  /**
- * Fee segregated to the protocol host(market deployer)
- */
-host_fee: i128;
-  /**
- * Fee segregated to the market admin
- */
-market_fee: i128;
-}
-
-
-/**
- * [`Obligation::deposit`] resulting data
- */
-export interface DepositResult {
-  computed_fees: ComputedFees;
-  /**
- * Amount of originally deposited tokens(minus all possible fees)
- */
-deposited: i128;
-  /**
- * Amount of `jTokens` to issue that represent the `deposited` amount in the pool
- */
-j_tokens_to_issue: i128;
-}
-
-
-/**
- * [`Obligation::borrow`] resulting data
- */
-export interface BorrowResult {
-  /**
- * Amount of debt(in tokens) that is added to the borrower's obligation
- */
-borrower_new_debt: i128;
-  /**
- * Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
- */
-borrower_to_receive: i128;
-  computed_fees: ComputedFees;
-  /**
- * Amount of `dTokens` to issue that represent the `borrower_new_debt` amount in the pool
- */
-d_tokens_to_issue: i128;
-}
-
-
-/**
- * [`Obligation::add_collateral`] resulting data
- */
-export interface AddCollateralResult {
-  /**
- * Amount of tokens added as collateral(minus all possible fees)
- */
-added_collateral: i128;
-  computed_fees: ComputedFees;
-}
-
-
-/**
- * [`Obligation::withdraw`] resulting data
- */
-export interface WithdrawResult {
-  computed_fees: ComputedFees;
-  /**
- * Amount of the original deposit(in tokens) that is removed from the `DepositPosition`
- */
-deposit_decrease: i128;
-  /**
- * Amount of `jTokens` to burn that represent the `deposit_decreased_amount` amount in the
- * pool
- */
-j_tokens_to_burn: i128;
-  /**
- * Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
- */
-withdrawer_to_receive: i128;
-}
-
-
-/**
- * [`Obligation::repay`] resulting data
- */
-export interface RepayResult {
-  /**
- * Excess amount given by the borrower that is sent back
- */
-amount_to_send_back: i128;
-  computed_fees: ComputedFees;
-  /**
- * Amount of `dTokens` to burn that represent the `real_repaid` amount in the pool
- */
-d_tokens_to_burn: i128;
-  /**
- * Amount of the debt that is repaid
- */
-debt_repaid: i128;
-}
-
-
-/**
- * [`Obligation::remove_collateral`] resulting data
- */
-export interface RemoveCollateralResult {
-  /**
- * Amount of collateral tokens removed
- */
-collateral_decrease: i128;
-  /**
- * Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
- */
-collateral_remover_to_receive: i128;
-  computed_fees: ComputedFees;
-}
-
-
-/**
- * [`Obligation::cover_bad_debt`] resulting data
- */
-export interface CoverBadDebtResult {
-  /**
- * `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
- */
-borrows_to_be_compensated: Array<readonly [string, i128]>;
-  /**
- * `(pool address, borrower jTokens, borrower collateral)` tuples for each bad debt obligation
- * collateral
- */
-collaterals_to_remove: Array<readonly [string, i128, i128]>;
-}
-
-
-export interface LiquidationResult {
-  /**
- * The amount of `dTokens` that are burned from the borrower's borrow position
- */
-d_tokens_burned: i128;
-  /**
- * The amount of debt tokens repaid by the liquidator
- */
-debt_repaid: i128;
-  /**
- * The amount of `jTokens` seized from the borrower's obligation and given away to the liquidator's obligation
- * in case the borrower's position doesn't contain enough plain collateral to cover the liquidation expenses
- */
-j_tokens_seized: i128;
-  /**
- * The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
- */
-plain_collateral_seized: i128;
-  /**
- * The amount of tokens representing the `j_tokens_seized` computed via ceiling
- */
-tokens_from_j_tokens_seized: i128;
-}
-
-
 export interface Pool {
-  /**
- * Amount of tokens that can be withdrawn by the host platform admin as a fee
- */
-accumulated_host_fees: i128;
-  /**
- * Amount of tokens that can be withdrawn by the market's admin as a fee
- */
-accumulated_market_fees: i128;
-  /**
- * Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
- */
-accumulated_reserve_fees: i128;
-  /**
- * Remaining supply bootstrap amounts that are distributed evenly among specified periods
- */
-bootstrap_periods: Map<readonly [u64, u64], PoolBootstrapPeriod>;
-  /**
- * Borrow annual percentage rate in basis points
- */
-borrow_apr_bps: i128;
-  /**
- * Configuration settings for the pool
- */
-config: PoolConfig;
-  /**
- * The timestamp of the last accrual re-calculation
- */
-last_accrual_timestamp: u64;
-  /**
- * The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
- * SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
- * "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
- */
-name: string;
-  /**
- * The address of the loan pool
- */
-pool_address: string;
-  /**
- * Supply annual percentage rate in basis points
- */
-supply_apr_bps: i128;
-  /**
- * The address of the token contract associated with the pool
- */
-token_address: string;
-  /**
- * The token symbol of the associated asset
- */
-token_symbol: string;
-  /**
- * The total amount of currently available tokens for borrowing
- */
-total_available: i128;
-  /**
- * The total amount of borrowed assets. This value increases with interest rate accrual
- */
-total_borrowed: i128;
-  /**
- * The total amount of deposited collateral assets that don't accrue interest
- */
-total_collateral: i128;
-  /**
- * The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
- */
-total_d_tokens: i128;
-  /**
- * The total `jTokens` amount. Represents the sum of all yielding interest collateral shares
- * distributed among creditors
- */
-total_j_tokens: i128;
-}
-
-
-export interface PoolFeeConfig {
-  add_collateral_fee_bps: u32;
-  borrow_fee_bps: u32;
-  deposit_fee_bps: u32;
-  flash_loan_fee_bps: u32;
-  host_fee_bps: u32;
-  remove_collateral_fee_bps: u32;
-  repay_fee_bps: u32;
-  take_rate_bps: u32;
-  withdraw_fee_bps: u32;
-  /**
- * Additional scalar (in basis points) used for the additional withdrawal fee when the utilization ratio
- * exceeds `utilization_ratio_limit_bps`
- */
-withdraw_scarcity_fee_sc_bps: u32;
-}
-
-
-export interface PoolStatus {
-  borrow_enabled: boolean;
-  deposit_enabled: boolean;
+  bad_debt_lock_d: u64;
+  bad_debt_request_count: u32;
+  borrow_apr_bps: i128;
+  config: PoolConfig;
+  farm_debt: Option<Buffer>;
+  farm_supply: Option<Buffer>;
+  interest_rate_modifier_bps: i128;
+  last_accrual_timestamp: u64;
+  name: string;
+  operation_fees_sum: i128;
+  pool_address: string;
+  supply_apr_bps: i128;
+  take_rate_fees_sum: i128;
+  token_address: string;
+  token_decimals: u32;
+  token_symbol: string;
+  total_available: i128;
+  total_borrowed: i128;
+  total_collateral: i128;
+  total_d_tokens: i128;
+  total_j_tokens: i128;
 }
 
 
@@ -545,116 +206,262 @@ export interface PoolConfig {
   fee_config: PoolFeeConfig;
   health_config: PoolHealthConfig;
   interest_rate_model: InterestRateModel;
+  ir_reactivity_constant: u32;
   status: PoolStatus;
+  target_utilization_ratio_bps: i128;
+}
+
+
+export interface PoolStatus {
+  flags: u32;
+}
+
+
+export interface PoolFeeConfig {
+  add_collateral_fee_bps: u32;
+  borrow_fee_bps: u32;
+  deposit_fee_bps: u32;
+  flash_loan_fee_bps: u32;
+  operation_fee_beneficiaries: Option<Map<string, u32>>;
+  referrers: Option<Map<string, u32>>;
+  remove_collateral_fee_bps: u32;
+  repay_fee_bps: u32;
+  take_rate_beneficiaries: Option<Map<string, u32>>;
+  take_rate_bps: u32;
+  withdraw_fee_bps: u32;
+  withdraw_max_scarcity_fee_bps: u32;
 }
 
 
 export interface PoolHealthConfig {
-  /**
- * The maximum percentage of an asset's value that can be held in an individual obligation in
- * basis points with respect to a total obligation's collateral value. LTV greater than
- * that makes borrow position eligible to liquidation
- */
-close_ltv_bps: i128;
-  /**
- * LTV calculated for unparameterized obligation positions(i.e., no openLTV/liability factors scaling) that marks
- * position as insolvent. Used as a means to avoid unprofitable health-improving liquidations
- */
-insolvency_ltv_bps: i128;
-  /**
- * The factor used to calculate the current borrow limit by multiplying the collateral value
- * by it before subtracting this value from the obligation's max borrow limit. Volatile
- * assets' pools are expected to have this value set way above 100%
- */
-liability_factor_bps: i128;
-  /**
- * Maximum percentage of a borrower's debt that can be liquidated at once
- */
-liquidation_close_factor_bps: i128;
-  /**
- * Maximum additional value in the received tokens that can be given to liquidators when purchasing collateral
- */
-max_liquidation_incentive_bps: i128;
-  /**
- * The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 =
- * 70%, etc) with respect to a total obligation's collateral value
- */
-open_ltv_bps: i128;
-  /**
- * The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
- * `total_borrowed`) 0 denotes unlimited supply
- */
-supply_limit: i128;
-  /**
- * The maximum utilization ratio that is allowed to be reached via borrowing
- */
-utilization_ratio_limit_bps: i128;
-  /**
- * Cooldown period(in seconds) required between a pair of sequential withdrawals when the pool's utilization ratio exceeds
- * `utilization_ratio_limit_bps`
- */
-withdraw_scarcity_cooldown_s: u64;
-  /**
- * Basis points of the pool's total supply that can be withdrawn in a single operation when the pool's utilization ratio exceeds
- * `utilization_ratio_limit_bps`
- */
-withdraw_scarcity_limit_bps: i128;
+  close_ltv_bps: i128;
+  liability_factor_bps: i128;
+  liquidation_close_factor_bps: i128;
+  max_liquidation_incentive_bps: i128;
+  open_ltv_bps: i128;
+  supply_limit: i128;
+  utilization_ratio_limit_bps: i128;
+  withdraw_scarcity_cooldown_s: u64;
+  withdraw_scarcity_limit_bps: i128;
+}
+
+export const MCError = {
+  0: {message:"InternalError"},
+  1: {message:"InvalidInputAmount"},
+  2: {message:"DependencyContractError"},
+  3: {message:"MarketIsNotOwned"},
+  4: {message:"BorrowForbiddenOnMarket"},
+  5: {message:"DepositForbiddenOnMarket"},
+  6: {message:"MarketIsFrozen"},
+  7: {message:"InvalidMarketConfigOrUpdate"},
+  8: {message:"IncorrectRequestType"},
+  9: {message:"OverOrUnderflow"},
+  10: {message:"TooManyPositions"},
+  11: {message:"MinCollateralValueIsNotMet"},
+  12: {message:"NonPositiveSharesAmount"},
+  100: {message:"InvalidInitialization"},
+  101: {message:"PoolDoesNotExist"},
+  102: {message:"InvalidLoanPoolConfig"},
+  103: {message:"NotEnoughPoolFunds"},
+  104: {message:"DepositPoolDoesNotExist"},
+  105: {message:"BorrowPoolDoesNotExist"},
+  106: {message:"CollateralPoolDoesNotExist"},
+  107: {message:"PoolAlreadyContainsQueuedPoolSet"},
+  108: {message:"PoolDoesNotHaveQueuedPoolSet"},
+  109: {message:"PoolSetIsNotYetApplicable"},
+  110: {message:"OperationForbiddenOnPool"},
+  111: {message:"MarketAlreadyContainsQueuedInConfigUpdate"},
+  112: {message:"MarketDoesNotHaveQueuedInConfigUpdate"},
+  113: {message:"MarketConfigUpdateIsNotYetApplicable"},
+  114: {message:"PoolBadDebtLocked"},
+  200: {message:"ObligationDoesNotExist"},
+  201: {message:"DepositPositionDoesNotExist"},
+  202: {message:"BorrowPositionDoesNotExist"},
+  203: {message:"WithdrawScarcityOverLimit"},
+  204: {message:"ScarcityCooldownPeriod"},
+  205: {message:"BorrowPositionForAssetExists"},
+  206: {message:"DepositPositionForAssetExists"},
+  207: {message:"UnhealthyOperation"},
+  400: {message:"PoolSupplyLimitExceeded"},
+  401: {message:"PoolUtilizationRatioCapExceeded"},
+  500: {message:"OracleDoesNotKnowAssetPrice"},
+  501: {message:"OracleStalePrice"},
+  502: {message:"NonPositiveOraclePrice"},
+  600: {message:"InvalidLiquidationInputs"},
+  601: {message:"ObligationIsHealthy"},
+  602: {message:"ObligationContainsOpenCoverBadDebtRequests"},
+  603: {message:"BadDebtCoverageCriterionIsNotMet"},
+  604: {message:"AssetCannotBeUsedAsCollateral"},
+  605: {message:"LiquidationExcessiveDemandedCollateral"},
+  701: {message:"InvalidSwap"},
+  702: {message:"FlashBorrowAlreadyRegistered"},
+  703: {message:"SwapSlippageExceeded"}
 }
 
 
-export interface PoolBootstrapPeriod {
-  /**
- * Remaining bootstrap amount
- */
-remaining_amount: i128;
-  /**
- * Total provided bootstrap amount
- */
-total_amount: i128;
-}
 
 
-/**
- * A request from the submission batch
- */
-export interface Request {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export type AccrualModel = {tag: "Compounded", values: void};
+
+export type Request = {tag: "Deposit", values: readonly [StandardRequest]} | {tag: "Borrow", values: readonly [StandardRequest]} | {tag: "Withdraw", values: readonly [StandardRequest]} | {tag: "Repay", values: readonly [StandardRequest]} | {tag: "AddCollateral", values: readonly [StandardRequest]} | {tag: "RemoveCollateral", values: readonly [StandardRequest]} | {tag: "FlashBorrow", values: readonly [StandardRequest]} | {tag: "SwapExactTokens", values: readonly [SwapExactTokensRequest]} | {tag: "SwapForExactTokens", values: readonly [SwapForExactTokensRequest]} | {tag: "Liquidate", values: readonly [LiquidateRequest]};
+
+
+export interface StandardRequest {
   amount: i128;
   pool_address: string;
-  request_type: u32;
 }
 
-export enum RequestType {
-  Deposit = 0,
-  Borrow = 1,
-  Withdraw = 2,
-  Repay = 3,
-  AddCollateral = 4,
-  RemoveCollateral = 5,
+
+export interface LiquidateRequest {
+  borrow_pool_address: string;
+  borrower_obligation_key: ObligationKey;
+  collateral_pool_address: string;
+  min_demanded_collateral_amount: i128;
+  repay_amount: i128;
 }
+
+
+export interface SwapExactTokensRequest {
+  amount_in: i128;
+  min_amount_out: i128;
+  path: Array<string>;
+  swap_provider: string;
+}
+
+
+export interface SwapForExactTokensRequest {
+  amount_out: i128;
+  max_amount_in: i128;
+  path: Array<string>;
+  swap_provider: string;
+}
+
+export type DataKey = {tag: "Name", values: void} | {tag: "Admin", values: void} | {tag: "Oracle", values: void} | {tag: "Accrual", values: void} | {tag: "IsOwned", values: void} | {tag: "AllPools", values: void} | {tag: "GlobalState", values: void} | {tag: "DeployerHost", values: void} | {tag: "MaxPositions", values: void} | {tag: "MarketStatus", values: void} | {tag: "FarmsContract", values: void} | {tag: "QueuedPoolSet", values: readonly [string]} | {tag: "Pool", values: readonly [string]} | {tag: "InsuranceFund", values: void} | {tag: "AllObligations", values: void} | {tag: "InsolvencyLtvBps", values: void} | {tag: "EarnObligationSeed", values: void} | {tag: "MinCollateralValueCents", values: void} | {tag: "UpdateInQueuePeriod", values: void} | {tag: "MarketConfigUpdate", values: void} | {tag: "Obligation", values: readonly [ObligationKey]} | {tag: "ProposedAdmin", values: void} | {tag: "BadDebtLockDuration", values: void};
 
 
 export interface GlobalState {
   admin: string;
+  bad_debt_lock_d: u64;
   deployer: string;
   insolvency_ltv_bps: i128;
+  insurance_fund: string;
   is_owned: boolean;
   max_positions: u32;
-  min_collateral_value: i128;
+  min_collateral_value_cents: i128;
   name: string;
   oracle: string;
   status: u32;
-  update_in_queue_period: Option<u64>;
+  update_in_queue_period: u64;
 }
 
-export type MarketStatus = {tag: "Active", values: void} | {tag: "BorrowFrozen", values: void} | {tag: "DepositFrozen", values: void} | {tag: "Frozen", values: void};
+export type MarketStatus = {tag: "Active", values: void} | {tag: "BorrowFrozen", values: void} | {tag: "BorrowFrozenByAdmin", values: void} | {tag: "DepositFrozen", values: void} | {tag: "DepositFrozenByAdmin", values: void} | {tag: "Frozen", values: void} | {tag: "FrozenByAdmin", values: void};
 
 
-export interface PoolUpdate {
+export interface MarketUpdate {
+  new_bad_debt_lock_d: u64;
+  new_max_positions: u32;
+  new_min_collateral_value_cents: i128;
+  queued_in_timestamp: u64;
+}
+
+
+export interface QueuedPoolSet {
   new_config: PoolConfig;
   queued_in_timestamp: u64;
 }
 
-export type DataKey = {tag: "Name", values: void} | {tag: "Admin", values: void} | {tag: "UpdateInQueuePeriod", values: void} | {tag: "IsOwned", values: void} | {tag: "DeployerHost", values: void} | {tag: "Oracle", values: void} | {tag: "MinCollateralValue", values: void} | {tag: "InsolvencyLtvBps", values: void} | {tag: "MaxPositions", values: void} | {tag: "GlobalState", values: void} | {tag: "Accrual", values: void} | {tag: "AllPools", values: void} | {tag: "AllObligations", values: void} | {tag: "AllMultiplyPairs", values: void} | {tag: "MarketStatus", values: void} | {tag: "ConfigUpdate", values: readonly [string]} | {tag: "Pool", values: readonly [string]} | {tag: "Obligation", values: readonly [ObligationKey]} | {tag: "MultiplyPair", values: readonly [readonly [string, string]]} | {tag: "EarnObligationSeed", values: void};
+
+export interface MarketInitParams {
+  bad_debt_lock_d: u64;
+  insolvency_ltv_bps: i128;
+  is_owned: boolean;
+  max_positions: u32;
+  min_collateral_value_cents: i128;
+  update_in_queue_period: u64;
+}
+
+
+/**
+ * Delegatee identifier for farm stakes.
+ * 
+ * Supports multiple stake identities per owner address:
+ * - Simple: just owner address (for contracts where user has single position)
+ * - With seed: owner address + seed (for contracts with multiple obligations per user)
+ */
+export interface Delegatee {
+  /**
+ * The owner's address
+ */
+owner: string;
+  /**
+ * Optional seed to distinguish multiple positions per owner
+ */
+seed: Option<Buffer>;
+}
+
+export type CoverageStatus = {tag: "Pending", values: void} | {tag: "Ready", values: readonly [i128]};
+
+export type IssueRequestResult = {tag: "Recorded", values: readonly [u64]} | {tag: "Immediate", values: readonly [i128]};
+
+/**
+ * Asset type
+ */
+export type Asset = {tag: "Stellar", values: readonly [string]} | {tag: "Other", values: readonly [string]};
 
 
 /**
@@ -665,274 +472,252 @@ export interface PriceData {
   timestamp: u64;
 }
 
-/**
- * Asset type
- */
-export type Asset = {tag: "Stellar", values: readonly [string]} | {tag: "Other", values: readonly [string]};
-
 export interface Client {
   /**
-   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Upgrades the lending contract
-   * 
-   * # Arguments
-   * * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
-   * version of the contract
+   * Construct and simulate a repay transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: AssembledTransactionOptions<null>) => Promise<AssembledTransaction<null>>
-
-  /**
-   * Construct and simulate a submit_requests_batch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  submit_requests_batch: ({user, requests}: {user: string, requests: Array<Request>}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a get_global_state transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_global_state: (options?: AssembledTransactionOptions<GlobalState>) => Promise<AssembledTransaction<GlobalState>>
-
-  /**
-   * Construct and simulate a update_market transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  update_market: ({new_max_positions, new_min_collateral_value}: {new_max_positions: u32, new_min_collateral_value: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a update_market_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  update_market_status: ({new_status}: {new_status: u32}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a initialize_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  initialize_pool: ({token_address, salt, pool_config}: {token_address: string, salt: Option<Buffer>, pool_config: Option<PoolConfig>}, options?: AssembledTransactionOptions<Result<string>>) => Promise<AssembledTransaction<Result<string>>>
-
-  /**
-   * Construct and simulate a initialize_multiply_pair transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  initialize_multiply_pair: ({deposit_pool_address, borrow_pool_address}: {deposit_pool_address: string, borrow_pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a queue_in_pool_config_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  queue_in_pool_config_update: ({pool_address, new_pool_config}: {pool_address: string, new_pool_config: PoolConfig}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a cancel_pool_config_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  cancel_pool_config_update: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a apply_pool_config_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  apply_pool_config_update: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a get_pool_config_queued_in_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_pool_config_queued_in_update: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<PoolUpdate>>) => Promise<AssembledTransaction<Result<PoolUpdate>>>
-
-  /**
-   * Construct and simulate a bootstrap_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  bootstrap_pool: ({pool_address, sponsor, amount, start_period, end_period}: {pool_address: string, sponsor: string, amount: i128, start_period: u64, end_period: u64}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a deposit transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  deposit: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a deposit_earn transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  deposit_earn: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
+  repay: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a borrow transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  borrow: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
+  borrow: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a swap transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a deposit transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  swap: ({user, token_in, token_out, amount_in}: {user: string, token_in: string, token_out: string, amount_in: i128}, options?: AssembledTransactionOptions<Result<i128>>) => Promise<AssembledTransaction<Result<i128>>>
+  deposit: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a donate_to_reserve transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  donate_to_reserve: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a add_collateral transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  add_collateral: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a remove_collateral transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  remove_collateral: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a repay transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  repay: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a liquidate transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  liquidate: ({liquidator, borrower, borrower_obligation_seed, borrow_pool_address, collateral_pool_address, repay_amount, min_demanded_collateral_amount}: {liquidator: string, borrower: string, borrower_obligation_seed: Option<Buffer>, borrow_pool_address: string, collateral_pool_address: string, repay_amount: i128, min_demanded_collateral_amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  withdraw: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a simulate_withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  simulate_withdraw: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<WithdrawResult>>) => Promise<AssembledTransaction<Result<WithdrawResult>>>
-
-  /**
-   * Construct and simulate a simulate_earn_withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  simulate_earn_withdraw: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<WithdrawResult>>) => Promise<AssembledTransaction<Result<WithdrawResult>>>
-
-  /**
-   * Construct and simulate a withdraw_earn transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  withdraw_earn: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a flash_loan transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  flash_loan: ({contract, caller, pool_address, amount}: {contract: string, caller: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a deposit_with_leverage transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  deposit_with_leverage: ({user, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier}: {user: string, deposit_pool_address: string, borrow_pool_address: string, deposit_as_margin: boolean, amount: i128, leverage_multiplier: u32}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a withdraw_from_leveraged transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  withdraw_from_leveraged: ({user, deposit_pool_address, borrow_pool_address, amount}: {user: string, deposit_pool_address: string, borrow_pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a redeem_accumulated_market_fees transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  redeem_accumulated_market_fees: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a redeem_accumulated_host_fees transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  redeem_accumulated_host_fees: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a cover_obligation_bad_debt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  cover_obligation_bad_debt: ({bad_debt_obligation_user}: {bad_debt_obligation_user: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a cover_multiply_pair_bad_debt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  cover_multiply_pair_bad_debt: ({bad_debt_obligation_user, deposit_pool_address, borrow_pool_address}: {bad_debt_obligation_user: string, deposit_pool_address: string, borrow_pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a get_asset_decimals transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_asset_decimals: (options?: AssembledTransactionOptions<u32>) => Promise<AssembledTransaction<u32>>
-
-  /**
-   * Construct and simulate a get_oracle_price_decimals transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_oracle_price_decimals: (options?: AssembledTransactionOptions<u32>) => Promise<AssembledTransaction<u32>>
-
-  /**
-   * Construct and simulate a get_pool_asset_oracle_price transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_pool_asset_oracle_price: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<i128>>) => Promise<AssembledTransaction<Result<i128>>>
-
-  /**
-   * Construct and simulate a get_user_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_user_obligation: ({user}: {user: string}, options?: AssembledTransactionOptions<Result<Obligation>>) => Promise<AssembledTransaction<Result<Obligation>>>
-
-  /**
-   * Construct and simulate a refresh_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  refresh_obligation: ({user}: {user: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a refresh_earn_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  refresh_earn_obligation: ({user}: {user: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a refresh_multiply_pair_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  refresh_multiply_pair_obligation: ({user, deposit_pool_address, borrow_pool_address}: {user: string, deposit_pool_address: string, borrow_pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a refresh_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  refresh_pool: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<void>>) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a get_earn_user_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_earn_user_obligation: ({user}: {user: string}, options?: AssembledTransactionOptions<Result<Obligation>>) => Promise<AssembledTransaction<Result<Obligation>>>
-
-  /**
-   * Construct and simulate a get_multiply_pair_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_multiply_pair_obligation: ({user, deposit_pool_address, borrow_pool_address}: {user: string, deposit_pool_address: string, borrow_pool_address: string}, options?: AssembledTransactionOptions<Result<Obligation>>) => Promise<AssembledTransaction<Result<Obligation>>>
+  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a get_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_pool: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<Pool>>) => Promise<AssembledTransaction<Result<Pool>>>
+  get_pool: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Pool>>>
+
+  /**
+   * Construct and simulate a withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  withdraw: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a liquidate transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  liquidate: ({liquidator, borrower, borrow_pool_address, collateral_pool_address, repay_amount, min_demanded_collateral_amount}: {liquidator: string, borrower: ObligationKey, borrow_pool_address: string, collateral_pool_address: string, repay_amount: i128, min_demanded_collateral_amount: i128}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a flash_loan transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  flash_loan: ({contract, caller, pool_address, amount}: {contract: string, caller: string, pool_address: string, amount: i128}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a refresh_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  refresh_pool: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a get_all_pools transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_all_pools: (options?: AssembledTransactionOptions<Array<string>>) => Promise<AssembledTransaction<Array<string>>>
-
-  /**
-   * Construct and simulate a get_market_data transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_market_data: (options?: AssembledTransactionOptions<Result<MarketData>>) => Promise<AssembledTransaction<Result<MarketData>>>
-
-  /**
-   * Construct and simulate a get_all_obligations transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_all_obligations: (options?: AssembledTransactionOptions<Array<ObligationKey>>) => Promise<AssembledTransaction<Array<ObligationKey>>>
-
-  /**
-   * Construct and simulate a get_multiply_pair transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_multiply_pair: ({deposit_pool_address, borrow_pool_address}: {deposit_pool_address: string, borrow_pool_address: string}, options?: AssembledTransactionOptions<Result<MultiplyPair>>) => Promise<AssembledTransaction<Result<MultiplyPair>>>
-
-  /**
-   * Construct and simulate a get_all_multiply_pairs transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_all_multiply_pairs: (options?: AssembledTransactionOptions<Array<MultiplyPair>>) => Promise<AssembledTransaction<Array<MultiplyPair>>>
+  get_all_pools: (options?: MethodOptions) => Promise<AssembledTransaction<Array<string>>>
 
   /**
    * Construct and simulate a get_pool_data transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_pool_data: ({pool_address}: {pool_address: string}, options?: AssembledTransactionOptions<Result<PoolData>>) => Promise<AssembledTransaction<Result<PoolData>>>
+  get_pool_data: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<PoolData>>>
 
   /**
-   * Construct and simulate a reset_storage transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Resets the contract's storage. Useful when the contract's invariants are broken and require
-   * resetting on the testnet without re-deploying the contract
+   * Construct and simulate a add_collateral transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  reset_storage: (options?: AssembledTransactionOptions<null>) => Promise<AssembledTransaction<null>>
+  add_collateral: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a apply_pool_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  apply_pool_set: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a cancel_pool_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_pool_set: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a get_market_data transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_market_data: (options?: MethodOptions) => Promise<AssembledTransaction<Result<MarketData>>>
+
+  /**
+   * Construct and simulate a clear_pool_farms transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  clear_pool_farms: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a get_global_state transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_global_state: (options?: MethodOptions) => Promise<AssembledTransaction<GlobalState>>
+
+  /**
+   * Construct and simulate a propose_new_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  propose_new_admin: ({new_admin}: {new_admin: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a queue_in_pool_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  queue_in_pool_set: ({pool_address, pool_config}: {pool_address: string, pool_config: PoolConfig}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a remove_collateral transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  remove_collateral: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a simulate_withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  simulate_withdraw: ({user, pool_address, amount, referrer}: {user: ObligationKey, pool_address: string, amount: i128, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<WithdrawResult>>>
+
+  /**
+   * Construct and simulate a get_farms_contract transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_farms_contract: (options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>
+
+  /**
+   * Construct and simulate a refresh_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  refresh_obligation: ({user}: {user: ObligationKey}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_farms_contract transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  set_farms_contract: ({farms_contract}: {farms_contract: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_pool_debt_farm transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  set_pool_debt_farm: ({pool_address, farm_id}: {pool_address: string, farm_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a update_pool_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  update_pool_status: ({pool_address, new_status_flags}: {pool_address: string, new_status_flags: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a apply_market_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  apply_market_update: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a get_all_obligations transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_all_obligations: (options?: MethodOptions) => Promise<AssembledTransaction<Array<ObligationKey>>>
+
+  /**
+   * Construct and simulate a get_queued_pool_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_queued_pool_set: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<QueuedPoolSet>>>
+
+  /**
+   * Construct and simulate a get_user_obligation transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_user_obligation: ({user}: {user: ObligationKey}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Obligation>>>
+
+  /**
+   * Construct and simulate a cancel_market_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_market_update: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a clear_farms_contract transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  clear_farms_contract: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a distribute_pool_fees transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  distribute_pool_fees: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a issue_cover_bad_debt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  issue_cover_bad_debt: ({user}: {user: ObligationKey}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_pool_supply_farm transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  set_pool_supply_farm: ({pool_address, farm_id}: {pool_address: string, farm_id: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a update_market_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  update_market_status: ({new_status}: {new_status: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a accept_proposed_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  accept_proposed_admin: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a submit_requests_batch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  submit_requests_batch: ({user, requests, referrer}: {user: ObligationKey, requests: Array<Request>, referrer: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a queue_in_market_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  queue_in_market_update: ({new_max_positions, new_min_collateral_value_cents, new_bad_debt_lock_d}: {new_max_positions: u32, new_min_collateral_value_cents: i128, new_bad_debt_lock_d: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a refresh_obligation_farms transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  refresh_obligation_farms: ({user}: {user: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a distribute_all_pools_fees transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  distribute_all_pools_fees: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a fund_update_market_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  fund_update_market_status: ({new_status}: {new_status: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a get_oracle_price_decimals transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_oracle_price_decimals: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
+
+  /**
+   * Construct and simulate a get_market_queued_in_update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_market_queued_in_update: (options?: MethodOptions) => Promise<AssembledTransaction<Result<MarketUpdate>>>
+
+  /**
+   * Construct and simulate a get_pool_asset_oracle_price transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_pool_asset_oracle_price: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<i128>>>
+
+  /**
+   * Construct and simulate a claim_cover_bad_debt_results transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  claim_cover_bad_debt_results: ({user}: {user: ObligationKey}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_operation_fees_beneficiaries transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  set_operation_fees_beneficiaries: ({pool_address, beneficiaries}: {pool_address: string, beneficiaries: Map<string, u32>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_take_rate_fees_beneficiaries transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  set_take_rate_fees_beneficiaries: ({pool_address, beneficiaries}: {pool_address: string, beneficiaries: Map<string, u32>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {name, admin, oracle, deployer, max_positions, min_collateral_value, insolvency_ltv_bps, update_in_queue_period}: {name: string, admin: string, oracle: string, deployer: string, max_positions: u32, min_collateral_value: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64>},
+        {name, admin, oracle, insurance_fund, deployer, params}: {name: string, admin: string, oracle: string, insurance_fund: string, deployer: string, params: MarketInitParams},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -944,183 +729,208 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({name, admin, oracle, deployer, max_positions, min_collateral_value, insolvency_ltv_bps, update_in_queue_period}, options)
+    return ContractClient.deploy({name, admin, oracle, insurance_fund, deployer, params}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAgAAAAAAAAAAAAAADEFjY3J1YWxNb2RlbAAAAAEAAAAAAAAAAAAAAApDb21wb3VuZGVkAAA=",
-        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAgAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAVhZG1pbgAAAAAAABMAAAAAAAAABm9yYWNsZQAAAAAAEwAAAAAAAAAIZGVwbG95ZXIAAAATAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAUbWluX2NvbGxhdGVyYWxfdmFsdWUAAAALAAAAAAAAABJpbnNvbHZlbmN5X2x0dl9icHMAAAAAAAsAAAAAAAAAFnVwZGF0ZV9pbl9xdWV1ZV9wZXJpb2QAAAAAA+gAAAAGAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAJtVcGdyYWRlcyB0aGUgbGVuZGluZyBjb250cmFjdAoKIyBBcmd1bWVudHMKKiBgbmV3X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yayB0aGF0J3MgdXNlZCBhcyBhIG5ldwp2ZXJzaW9uIG9mIHRoZSBjb250cmFjdAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
-        "AAAAAAAAAAAAAAAVc3VibWl0X3JlcXVlc3RzX2JhdGNoAAAAAAAAAgAAAAAAAAAEdXNlcgAAABMAAAAAAAAACHJlcXVlc3RzAAAD6gAAB9AAAAAHUmVxdWVzdAAAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAQZ2V0X2dsb2JhbF9zdGF0ZQAAAAAAAAABAAAH0AAAAAtHbG9iYWxTdGF0ZQA=",
-        "AAAAAAAAAAAAAAANdXBkYXRlX21hcmtldAAAAAAAAAIAAAAAAAAAEW5ld19tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAYbmV3X21pbl9jb2xsYXRlcmFsX3ZhbHVlAAAACwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAUdXBkYXRlX21hcmtldF9zdGF0dXMAAAABAAAAAAAAAApuZXdfc3RhdHVzAAAAAAAEAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAPaW5pdGlhbGl6ZV9wb29sAAAAAAMAAAAAAAAADXRva2VuX2FkZHJlc3MAAAAAAAATAAAAAAAAAARzYWx0AAAD6AAAA+4AAAAgAAAAAAAAAAtwb29sX2NvbmZpZwAAAAPoAAAH0AAAAApQb29sQ29uZmlnAAAAAAABAAAD6QAAABMAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAYaW5pdGlhbGl6ZV9tdWx0aXBseV9wYWlyAAAAAgAAAAAAAAAUZGVwb3NpdF9wb29sX2FkZHJlc3MAAAATAAAAAAAAABNib3Jyb3dfcG9vbF9hZGRyZXNzAAAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAbcXVldWVfaW5fcG9vbF9jb25maWdfdXBkYXRlAAAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAAD25ld19wb29sX2NvbmZpZwAAAAfQAAAAClBvb2xDb25maWcAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAZY2FuY2VsX3Bvb2xfY29uZmlnX3VwZGF0ZQAAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAYYXBwbHlfcG9vbF9jb25maWdfdXBkYXRlAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAgZ2V0X3Bvb2xfY29uZmlnX3F1ZXVlZF9pbl91cGRhdGUAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAfQAAAAClBvb2xVcGRhdGUAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAOYm9vdHN0cmFwX3Bvb2wAAAAAAAUAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAAB3Nwb25zb3IAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAAxzdGFydF9wZXJpb2QAAAAGAAAAAAAAAAplbmRfcGVyaW9kAAAAAAAGAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAHZGVwb3NpdAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAMZGVwb3NpdF9lYXJuAAAAAwAAAAAAAAAEdXNlcgAAABMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAGYm9ycm93AAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAEc3dhcAAAAAQAAAAAAAAABHVzZXIAAAATAAAAAAAAAAh0b2tlbl9pbgAAABMAAAAAAAAACXRva2VuX291dAAAAAAAABMAAAAAAAAACWFtb3VudF9pbgAAAAAAAAsAAAABAAAD6QAAAAsAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAARZG9uYXRlX3RvX3Jlc2VydmUAAAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAOYWRkX2NvbGxhdGVyYWwAAAAAAAMAAAAAAAAABHVzZXIAAAATAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAARcmVtb3ZlX2NvbGxhdGVyYWwAAAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAFcmVwYXkAAAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAJbGlxdWlkYXRlAAAAAAAABwAAAAAAAAAKbGlxdWlkYXRvcgAAAAAAEwAAAAAAAAAIYm9ycm93ZXIAAAATAAAAAAAAABhib3Jyb3dlcl9vYmxpZ2F0aW9uX3NlZWQAAAPoAAAD7gAAACAAAAAAAAAAE2JvcnJvd19wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAMcmVwYXlfYW1vdW50AAAACwAAAAAAAAAebWluX2RlbWFuZGVkX2NvbGxhdGVyYWxfYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAId2l0aGRyYXcAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAARc2ltdWxhdGVfd2l0aGRyYXcAAAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAfQAAAADldpdGhkcmF3UmVzdWx0AAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAWc2ltdWxhdGVfZWFybl93aXRoZHJhdwAAAAAAAwAAAAAAAAAEdXNlcgAAABMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAEAAAPpAAAH0AAAAA5XaXRoZHJhd1Jlc3VsdAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAANd2l0aGRyYXdfZWFybgAAAAAAAAMAAAAAAAAABHVzZXIAAAATAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAKZmxhc2hfbG9hbgAAAAAABAAAAAAAAAAIY29udHJhY3QAAAATAAAAAAAAAAZjYWxsZXIAAAAAABMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAVZGVwb3NpdF93aXRoX2xldmVyYWdlAAAAAAAABgAAAAAAAAAEdXNlcgAAABMAAAAAAAAAFGRlcG9zaXRfcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAAAAABFkZXBvc2l0X2FzX21hcmdpbgAAAAAAAAEAAAAAAAAABmFtb3VudAAAAAAACwAAAAAAAAATbGV2ZXJhZ2VfbXVsdGlwbGllcgAAAAAEAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAXd2l0aGRyYXdfZnJvbV9sZXZlcmFnZWQAAAAABAAAAAAAAAAEdXNlcgAAABMAAAAAAAAAFGRlcG9zaXRfcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAecmVkZWVtX2FjY3VtdWxhdGVkX21hcmtldF9mZWVzAAAAAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAAccmVkZWVtX2FjY3VtdWxhdGVkX2hvc3RfZmVlcwAAAAMAAAAAAAAABHVzZXIAAAATAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAZY292ZXJfb2JsaWdhdGlvbl9iYWRfZGVidAAAAAAAAAEAAAAAAAAAGGJhZF9kZWJ0X29ibGlnYXRpb25fdXNlcgAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAcY292ZXJfbXVsdGlwbHlfcGFpcl9iYWRfZGVidAAAAAMAAAAAAAAAGGJhZF9kZWJ0X29ibGlnYXRpb25fdXNlcgAAABMAAAAAAAAAFGRlcG9zaXRfcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAASZ2V0X2Fzc2V0X2RlY2ltYWxzAAAAAAAAAAAAAQAAAAQ=",
-        "AAAAAAAAAAAAAAAZZ2V0X29yYWNsZV9wcmljZV9kZWNpbWFscwAAAAAAAAAAAAABAAAABA==",
-        "AAAAAAAAAAAAAAAbZ2V0X3Bvb2xfYXNzZXRfb3JhY2xlX3ByaWNlAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAAAsAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAATZ2V0X3VzZXJfb2JsaWdhdGlvbgAAAAABAAAAAAAAAAR1c2VyAAAAEwAAAAEAAAPpAAAH0AAAAApPYmxpZ2F0aW9uAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAScmVmcmVzaF9vYmxpZ2F0aW9uAAAAAAABAAAAAAAAAAR1c2VyAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAXcmVmcmVzaF9lYXJuX29ibGlnYXRpb24AAAAAAQAAAAAAAAAEdXNlcgAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAgcmVmcmVzaF9tdWx0aXBseV9wYWlyX29ibGlnYXRpb24AAAADAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAUZGVwb3NpdF9wb29sX2FkZHJlc3MAAAATAAAAAAAAABNib3Jyb3dfcG9vbF9hZGRyZXNzAAAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAMcmVmcmVzaF9wb29sAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAYZ2V0X2Vhcm5fdXNlcl9vYmxpZ2F0aW9uAAAAAQAAAAAAAAAEdXNlcgAAABMAAAABAAAD6QAAB9AAAAAKT2JsaWdhdGlvbgAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAAcZ2V0X211bHRpcGx5X3BhaXJfb2JsaWdhdGlvbgAAAAMAAAAAAAAABHVzZXIAAAATAAAAAAAAABRkZXBvc2l0X3Bvb2xfYWRkcmVzcwAAABMAAAAAAAAAE2JvcnJvd19wb29sX2FkZHJlc3MAAAAAEwAAAAEAAAPpAAAH0AAAAApPYmxpZ2F0aW9uAAAAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAIZ2V0X3Bvb2wAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAfQAAAABFBvb2wAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAANZ2V0X2FsbF9wb29scwAAAAAAAAAAAAABAAAD6gAAABM=",
-        "AAAAAAAAAAAAAAAPZ2V0X21hcmtldF9kYXRhAAAAAAAAAAABAAAD6QAAB9AAAAAKTWFya2V0RGF0YQAAAAAH0AAAAAdNQ0Vycm9yAA==",
-        "AAAAAAAAAAAAAAATZ2V0X2FsbF9vYmxpZ2F0aW9ucwAAAAAAAAAAAQAAA+oAAAfQAAAADU9ibGlnYXRpb25LZXkAAAA=",
-        "AAAAAAAAAAAAAAARZ2V0X211bHRpcGx5X3BhaXIAAAAAAAACAAAAAAAAABRkZXBvc2l0X3Bvb2xfYWRkcmVzcwAAABMAAAAAAAAAE2JvcnJvd19wb29sX2FkZHJlc3MAAAAAEwAAAAEAAAPpAAAH0AAAAAxNdWx0aXBseVBhaXIAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAAAAAAAWZ2V0X2FsbF9tdWx0aXBseV9wYWlycwAAAAAAAAAAAAEAAAPqAAAH0AAAAAxNdWx0aXBseVBhaXI=",
-        "AAAAAAAAAAAAAAANZ2V0X3Bvb2xfZGF0YQAAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAB9AAAAAIUG9vbERhdGEAAAfQAAAAB01DRXJyb3IA",
-        "AAAAAAAAAJZSZXNldHMgdGhlIGNvbnRyYWN0J3Mgc3RvcmFnZS4gVXNlZnVsIHdoZW4gdGhlIGNvbnRyYWN0J3MgaW52YXJpYW50cyBhcmUgYnJva2VuIGFuZCByZXF1aXJlCnJlc2V0dGluZyBvbiB0aGUgdGVzdG5ldCB3aXRob3V0IHJlLWRlcGxveWluZyB0aGUgY29udHJhY3QAAAAAAA1yZXNldF9zdG9yYWdlAAAAAAAAAAAAAAA=",
-        "AAAABAAAAAAAAAAAAAAAB01DRXJyb3IAAAAAMgAAAAAAAAANSW50ZXJuYWxFcnJvcgAAAAAAAAAAAAAAAAAAE05lZ2F0aXZlSW5wdXRBbW91bnQAAAAAAQAAAAAAAAAXRGVwZW5kZW5jeUNvbnRyYWN0RXJyb3IAAAAAAgAAAAAAAAAQTWFya2V0SXNOb3RPd25lZAAAAAMAAAAAAAAAF0JvcnJvd0ZvcmJpZGRlbk9uTWFya2V0AAAAAAQAAAAAAAAAGERlcG9zaXRGb3JiaWRkZW5Pbk1hcmtldAAAAAUAAAAAAAAADk1hcmtldElzRnJvemVuAAAAAAAGAAAAAAAAABNJbnZhbGlkTWFya2V0VXBkYXRlAAAAAAcAAAAAAAAAGUludmFsaWRNYXJrZXRTdGF0dXNVcGRhdGUAAAAAAAAIAAAAAAAAABRJbmNvcnJlY3RSZXF1ZXN0VHlwZQAAAAkAAAAAAAAAD092ZXJPclVuZGVyZmxvdwAAAAAKAAAAAAAAABBUb29NYW55UG9zaXRpb25zAAAACwAAAAAAAAAaTWluQ29sbGF0ZXJhbFZhbHVlSXNOb3RNZXQAAAAAAAwAAAAAAAAAEVBvb2xBbHJlYWR5RXhpc3RzAAAAAAAAZAAAAAAAAAAQUG9vbERvZXNOb3RFeGlzdAAAAGUAAAAAAAAAFUludmFsaWRMb2FuUG9vbENvbmZpZwAAAAAAAGYAAAAAAAAAEk5vdEVub3VnaFBvb2xGdW5kcwAAAAAAZwAAAAAAAAAXRGVwb3NpdFBvb2xEb2VzTm90RXhpc3QAAAAAaAAAAAAAAAAWQm9ycm93UG9vbERvZXNOb3RFeGlzdAAAAAAAaQAAAAAAAAAaQ29sbGF0ZXJhbFBvb2xEb2VzTm90RXhpc3QAAAAAAGoAAAAAAAAAJ1Bvb2xBbHJlYWR5Q29udGFpbnNRdWV1ZWRJbkNvbmZpZ1VwZGF0ZQAAAABrAAAAAAAAACNQb29sRG9lc05vdEhhdmVRdWV1ZWRJbkNvbmZpZ1VwZGF0ZQAAAABsAAAAAAAAACJQb29sQ29uZmlnVXBkYXRlSXNOb3RZZXRBcHBsaWNhYmxlAAAAAABtAAAAAAAAABVCb3Jyb3dGb3JiaWRkZW5PblBvb2wAAAAAAABuAAAAAAAAABZEZXBvc2l0Rm9yYmlkZGVuT25Qb29sAAAAAABvAAAAAAAAAAxQb29sSXNGcm96ZW4AAABwAAAAAAAAABZJbnZhbGlkQm9vdHN0cmFwUGVyaW9kAAAAAABxAAAAAAAAABZPYmxpZ2F0aW9uRG9lc05vdEV4aXN0AAAAAADIAAAAAAAAABtEZXBvc2l0UG9zaXRpb25Eb2VzTm90RXhpc3QAAAAAyQAAAAAAAAAaQm9ycm93UG9zaXRpb25Eb2VzTm90RXhpc3QAAAAAAMoAAAAAAAAAGVdpdGhkcmF3U2NhcmNpdHlPdmVyTGltaXQAAAAAAADLAAAAAAAAABZTY2FyY2l0eUNvb2xkb3duUGVyaW9kAAAAAADMAAAAAAAAABxCb3Jyb3dQb3NpdGlvbkZvckFzc2V0RXhpc3RzAAAAzQAAAAAAAAAdRGVwb3NpdFBvc2l0aW9uRm9yQXNzZXRFeGlzdHMAAAAAAADOAAAAAAAAABdQb29sU3VwcGx5TGltaXRFeGNlZWRlZAAAAAGQAAAAAAAAAB9Qb29sVXRpbGl6YXRpb25SYXRpb0NhcEV4Y2VlZGVkAAAAAZEAAAAAAAAAG09yYWNsZURvZXNOb3RLbm93QXNzZXRQcmljZQAAAAH0AAAAAAAAABBPcmFjbGVTdGFsZVByaWNlAAAB9QAAAAAAAAAYSW52YWxpZExpcXVpZGF0aW9uSW5wdXRzAAACWAAAAAAAAAATT2JsaWdhdGlvbklzSGVhbHRoeQAAAAJZAAAAAAAAAB1MaXF1aWRhdGlvbkV4Y2VlZHNDbG9zZUZhY3RvcgAAAAAAAloAAAAAAAAAIEJhZERlYnRDb3ZlcmFnZUNyaXRlcmlvbklzTm90TWV0AAACWwAAAAAAAAAdQXNzZXRDYW5ub3RCZVVzZWRBc0NvbGxhdGVyYWwAAAAAAAJcAAAAAAAAACZMaXF1aWRhdGlvbkV4Y2Vzc2l2ZURlbWFuZGVkQ29sbGF0ZXJhbAAAAAACXQAAAAAAAAAZSW52YWxpZExldmVyYWdlTXVsdGlwbGllcgAAAAAAArwAAAAAAAAAE0ludmFsaWRTd2FwU2xpcHBhZ2UAAAACvQAAAAAAAAAZTXVsdGlwbHlQYWlyQWxyZWFkeUV4aXN0cwAAAAAAAr4AAAAAAAAAGE11bHRpcGx5UGFpckRvZXNOb3RFeGlzdAAAAr8AAAAAAAAAH0xldmVyYWdlUG9zaXRpb25Db250YWluc0JhZERlYnQAAAACwAAAAAAAAAAfSW5jb25zaXN0ZW50RGVwb3NpdFdpdGhMZXZlcmFnZQAAAALB",
-        "AAAABQAAAAAAAAAAAAAAE0luaXRpYWxpemVQb29sRXZlbnQAAAAAAQAAABVpbml0aWFsaXplX3Bvb2xfZXZlbnQAAAAAAAADAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAAx0b2tlbl9zeW1ib2wAAAAQAAAAAQAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAG0luaXRpYWxpemVNdWx0aXBseVBhaXJFdmVudAAAAAABAAAAHmluaXRpYWxpemVfbXVsdGlwbHlfcGFpcl9ldmVudAAAAAAAAgAAAAAAAAAUZGVwb3NpdF9wb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAQAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAF1F1ZXVlSW5Qb29sQ29uZmlnVXBkYXRlAAAAAAEAAAAbcXVldWVfaW5fcG9vbF9jb25maWdfdXBkYXRlAAAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAAtwb29sX2NvbmZpZwAAAAfQAAAAClBvb2xDb25maWcAAAAAAAEAAAAC",
-        "AAAABQAAAAAAAAAAAAAAFkNhbmNlbFBvb2xDb25maWdVcGRhdGUAAAAAAAEAAAAZY2FuY2VsX3Bvb2xfY29uZmlnX3VwZGF0ZQAAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAFUFwcGx5UG9vbENvbmZpZ1VwZGF0ZQAAAAAAAAEAAAAYYXBwbHlfcG9vbF9jb25maWdfdXBkYXRlAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAC",
-        "AAAABQAAAAAAAAAAAAAAEkJvb3RzdHJhcFBvb2xFdmVudAAAAAAAAQAAABRib290c3RyYXBfcG9vbF9ldmVudAAAAAQAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAAdzcG9uc29yAAAAABMAAAABAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAAAAAAAAZwZXJpb2QAAAAAA+0AAAACAAAABgAAAAYAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAADERlcG9zaXRFdmVudAAAAAEAAAANZGVwb3NpdF9ldmVudAAAAAAAAAMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA5vYmxpZ2F0aW9uX2tleQAAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAAOZGVwb3NpdF9yZXN1bHQAAAAAB9AAAAANRGVwb3NpdFJlc3VsdAAAAAAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAACVN3YXBFdmVudAAAAAAAAAEAAAAKc3dhcF9ldmVudAAAAAAABgAAAAAAAAAEdXNlcgAAABMAAAABAAAAAAAAAAh0b2tlbl9pbgAAABMAAAABAAAAAAAAAAl0b2tlbl9vdXQAAAAAAAATAAAAAQAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAAAAAAAAAAACmFtb3VudF9vdXQAAAAAAAsAAAAAAAAAAAAAAA9yZWNlaXZlZF9hbW91bnQAAAAACwAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAC0JvcnJvd0V2ZW50AAAAAAEAAAAMYm9ycm93X2V2ZW50AAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAA1ib3Jyb3dfcmVzdWx0AAAAAAAH0AAAAAxCb3Jyb3dSZXN1bHQAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAEkFkZENvbGxhdGVyYWxFdmVudAAAAAAAAQAAABRhZGRfY29sbGF0ZXJhbF9ldmVudAAAAAMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA5vYmxpZ2F0aW9uX2tleQAAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAAVYWRkX2NvbGxhdGVyYWxfcmVzdWx0AAAAAAAH0AAAABNBZGRDb2xsYXRlcmFsUmVzdWx0AAAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAClJlcGF5RXZlbnQAAAAAAAEAAAALcmVwYXlfZXZlbnQAAAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxyZXBheV9yZXN1bHQAAAfQAAAAC1JlcGF5UmVzdWx0AAAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAADkxpcXVpZGF0ZUV2ZW50AAAAAAABAAAAD2xpcXVpZGF0ZV9ldmVudAAAAAAFAAAAAAAAAApsaXF1aWRhdG9yAAAAAAATAAAAAQAAAAAAAAAXYm9ycm93ZXJfb2JsaWdhdGlvbl9rZXkAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAQAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAEAAAAAAAAAEmxpcXVpZGF0aW9uX3Jlc3VsdAAAAAAH0AAAABFMaXF1aWRhdGlvblJlc3VsdAAAAAAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAFVJlbW92ZUNvbGxhdGVyYWxFdmVudAAAAAAAAAEAAAAXcmVtb3ZlX2NvbGxhdGVyYWxfZXZlbnQAAAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAABhyZW1vdmVfY29sbGF0ZXJhbF9yZXN1bHQAAAfQAAAAFlJlbW92ZUNvbGxhdGVyYWxSZXN1bHQAAAAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAADVdpdGhkcmF3RXZlbnQAAAAAAAABAAAADndpdGhkcmF3X2V2ZW50AAAAAAADAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAOb2JsaWdhdGlvbl9rZXkAAAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAAAAAAD3dpdGhkcmF3X3Jlc3VsdAAAAAfQAAAADldpdGhkcmF3UmVzdWx0AAAAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAADkZsYXNoTG9hbkV2ZW50AAAAAAABAAAAEGZsYXNoX2xvYW5fZXZlbnQAAAAEAAAAAAAAAAhjb250cmFjdAAAABMAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAAAAAAAJZmVlc19wYWlkAAAAAAAACwAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAGERlcG9zaXRXaXRoTGV2ZXJhZ2VFdmVudAAAAAEAAAAbZGVwb3NpdF93aXRoX2xldmVyYWdlX2V2ZW50AAAAAAcAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAABRkZXBvc2l0X3Bvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAABNib3Jyb3dfcG9vbF9hZGRyZXNzAAAAABMAAAABAAAAAAAAAA9vcmlnaW5hbF9hbW91bnQAAAAACwAAAAAAAAAAAAAAE2xldmVyYWdlX211bHRpcGxpZXIAAAAABAAAAAAAAAAAAAAAFnRvdGFsX2RlcG9zaXRlZF9hbW91bnQAAAAAAAsAAAAAAAAAAAAAABV0b3RhbF9ib3Jyb3dlZF9hbW91bnQAAAAAAAALAAAAAAAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAGldpdGhkcmF3RnJvbUxldmVyYWdlZEV2ZW50AAAAAAABAAAAHXdpdGhkcmF3X2Zyb21fbGV2ZXJhZ2VkX2V2ZW50AAAAAAAABgAAAAAAAAAOb2JsaWdhdGlvbl9rZXkAAAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAAAAAAFGRlcG9zaXRfcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAE2JvcnJvd19wb29sX2FkZHJlc3MAAAAAEwAAAAEAAAAAAAAAGndpdGhkcmF3bl90b193YWxsZXRfYW1vdW50AAAAAAALAAAAAAAAAAAAAAAWZGVwb3NpdF9yZWR1Y2VkX2Ftb3VudAAAAAAACwAAAAAAAAAAAAAAFWJvcnJvd19yZWR1Y2VkX2Ftb3VudAAAAAAAAAsAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAE0FjY3J1ZUludGVyZXN0RXZlbnQAAAAAAQAAABVhY2NydWVfaW50ZXJlc3RfZXZlbnQAAAAAAAABAAAAAAAAAAR1c2VyAAAAEwAAAAEAAAAC",
-        "AAAABQAAAAAAAAAAAAAAFExlZGdlclRpbWVzdGFtcEVycm9yAAAAAQAAABZsZWRnZXJfdGltZXN0YW1wX2Vycm9yAAAAAAACAAAAAAAAABFjdXJyZW50X3RpbWVzdGFtcAAAAAAAAAYAAAAAAAAAAAAAABBzdG9yZWRfdGltZXN0YW1wAAAABgAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAGExldmVyYWdlZFBvc2l0aW9uQmFkRGVidAAAAAEAAAAbbGV2ZXJhZ2VkX3Bvc2l0aW9uX2JhZF9kZWJ0AAAAAAYAAAAAAAAABHVzZXIAAAATAAAAAQAAAAAAAAAUZGVwb3NpdF9wb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAQAAAAAAAAAQZGVwb3NpdGVkX2Ftb3VudAAAAAsAAAAAAAAAAAAAAA9ib3Jyb3dlZF9hbW91bnQAAAAACwAAAAAAAAAAAAAAGGRlcG9zaXRlZF9hbW91bnRfc3dhcHBlZAAAAAsAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAHUxldmVyYWdlRXhjZWVkc0JvcnJvd0NhcGFjaXR5AAAAAAAAAQAAACBsZXZlcmFnZV9leGNlZWRzX2JvcnJvd19jYXBhY2l0eQAAAAQAAAAAAAAABHVzZXIAAAATAAAAAQAAAAAAAAATZmxhc2hfYm9ycm93X2Ftb3VudAAAAAALAAAAAQAAAAAAAAASZmxhc2hfcmVwYXlfYW1vdW50AAAAAAALAAAAAAAAAAAAAAAZbWF4X2hlYWx0aHlfYm9ycm93X2Ftb3VudAAAAAAAAAsAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAHFV0aWxpemF0aW9uUmF0aW9FeGNlZWRzTGltaXQAAAABAAAAH3V0aWxpemF0aW9uX3JhdGlvX2V4Y2VlZHNfbGltaXQAAAAAAgAAAAAAAAAVdXRpbGl6YXRpb25fcmF0aW9fYnBzAAAAAAAACwAAAAAAAAAAAAAAG3V0aWxpemF0aW9uX3JhdGlvX2xpbWl0X2JwcwAAAAALAAAAAAAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAFlBvb2xJc01pc3NpbmdJblN0b3JhZ2UAAAAAAAEAAAAacG9vbF9pc19taXNzaW5nX2luX3N0b3JhZ2UAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAHE9ibGlnYXRpb25Jc01pc3NpbmdJblN0b3JhZ2UAAAABAAAAIG9ibGlnYXRpb25faXNfbWlzc2luZ19pbl9zdG9yYWdlAAAAAQAAAAAAAAAOb2JsaWdhdGlvbl9rZXkAAAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAC",
-        "AAAABQAAAAAAAAAAAAAAHU9ibGlnYXRpb25BbW50QmVjb21lc05lZ2F0aXZlAAAAAAAAAQAAACBvYmxpZ2F0aW9uX2FtbnRfYmVjb21lc19uZWdhdGl2ZQAAAAIAAAAAAAAACm9sZF9hbW91bnQAAAAAAAsAAAAAAAAAAAAAAApuZXdfYW1vdW50AAAAAAALAAAAAAAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAGVBvb2xBbW91bnRCZWNvbWVzTmVnYXRpdmUAAAAAAAABAAAAHHBvb2xfYW1vdW50X2JlY29tZXNfbmVnYXRpdmUAAAACAAAAAAAAAApvbGRfYW1vdW50AAAAAAALAAAAAAAAAAAAAAAKbmV3X2Ftb3VudAAAAAAACwAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAG1Bvb2xJbmNvbnNpc3RlbnRUb3RhbFNoYXJlcwAAAAABAAAAHnBvb2xfaW5jb25zaXN0ZW50X3RvdGFsX3NoYXJlcwAAAAAAAgAAAAAAAAAMdG90YWxfc2hhcmVzAAAACwAAAAAAAAAAAAAAEWluZGl2aWR1YWxfc2hhcmVzAAAAAAAACwAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAG1Bvb2xJbmNvbnNpc3RlbnRUb3RhbFRva2VucwAAAAABAAAAHnBvb2xfaW5jb25zaXN0ZW50X3RvdGFsX3Rva2VucwAAAAAAAgAAAAAAAAAMdG90YWxfc2hhcmVzAAAACwAAAAAAAAAAAAAADHRvdGFsX3Rva2VucwAAAAsAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAHVBvb2xDb250YWluc0luY29uc2lzdGVudFN0YXRlAAAAAAAAAQAAACBwb29sX2NvbnRhaW5zX2luY29uc2lzdGVudF9zdGF0ZQAAAAEAAAAAAAAABHBvb2wAAAfQAAAABFBvb2wAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAAHU9ibGlnYXRpb25Jc1VuZXhwZWN0ZWRseUVtcHR5AAAAAAAAAQAAACBvYmxpZ2F0aW9uX2lzX3VuZXhwZWN0ZWRseV9lbXB0eQAAAAIAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAI=",
-        "AAAABQAAAAAAAAAAAAAAGkNvbXB1dGVkSW50ZXJlc3RJc05lZ2F0aXZlAAAAAAABAAAAHWNvbXB1dGVkX2ludGVyZXN0X2lzX25lZ2F0aXZlAAAAAAAABAAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAD3Bvc2l0aW9uX3NoYXJlcwAAAAALAAAAAAAAAAAAAAAXdG9rZW5zX2Zyb21fc2hhcmVzX2NlaWwAAAAACwAAAAAAAAAAAAAAEWNvbXB1dGVkX2ludGVyZXN0AAAAAAAACwAAAAAAAAAC",
-        "AAAABQAAAAAAAAAAAAAAHVBvc2l0aW9uc0NvdW50QmVjb21lc05lZ2F0aXZlAAAAAAAAAQAAACBwb3NpdGlvbnNfY291bnRfYmVjb21lc19uZWdhdGl2ZQAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAApvYmxpZ2F0aW9uAAAAAAfQAAAACk9ibGlnYXRpb24AAAAAAAEAAAAC",
-        "AAAABQAAAAAAAAAAAAAAHFJlY2VpdmVkVW5leHBlY3RlZFN3YXBBbW91bnQAAAABAAAAH3JlY2VpdmVkX3VuZXhwZWN0ZWRfc3dhcF9hbW91bnQAAAAABwAAAAAAAAAEdXNlcgAAABMAAAABAAAAAAAAAAh0b2tlbl9pbgAAABMAAAABAAAAAAAAAAl0b2tlbl9vdXQAAAAAAAATAAAAAQAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAAAAAAAAAAACmFtb3VudF9vdXQAAAAAAAsAAAAAAAAAAAAAABJleHBlY3RlZF9hbW91bnRfaW4AAAAAAAsAAAAAAAAAAAAAABNleHBlY3RlZF9hbW91bnRfb3V0AAAAAAsAAAAAAAAAAg==",
-        "AAAABQAAAAAAAAAAAAAACERiZ0V2ZW50AAAAAQAAAAlkYmdfZXZlbnQAAAAAAAABAAAAAAAAAAZzeW1ib2wAAAAAABEAAAABAAAAAg==",
-        "AAAAAQAAADNDb21wb3VuZCBpbnRlcmVzdCByYXRlcyByZXByZXNlbnRlZCBpbiBiYXNpcyBwb2ludHMAAAAAAAAAABZBbm51YWxQZXJjZW50YWdlWWllbGRzAAAAAAACAAAAAAAAAApib3Jyb3dfYnBzAAAAAAAEAAAAAAAAAApzdXBwbHlfYnBzAAAAAAAE",
+      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAACk9ibGlnYXRpb24AAAAAAAQAAAAAAAAAB2JvcnJvd3MAAAAD7AAAABMAAAfQAAAADkJvcnJvd1Bvc2l0aW9uAAAAAAAAAAAACGRlcG9zaXRzAAAD7AAAABMAAAfQAAAAD0RlcG9zaXRQb3NpdGlvbgAAAAAAAAAAG2luc3VyYW5jZV9mdW5kX3JlcXVlc3RzX2lkcwAAAAPsAAAD7QAAAAIAAAATAAAABgAAAAYAAAAAAAAAD3Bvc2l0aW9uc19jb3VudAAAAAAE",
+        "AAAAAQAAAAAAAAAAAAAAC1JlcGF5UmVzdWx0AAAAAAQAAAAAAAAAE2Ftb3VudF90b19zZW5kX2JhY2sAAAAACwAAAAAAAAAQZF90b2tlbnNfdG9fYnVybgAAAAsAAAAAAAAAC2RlYnRfcmVwYWlkAAAAAAsAAAAAAAAADm9wZXJhdGlvbl9mZWVzAAAAAAfQAAAADU9wZXJhdGlvbkZlZXMAAAA=",
+        "AAAAAQAAAAAAAAAAAAAADEJvcnJvd1Jlc3VsdAAAAAQAAAAAAAAAEWJvcnJvd2VyX25ld19kZWJ0AAAAAAAACwAAAAAAAAATYm9ycm93ZXJfdG9fcmVjZWl2ZQAAAAALAAAAAAAAABFkX3Rva2Vuc190b19pc3N1ZQAAAAAAAAsAAAAAAAAADm9wZXJhdGlvbl9mZWVzAAAAAAfQAAAADU9wZXJhdGlvbkZlZXMAAAA=",
+        "AAAAAQAAAAAAAAAAAAAADURlcG9zaXRSZXN1bHQAAAAAAAADAAAAAAAAAAlkZXBvc2l0ZWQAAAAAAAALAAAAAAAAABFqX3Rva2Vuc190b19pc3N1ZQAAAAAAAAsAAAAAAAAADm9wZXJhdGlvbl9mZWVzAAAAAAfQAAAADU9wZXJhdGlvbkZlZXMAAAA=",
+        "AAAAAQAAAAAAAAAAAAAADU9ibGlnYXRpb25LZXkAAAAAAAACAAAAAAAAAARzZWVkAAAD6AAAA+4AAAAgAAAAAAAAAAR1c2VyAAAAEw==",
+        "AAAAAQAAAAAAAAAAAAAADU9wZXJhdGlvbkZlZXMAAAAAAAACAAAAAAAAAAdmZWVfc3VtAAAAAAsAAAAAAAAADHJlZmVycmVyX2ZlZQAAAAs=",
+        "AAAAAQAAAAAAAAAAAAAADkJvcnJvd1Bvc2l0aW9uAAAAAAACAAAAAAAAAAhkX3Rva2VucwAAAAsAAAAAAAAAE29yaWdpbmFsbHlfYm9ycm93ZWQAAAAACw==",
+        "AAAAAQAAAAAAAAAAAAAADldpdGhkcmF3UmVzdWx0AAAAAAAEAAAAAAAAABBkZXBvc2l0X2RlY3JlYXNlAAAACwAAAAAAAAAQal90b2tlbnNfdG9fYnVybgAAAAsAAAAAAAAADm9wZXJhdGlvbl9mZWVzAAAAAAfQAAAADU9wZXJhdGlvbkZlZXMAAAAAAAAAAAAAFXdpdGhkcmF3ZXJfdG9fcmVjZWl2ZQAAAAAAAAs=",
+        "AAAAAQAAAAAAAAAAAAAAD0RlcG9zaXRQb3NpdGlvbgAAAAAEAAAAAAAAAApjb2xsYXRlcmFsAAAAAAALAAAAAAAAAAhqX3Rva2VucwAAAAsAAAAAAAAAGWxhc3Rfc2NhcmNpdHlfd2l0aGRyYXdfdHMAAAAAAAAGAAAAAAAAABRvcmlnaW5hbGx5X2RlcG9zaXRlZAAAAAs=",
+        "AAAAAQAAAAAAAAAAAAAAEUxpcXVpZGF0aW9uUmVzdWx0AAAAAAAABgAAAAAAAAATYW1vdW50X3RvX3NlbmRfYmFjawAAAAALAAAAAAAAAA9kX3Rva2Vuc19idXJuZWQAAAAACwAAAAAAAAALZGVidF9yZXBhaWQAAAAACwAAAAAAAAAPal90b2tlbnNfc2VpemVkAAAAAAsAAAAAAAAAF3BsYWluX2NvbGxhdGVyYWxfc2VpemVkAAAAAAsAAAAAAAAAG3Rva2Vuc19mcm9tX2pfdG9rZW5zX3NlaXplZAAAAAAL",
+        "AAAAAQAAAAAAAAAAAAAAE0FkZENvbGxhdGVyYWxSZXN1bHQAAAAAAgAAAAAAAAAQYWRkZWRfY29sbGF0ZXJhbAAAAAsAAAAAAAAADm9wZXJhdGlvbl9mZWVzAAAAAAfQAAAADU9wZXJhdGlvbkZlZXMAAAA=",
+        "AAAAAQAAAAAAAAAAAAAAFlJlbW92ZUNvbGxhdGVyYWxSZXN1bHQAAAAAAAMAAAAAAAAAE2NvbGxhdGVyYWxfZGVjcmVhc2UAAAAACwAAAAAAAAAdY29sbGF0ZXJhbF9yZW1vdmVyX3RvX3JlY2VpdmUAAAAAAAALAAAAAAAAAA5vcGVyYXRpb25fZmVlcwAAAAAH0AAAAA1PcGVyYXRpb25GZWVzAAAA",
+        "AAAAAQAAAAAAAAAAAAAAFkFubnVhbFBlcmNlbnRhZ2VZaWVsZHMAAAAAAAIAAAAAAAAACmJvcnJvd19icHMAAAAAAAQAAAAAAAAACnN1cHBseV9icHMAAAAAAAQ=",
         "AAAAAgAAAAAAAAAAAAAAEUludGVyZXN0UmF0ZU1vZGVsAAAAAAAAAQAAAAEAAAAAAAAABktpbmtlZAAAAAAAAQAAB9AAAAAOS2lua2VkSVJDb25maWcAAA==",
         "AAAAAQAAAAAAAAAAAAAADktpbmtlZElSQ29uZmlnAAAAAAAGAAAARkJhc2UgQVBSIHRoYXQgaXMgYWNjcnVlZCByZWdhcmRsZXNzIG9mIHRoZSB1dGlsaXphdGlvbiByYXRpbyBvZiBhIHBvb2wAAAAAAAxiYXNlX2Fwcl9icHMAAAALAAAARUFQUiB0aGF0IGlzIGFjY3J1ZWQgd2hlbiB0aGUgdXRpbGl6YXRpb24gcmF0aW8gaXMgYXQgdGhlIGtpbmsgMSB2YWx1ZQAAAAAAAA1raW5rMV9hcHJfYnBzAAAAAAAACwAAABhLaW5rIDEgdXRpbGl6YXRpb24gcmF0aW8AAAAMa2luazFfdXJfYnBzAAAACwAAAEVBUFIgdGhhdCBpcyBhY2NydWVkIHdoZW4gdGhlIHV0aWxpemF0aW9uIHJhdGlvIGlzIGF0IHRoZSBraW5rIDIgdmFsdWUAAAAAAAANa2luazJfYXByX2JwcwAAAAAAAAsAAAAYS2luayAyIHV0aWxpemF0aW9uIHJhdGlvAAAADGtpbmsyX3VyX2JwcwAAAAsAAAA5QVBSIHRoYXQgaXMgYWNjcnVlZCB3aGVuIHRoZSB1dGlsaXphdGlvbiByYXRpbyBpcyBhdCAxMDAlAAAAAAAAC21heF9hcHJfYnBzAAAAAAs=",
-        "AAAAAQAAAIRSZXByZXNlbnRzIHRoZSBwb29sJ3MgcGxhaW4gZGF0YSB3aXRoIGFkZGl0aW9uYWxseSBjb21wdXRlZCBpbmZvLiBJbnRlbmRlZCB0byBiZSB1c2VkIGFzIGEgcmVzdWx0IG9mIHNpbXVsYXRlZCByZWFkLW9ubHkKaW52b2NhdGlvbnMAAAAAAAAACFBvb2xEYXRhAAAABwAAAAAAAAADYXB5AAAAB9AAAAAWQW5udWFsUGVyY2VudGFnZVlpZWxkcwAAAAAAAAAAABVkX3Rva2VuX3JhdGVfY2VpbF9icHMAAAAAAAALAAAAAAAAABZqX3Rva2VuX3JhdGVfZmxvb3JfYnBzAAAAAAALAAAAAAAAABJvcmFjbGVfYXNzZXRfcHJpY2UAAAAAAAsAAAAAAAAABHBvb2wAAAfQAAAABFBvb2wAAAAAAAAAGHRvdGFsX2F2YWlsYWJsZV9hZGp1c3RlZAAAAAsAAAAAAAAADHRvdGFsX3N1cHBseQAAAAs=",
-        "AAAAAQAAAJdSZXByZXNlbnRzIHRoZSBlbnRpcmUgbWFya2V0J3MgZGF0YShmb3IgZXZlcnkgcG9vbCkgd2l0aCBhZGRpdGlvbmFsbHkgY29tcHV0ZWQgaW5mby4gSW50ZW5kZWQgdG8gYmUgdXNlZCBhcyBhIHJlc3VsdCBvZiBzaW11bGF0ZWQgcmVhZC1vbmx5Cmludm9jYXRpb25zAAAAAAAAAAAKTWFya2V0RGF0YQAAAAAABQAAAAAAAAAOYXNzZXRfZGVjaW1hbHMAAAAAAAQAAAAAAAAADGdsb2JhbF9zdGF0ZQAAB9AAAAALR2xvYmFsU3RhdGUAAAAAAAAAAA5tdWx0aXBseV9wYWlycwAAAAAD6gAAB9AAAAAMTXVsdGlwbHlQYWlyAAAAAAAAABVvcmFjbGVfcHJpY2VfZGVjaW1hbHMAAAAAAAAEAAAAAAAAAApwb29sc19kYXRhAAAAAAPqAAAH0AAAAAhQb29sRGF0YQ==",
-        "AAAAAQAAAAAAAAAAAAAADE11bHRpcGx5UGFpcgAAAAQAAAAyQWRkcmVzcyBvZiBhIHBvb2wgaW4gYSBwYWlyIGZvciBhIGxldmVyYWdlZCBib3Jyb3cAAAAAAAtib3Jyb3dfcG9vbAAAAAATAAAAM0FkZHJlc3Mgb2YgYSBwb29sIGluIGEgcGFpciBmb3IgYSBsZXZlcmFnZWQgZGVwb3NpdAAAAAAMZGVwb3NpdF9wb29sAAAAEwAAAF5NYXhpbXVtIGxldmVyYWdlIG11bHRpcGxpZXIgYmFzZWQgb24gYm9ycm93IHBvb2wgb3BlbkxUViB2YWx1ZS4gU2NhbGVkIHdpdGgKW2BMRVZFUkFHRV9TQ0FMRWBdAAAAAAAXbWF4X2xldmVyYWdlX211bHRpcGxpZXIAAAAABAAAAHREZXRlcm1pbmlzdGljYWxseSBjb21wdXRlZCB1bmlxdWUgc2VlZCBwZXIgYSBwYWlyLCB1c2VkIHRvIGRpc3Rpbmd1aXNoIGEgdXNlcidzIG11bHRpcGx5CnBhaXIgb2JsaWdhdGlvbiBmcm9tIG90aGVycwAAAARzZWVkAAAD7gAAACA=",
-        "AAAAAQAAAAAAAAAAAAAADU9ibGlnYXRpb25LZXkAAAAAAAACAAAAAAAAAARzZWVkAAAD6AAAA+4AAAAgAAAAAAAAAAR1c2VyAAAAEw==",
-        "AAAAAQAAAAAAAAAAAAAACk9ibGlnYXRpb24AAAAAAAMAAABEQm9ycm93ZWQgbGlxdWlkaXR5IGZvciB0aGUgb2JsaWdhdGlvbiwgdW5pcXVlIGJ5IGJvcnJvdyBwb29sIGFkZHJlc3MAAAAHYm9ycm93cwAAAAPsAAAAEwAAB9AAAAAOQm9ycm93UG9zaXRpb24AAAAAAEdEZXBvc2l0ZWQgY29sbGF0ZXJhbCBmb3IgdGhlIG9ibGlnYXRpb24sIHVuaXF1ZSBieSBkZXBvc2l0IHBvb2wgYWRkcmVzcwAAAAAIZGVwb3NpdHMAAAPsAAAAEwAAB9AAAAAPRGVwb3NpdFBvc2l0aW9uAAAAABxDb3VudCBvZiBub24tZW1wdHkgcG9zaXRpb25zAAAAD3Bvc2l0aW9uc19jb3VudAAAAAAE",
-        "AAAAAQAAAAAAAAAAAAAADkJvcnJvd1Bvc2l0aW9uAAAAAAACAAAAPEFtb3VudCBvZiB0aGUgdG90YWwgZGVidCBzaGFyZXMgdGhhdCB0aGUgb2JsaWdhdGlvbiBjb250YWlucwAAAAhkX3Rva2VucwAAAAsAAAGzT3JpZ2luYWxseSBib3Jyb3dlZCB0b2tlbiBhbW91bnQuIEkuZS4sIGlmIHRoZSB1c2VyIGJvcnJvd3MgMTAwIHRva2VucyBhbmQgMjAgdG9rZW5zCmhhdmUgYmVlbiBhY2NydWVkIHdpdGggdGltZSBhcyBhZGRpdGlvbmFsIGRlYnQgLSB0aGlzIHZhbHVlIHJlbWFpbnMgMTAwLiBJZiwgYWZ0ZXIgdGhhdCwgdGhlIHVzZXIgcmVwYXlzIHRoZSBhbW91bnQKdGhhdCBleGNlZWRzIHRoZSBkZWJ0IGFjY3J1YWwobGlrZSAzMCkgLSB0aGUgdmFsdWUgYmVjb21lcyA5MC4gSWYgdGhlIHVzZXIgaW5zdGVhZCBib3Jyb3dzIDEwIHRva2VucywgdGhlCnZhbHVlIGluY3JlYXNlcyB0byAxMTAuIEluIGFueSBvdGhlciBjYXNlLCBpdCBkb2Vzbid0IGNoYW5nZS4gSXRzIG9ubHkgcHVycG9zZSBpcyB0byB0cmFjayB0aGUgYW1vdW50Cm9mIGFjY3J1ZWQgdW5wYWlkIGludGVyZXN0AAAAABNvcmlnaW5hbGx5X2JvcnJvd2VkAAAAAAs=",
-        "AAAAAQAAAAAAAAAAAAAAD0RlcG9zaXRQb3NpdGlvbgAAAAAEAAAAPEFjY3VtdWxhdGVkIHZhbHVlIG9mIGNvbGxhdGVyYWwgdGhhdCBkb2Vzbid0IGFjY3J1ZSBpbnRlcmVzdAAAAApjb2xsYXRlcmFsAAAAAAALAAAARUEgc2hhcmUgb2YgdG90YWwgc3VwcGxpZWQgdG9rZW5zIGluIHRoZSBwb29sIHRoYXQgb2JsaWdhdGlvbiBjb250YWlucwAAAAAAAAhqX3Rva2VucwAAAAsAAAA3VGltZXN0YW1wIG9mIHdoZW4gdGhlIGxhc3Qgc2NhcmNpdHkgd2l0aGRyYXcgdG9vayBwbGFjZQAAAAAZbGFzdF9zY2FyY2l0eV93aXRoZHJhd190cwAAAAAAAAYAAAHqT3JpZ2luYWxseSBkZXBvc2l0ZWQgdG9rZW4gYW1vdW50LiBJLmUuLCBpZiB0aGUgdXNlciBkZXBvc2l0cyAxMDAgdG9rZW5zIGFuZCAyMCB0b2tlbnMKaGF2ZSBiZWVuIGFjY3J1ZWQgd2l0aCB0aW1lIC0gdGhpcyB2YWx1ZSByZW1haW5zIDEwMC4gSWYsIGFmdGVyIHRoYXQsIHRoZSB1c2VyIHdpdGhkcmF3cyB0aGUgYW1vdW50CnRoYXQgZXhjZWVkcyB0aGUgYWNjcnVhbChsaWtlIDMwKSAtIHRoZSB2YWx1ZSBiZWNvbWVzIDkwIChzYW1lIGdvZXMgZm9yIHdoZW4gYGpfdG9rZW5zYCBhcmUgc2VpemVkCmFzIGNvbGxhdGVyYWwgYnkgYSBsaXF1aWRhdG9yLiBJZiB0aGUgdXNlciBpbnN0ZWFkIGRlcG9zaXRzIDEwIHRva2VucywgdGhlCnZhbHVlIGluY3JlYXNlcyB0byAxMTAuIEluIGFueSBvdGhlciBjYXNlLCBpdCBkb2Vzbid0IGNoYW5nZS4gSXRzIG9ubHkgcHVycG9zZSBpcyB0byB0cmFjayB0aGUgYW1vdW50Cm9mIHJlY2VpdmVkIHN1cHBseSBpbnRlcmVzdAAAAAAAFG9yaWdpbmFsbHlfZGVwb3NpdGVkAAAACw==",
-        "AAAAAQAAAE9HZW5lcmFsbHkgcmVwcmVzZW50cyBjb21wdXRlZCBmZWVzIGlzc3VlZCBieSBhbnkgcG9zc2libGUgb3BlcmF0aW9uIG9uIGEgbWFya2V0AAAAAAAAAAAMQ29tcHV0ZWRGZWVzAAAAAwAAACJTdW0gb2YgYG1hcmtldF9mZWVgIGFuZCBgaG9zdF9mZWVgAAAAAAAHZmVlX3N1bQAAAAALAAAANEZlZSBzZWdyZWdhdGVkIHRvIHRoZSBwcm90b2NvbCBob3N0KG1hcmtldCBkZXBsb3llcikAAAAIaG9zdF9mZWUAAAALAAAAIkZlZSBzZWdyZWdhdGVkIHRvIHRoZSBtYXJrZXQgYWRtaW4AAAAAAAptYXJrZXRfZmVlAAAAAAAL",
-        "AAAAAQAAACZbYE9ibGlnYXRpb246OmRlcG9zaXRgXSByZXN1bHRpbmcgZGF0YQAAAAAAAAAAAA1EZXBvc2l0UmVzdWx0AAAAAAAAAwAAAAAAAAANY29tcHV0ZWRfZmVlcwAAAAAAB9AAAAAMQ29tcHV0ZWRGZWVzAAAAPkFtb3VudCBvZiBvcmlnaW5hbGx5IGRlcG9zaXRlZCB0b2tlbnMobWludXMgYWxsIHBvc3NpYmxlIGZlZXMpAAAAAAAJZGVwb3NpdGVkAAAAAAAACwAAAE5BbW91bnQgb2YgYGpUb2tlbnNgIHRvIGlzc3VlIHRoYXQgcmVwcmVzZW50IHRoZSBgZGVwb3NpdGVkYCBhbW91bnQgaW4gdGhlIHBvb2wAAAAAABFqX3Rva2Vuc190b19pc3N1ZQAAAAAAAAs=",
-        "AAAAAQAAACVbYE9ibGlnYXRpb246OmJvcnJvd2BdIHJlc3VsdGluZyBkYXRhAAAAAAAAAAAAAAxCb3Jyb3dSZXN1bHQAAAAEAAAAREFtb3VudCBvZiBkZWJ0KGluIHRva2VucykgdGhhdCBpcyBhZGRlZCB0byB0aGUgYm9ycm93ZXIncyBvYmxpZ2F0aW9uAAAAEWJvcnJvd2VyX25ld19kZWJ0AAAAAAAACwAAAE9BbW91bnQgb2YgdG9rZW5zIHRvIHJlY2VpdmUgYnkgdGhlIGJvcnJvd2VyKGBib3Jyb3dlcl9uZXdfZGVidGAgbWludXMgYWxsIGZlZXMpAAAAABNib3Jyb3dlcl90b19yZWNlaXZlAAAAAAsAAAAAAAAADWNvbXB1dGVkX2ZlZXMAAAAAAAfQAAAADENvbXB1dGVkRmVlcwAAAFZBbW91bnQgb2YgYGRUb2tlbnNgIHRvIGlzc3VlIHRoYXQgcmVwcmVzZW50IHRoZSBgYm9ycm93ZXJfbmV3X2RlYnRgIGFtb3VudCBpbiB0aGUgcG9vbAAAAAAAEWRfdG9rZW5zX3RvX2lzc3VlAAAAAAAACw==",
-        "AAAAAQAAAC1bYE9ibGlnYXRpb246OmFkZF9jb2xsYXRlcmFsYF0gcmVzdWx0aW5nIGRhdGEAAAAAAAAAAAAAE0FkZENvbGxhdGVyYWxSZXN1bHQAAAAAAgAAAD1BbW91bnQgb2YgdG9rZW5zIGFkZGVkIGFzIGNvbGxhdGVyYWwobWludXMgYWxsIHBvc3NpYmxlIGZlZXMpAAAAAAAAEGFkZGVkX2NvbGxhdGVyYWwAAAALAAAAAAAAAA1jb21wdXRlZF9mZWVzAAAAAAAH0AAAAAxDb21wdXRlZEZlZXM=",
-        "AAAAAQAAACdbYE9ibGlnYXRpb246OndpdGhkcmF3YF0gcmVzdWx0aW5nIGRhdGEAAAAAAAAAAA5XaXRoZHJhd1Jlc3VsdAAAAAAABAAAAAAAAAANY29tcHV0ZWRfZmVlcwAAAAAAB9AAAAAMQ29tcHV0ZWRGZWVzAAAAVEFtb3VudCBvZiB0aGUgb3JpZ2luYWwgZGVwb3NpdChpbiB0b2tlbnMpIHRoYXQgaXMgcmVtb3ZlZCBmcm9tIHRoZSBgRGVwb3NpdFBvc2l0aW9uYAAAABBkZXBvc2l0X2RlY3JlYXNlAAAACwAAAFxBbW91bnQgb2YgYGpUb2tlbnNgIHRvIGJ1cm4gdGhhdCByZXByZXNlbnQgdGhlIGBkZXBvc2l0X2RlY3JlYXNlZF9hbW91bnRgIGFtb3VudCBpbiB0aGUKcG9vbAAAABBqX3Rva2Vuc190b19idXJuAAAACwAAAFRBbW91bnQgb2YgdG9rZW5zIHRvIHJlY2VpdmUgYnkgdGhlIHdpdGhkcmF3ZXIoYGRlcG9zaXRfZGVjcmVhc2VkX2Ftb3VudGAgbWludXMgZmVlcykAAAAVd2l0aGRyYXdlcl90b19yZWNlaXZlAAAAAAAACw==",
-        "AAAAAQAAACRbYE9ibGlnYXRpb246OnJlcGF5YF0gcmVzdWx0aW5nIGRhdGEAAAAAAAAAC1JlcGF5UmVzdWx0AAAAAAQAAAA1RXhjZXNzIGFtb3VudCBnaXZlbiBieSB0aGUgYm9ycm93ZXIgdGhhdCBpcyBzZW50IGJhY2sAAAAAAAATYW1vdW50X3RvX3NlbmRfYmFjawAAAAALAAAAAAAAAA1jb21wdXRlZF9mZWVzAAAAAAAH0AAAAAxDb21wdXRlZEZlZXMAAABPQW1vdW50IG9mIGBkVG9rZW5zYCB0byBidXJuIHRoYXQgcmVwcmVzZW50IHRoZSBgcmVhbF9yZXBhaWRgIGFtb3VudCBpbiB0aGUgcG9vbAAAAAAQZF90b2tlbnNfdG9fYnVybgAAAAsAAAAhQW1vdW50IG9mIHRoZSBkZWJ0IHRoYXQgaXMgcmVwYWlkAAAAAAAAC2RlYnRfcmVwYWlkAAAAAAs=",
-        "AAAAAQAAADBbYE9ibGlnYXRpb246OnJlbW92ZV9jb2xsYXRlcmFsYF0gcmVzdWx0aW5nIGRhdGEAAAAAAAAAFlJlbW92ZUNvbGxhdGVyYWxSZXN1bHQAAAAAAAMAAAAjQW1vdW50IG9mIGNvbGxhdGVyYWwgdG9rZW5zIHJlbW92ZWQAAAAAE2NvbGxhdGVyYWxfZGVjcmVhc2UAAAAACwAAAFpBbW91bnQgb2YgY29sbGF0ZXJhbCB0b2tlbnMgcmVjZWl2ZWQgYnkgdGhlIGNvbGxhdGVyYWwgcmVtb3ZlcihhY2NvdW50aW5nIHN1YnRyYWN0ZWQgZmVlcykAAAAAAB1jb2xsYXRlcmFsX3JlbW92ZXJfdG9fcmVjZWl2ZQAAAAAAAAsAAAAAAAAADWNvbXB1dGVkX2ZlZXMAAAAAAAfQAAAADENvbXB1dGVkRmVlcw==",
-        "AAAAAQAAAC1bYE9ibGlnYXRpb246OmNvdmVyX2JhZF9kZWJ0YF0gcmVzdWx0aW5nIGRhdGEAAAAAAAAAAAAAEkNvdmVyQmFkRGVidFJlc3VsdAAAAAAAAgAAAE1gKHBvb2wgYWRkcmVzcywgYm9ycm93ZXIgZFRva2VucylgIHBhaXJzIGZvciBlYWNoIGJhZCBkZWJ0IG9ibGlnYXRpb24gYm9ycm93cwAAAAAAABlib3Jyb3dzX3RvX2JlX2NvbXBlbnNhdGVkAAAAAAAD6gAAA+0AAAACAAAAEwAAAAsAAABmYChwb29sIGFkZHJlc3MsIGJvcnJvd2VyIGpUb2tlbnMsIGJvcnJvd2VyIGNvbGxhdGVyYWwpYCB0dXBsZXMgZm9yIGVhY2ggYmFkIGRlYnQgb2JsaWdhdGlvbgpjb2xsYXRlcmFsAAAAAAAVY29sbGF0ZXJhbHNfdG9fcmVtb3ZlAAAAAAAD6gAAA+0AAAADAAAAEwAAAAsAAAAL",
-        "AAAAAQAAAAAAAAAAAAAAEUxpcXVpZGF0aW9uUmVzdWx0AAAAAAAABQAAAEtUaGUgYW1vdW50IG9mIGBkVG9rZW5zYCB0aGF0IGFyZSBidXJuZWQgZnJvbSB0aGUgYm9ycm93ZXIncyBib3Jyb3cgcG9zaXRpb24AAAAAD2RfdG9rZW5zX2J1cm5lZAAAAAALAAAAMlRoZSBhbW91bnQgb2YgZGVidCB0b2tlbnMgcmVwYWlkIGJ5IHRoZSBsaXF1aWRhdG9yAAAAAAALZGVidF9yZXBhaWQAAAAACwAAANVUaGUgYW1vdW50IG9mIGBqVG9rZW5zYCBzZWl6ZWQgZnJvbSB0aGUgYm9ycm93ZXIncyBvYmxpZ2F0aW9uIGFuZCBnaXZlbiBhd2F5IHRvIHRoZSBsaXF1aWRhdG9yJ3Mgb2JsaWdhdGlvbgppbiBjYXNlIHRoZSBib3Jyb3dlcidzIHBvc2l0aW9uIGRvZXNuJ3QgY29udGFpbiBlbm91Z2ggcGxhaW4gY29sbGF0ZXJhbCB0byBjb3ZlciB0aGUgbGlxdWlkYXRpb24gZXhwZW5zZXMAAAAAAAAPal90b2tlbnNfc2VpemVkAAAAAAsAAABmVGhlIGFtb3VudCBvZiBwbGFpbiBjb2xsYXRlcmFsIHNlaXplZCBmcm9tIHRoZSBib3Jyb3dlcidzIG9ibGlnYXRpb24gYW5kIHRyYW5zZmVycmVkIHRvIHRoZSBsaXF1aWRhdG9yAAAAAAAXcGxhaW5fY29sbGF0ZXJhbF9zZWl6ZWQAAAAACwAAAExUaGUgYW1vdW50IG9mIHRva2VucyByZXByZXNlbnRpbmcgdGhlIGBqX3Rva2Vuc19zZWl6ZWRgIGNvbXB1dGVkIHZpYSBjZWlsaW5nAAAAG3Rva2Vuc19mcm9tX2pfdG9rZW5zX3NlaXplZAAAAAAL",
-        "AAAAAQAAAAAAAAAAAAAABFBvb2wAAAARAAAASkFtb3VudCBvZiB0b2tlbnMgdGhhdCBjYW4gYmUgd2l0aGRyYXduIGJ5IHRoZSBob3N0IHBsYXRmb3JtIGFkbWluIGFzIGEgZmVlAAAAAAAVYWNjdW11bGF0ZWRfaG9zdF9mZWVzAAAAAAAACwAAAEVBbW91bnQgb2YgdG9rZW5zIHRoYXQgY2FuIGJlIHdpdGhkcmF3biBieSB0aGUgbWFya2V0J3MgYWRtaW4gYXMgYSBmZWUAAAAAAAAXYWNjdW11bGF0ZWRfbWFya2V0X2ZlZXMAAAAACwAAAFdBbW91bnQgb2YgdG9rZW5zIGluIHRoZSBpbnN1cmFuY2UgcmVzZXJ2ZSB0aGF0IGNhbiBiZSB1c2VkIHRvIGNvdmVyIGEgYmFkIGRlYnQgc2NlbmFyaW8AAAAAGGFjY3VtdWxhdGVkX3Jlc2VydmVfZmVlcwAAAAsAAABWUmVtYWluaW5nIHN1cHBseSBib290c3RyYXAgYW1vdW50cyB0aGF0IGFyZSBkaXN0cmlidXRlZCBldmVubHkgYW1vbmcgc3BlY2lmaWVkIHBlcmlvZHMAAAAAABFib290c3RyYXBfcGVyaW9kcwAAAAAAA+wAAAPtAAAAAgAAAAYAAAAGAAAH0AAAABNQb29sQm9vdHN0cmFwUGVyaW9kAAAAAC1Cb3Jyb3cgYW5udWFsIHBlcmNlbnRhZ2UgcmF0ZSBpbiBiYXNpcyBwb2ludHMAAAAAAAAOYm9ycm93X2Fwcl9icHMAAAAAAAsAAAAjQ29uZmlndXJhdGlvbiBzZXR0aW5ncyBmb3IgdGhlIHBvb2wAAAAABmNvbmZpZwAAAAAH0AAAAApQb29sQ29uZmlnAAAAAAAwVGhlIHRpbWVzdGFtcCBvZiB0aGUgbGFzdCBhY2NydWFsIHJlLWNhbGN1bGF0aW9uAAAAFmxhc3RfYWNjcnVhbF90aW1lc3RhbXAAAAAAAAYAAADsVGhlIHJlc3VsdCBvZiBgVG9rZW5DbGllbnQ6Om5hbWUoJnNlbGYpYCBpbnZvY2F0aW9uOiBgbmF0aXZlYCBzdHJpbmcgZm9yIFhMTSBTQUMgYW5kIHRoZQpTQUMncyBuYXRpdmUgYXNzZXQgY29kZSBhbmQgYXNzZXQgaXNzdWVyIGNvbmNhdGVuYXRlZCB3aXRoIGA6YCBmb3Igb3RoZXIgU0FDcyhlLmcsCiJBUVVBOkdBSFBZV0xLNllSTjdDVllaT080SDNWRFJaN1BWRjVVSkdMWkNTUEFFSUtKRTJYU1dGNUxBR0VSIikAAAAEbmFtZQAAABAAAAAcVGhlIGFkZHJlc3Mgb2YgdGhlIGxvYW4gcG9vbAAAAAxwb29sX2FkZHJlc3MAAAATAAAALVN1cHBseSBhbm51YWwgcGVyY2VudGFnZSByYXRlIGluIGJhc2lzIHBvaW50cwAAAAAAAA5zdXBwbHlfYXByX2JwcwAAAAAACwAAADpUaGUgYWRkcmVzcyBvZiB0aGUgdG9rZW4gY29udHJhY3QgYXNzb2NpYXRlZCB3aXRoIHRoZSBwb29sAAAAAAANdG9rZW5fYWRkcmVzcwAAAAAAABMAAAAoVGhlIHRva2VuIHN5bWJvbCBvZiB0aGUgYXNzb2NpYXRlZCBhc3NldAAAAAx0b2tlbl9zeW1ib2wAAAAQAAAAPFRoZSB0b3RhbCBhbW91bnQgb2YgY3VycmVudGx5IGF2YWlsYWJsZSB0b2tlbnMgZm9yIGJvcnJvd2luZwAAAA90b3RhbF9hdmFpbGFibGUAAAAACwAAAFRUaGUgdG90YWwgYW1vdW50IG9mIGJvcnJvd2VkIGFzc2V0cy4gVGhpcyB2YWx1ZSBpbmNyZWFzZXMgd2l0aCBpbnRlcmVzdCByYXRlIGFjY3J1YWwAAAAOdG90YWxfYm9ycm93ZWQAAAAAAAsAAABKVGhlIHRvdGFsIGFtb3VudCBvZiBkZXBvc2l0ZWQgY29sbGF0ZXJhbCBhc3NldHMgdGhhdCBkb24ndCBhY2NydWUgaW50ZXJlc3QAAAAAABB0b3RhbF9jb2xsYXRlcmFsAAAACwAAAFtUaGUgdG90YWwgYGRUb2tlbnNgIGFtb3VudC4gUmVwcmVzZW50cyB0aGUgc3VtIG9mIGFsbCBkZWJ0IHNoYXJlcyBkaXN0cmlidXRlZCBhbW9uZyBkZWJ0b3JzAAAAAA50b3RhbF9kX3Rva2VucwAAAAAACwAAAHVUaGUgdG90YWwgYGpUb2tlbnNgIGFtb3VudC4gUmVwcmVzZW50cyB0aGUgc3VtIG9mIGFsbCB5aWVsZGluZyBpbnRlcmVzdCBjb2xsYXRlcmFsIHNoYXJlcwpkaXN0cmlidXRlZCBhbW9uZyBjcmVkaXRvcnMAAAAAAAAOdG90YWxfal90b2tlbnMAAAAAAAs=",
-        "AAAAAQAAAAAAAAAAAAAADVBvb2xGZWVDb25maWcAAAAAAAAKAAAAAAAAABZhZGRfY29sbGF0ZXJhbF9mZWVfYnBzAAAAAAAEAAAAAAAAAA5ib3Jyb3dfZmVlX2JwcwAAAAAABAAAAAAAAAAPZGVwb3NpdF9mZWVfYnBzAAAAAAQAAAAAAAAAEmZsYXNoX2xvYW5fZmVlX2JwcwAAAAAABAAAAAAAAAAMaG9zdF9mZWVfYnBzAAAABAAAAAAAAAAZcmVtb3ZlX2NvbGxhdGVyYWxfZmVlX2JwcwAAAAAAAAQAAAAAAAAADXJlcGF5X2ZlZV9icHMAAAAAAAAEAAAAAAAAAA10YWtlX3JhdGVfYnBzAAAAAAAABAAAAAAAAAAQd2l0aGRyYXdfZmVlX2JwcwAAAAQAAACLQWRkaXRpb25hbCBzY2FsYXIgKGluIGJhc2lzIHBvaW50cykgdXNlZCBmb3IgdGhlIGFkZGl0aW9uYWwgd2l0aGRyYXdhbCBmZWUgd2hlbiB0aGUgdXRpbGl6YXRpb24gcmF0aW8KZXhjZWVkcyBgdXRpbGl6YXRpb25fcmF0aW9fbGltaXRfYnBzYAAAAAAcd2l0aGRyYXdfc2NhcmNpdHlfZmVlX3NjX2JwcwAAAAQ=",
-        "AAAAAQAAAAAAAAAAAAAAClBvb2xTdGF0dXMAAAAAAAIAAAAAAAAADmJvcnJvd19lbmFibGVkAAAAAAABAAAAAAAAAA9kZXBvc2l0X2VuYWJsZWQAAAAAAQ==",
-        "AAAAAQAAAAAAAAAAAAAAClBvb2xDb25maWcAAAAAAAUAAAAAAAAADWFjY3J1YWxfbW9kZWwAAAAAAAfQAAAADEFjY3J1YWxNb2RlbAAAAAAAAAAKZmVlX2NvbmZpZwAAAAAH0AAAAA1Qb29sRmVlQ29uZmlnAAAAAAAAAAAAAA1oZWFsdGhfY29uZmlnAAAAAAAH0AAAABBQb29sSGVhbHRoQ29uZmlnAAAAAAAAABNpbnRlcmVzdF9yYXRlX21vZGVsAAAAB9AAAAARSW50ZXJlc3RSYXRlTW9kZWwAAAAAAAAAAAAABnN0YXR1cwAAAAAH0AAAAApQb29sU3RhdHVzAAA=",
-        "AAAAAQAAAAAAAAAAAAAAEFBvb2xIZWFsdGhDb25maWcAAAAKAAAA4lRoZSBtYXhpbXVtIHBlcmNlbnRhZ2Ugb2YgYW4gYXNzZXQncyB2YWx1ZSB0aGF0IGNhbiBiZSBoZWxkIGluIGFuIGluZGl2aWR1YWwgb2JsaWdhdGlvbiBpbgpiYXNpcyBwb2ludHMgd2l0aCByZXNwZWN0IHRvIGEgdG90YWwgb2JsaWdhdGlvbidzIGNvbGxhdGVyYWwgdmFsdWUuIExUViBncmVhdGVyIHRoYW4KdGhhdCBtYWtlcyBib3Jyb3cgcG9zaXRpb24gZWxpZ2libGUgdG8gbGlxdWlkYXRpb24AAAAAAA1jbG9zZV9sdHZfYnBzAAAAAAAACwAAAMlMVFYgY2FsY3VsYXRlZCBmb3IgdW5wYXJhbWV0ZXJpemVkIG9ibGlnYXRpb24gcG9zaXRpb25zKGkuZS4sIG5vIG9wZW5MVFYvbGlhYmlsaXR5IGZhY3RvcnMgc2NhbGluZykgdGhhdCBtYXJrcwpwb3NpdGlvbiBhcyBpbnNvbHZlbnQuIFVzZWQgYXMgYSBtZWFucyB0byBhdm9pZCB1bnByb2ZpdGFibGUgaGVhbHRoLWltcHJvdmluZyBsaXF1aWRhdGlvbnMAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAA71RoZSBmYWN0b3IgdXNlZCB0byBjYWxjdWxhdGUgdGhlIGN1cnJlbnQgYm9ycm93IGxpbWl0IGJ5IG11bHRpcGx5aW5nIHRoZSBjb2xsYXRlcmFsIHZhbHVlCmJ5IGl0IGJlZm9yZSBzdWJ0cmFjdGluZyB0aGlzIHZhbHVlIGZyb20gdGhlIG9ibGlnYXRpb24ncyBtYXggYm9ycm93IGxpbWl0LiBWb2xhdGlsZQphc3NldHMnIHBvb2xzIGFyZSBleHBlY3RlZCB0byBoYXZlIHRoaXMgdmFsdWUgc2V0IHdheSBhYm92ZSAxMDAlAAAAABRsaWFiaWxpdHlfZmFjdG9yX2JwcwAAAAsAAABGTWF4aW11bSBwZXJjZW50YWdlIG9mIGEgYm9ycm93ZXIncyBkZWJ0IHRoYXQgY2FuIGJlIGxpcXVpZGF0ZWQgYXQgb25jZQAAAAAAHGxpcXVpZGF0aW9uX2Nsb3NlX2ZhY3Rvcl9icHMAAAALAAAAa01heGltdW0gYWRkaXRpb25hbCB2YWx1ZSBpbiB0aGUgcmVjZWl2ZWQgdG9rZW5zIHRoYXQgY2FuIGJlIGdpdmVuIHRvIGxpcXVpZGF0b3JzIHdoZW4gcHVyY2hhc2luZyBjb2xsYXRlcmFsAAAAAB1tYXhfbGlxdWlkYXRpb25faW5jZW50aXZlX2JwcwAAAAAAAAsAAACbVGhlIG1heGltdW0gcGVyY2VudGFnZSBvZiBhbiBhc3NldCdzIHZhbHVlIHRoYXQgY2FuIGJlIGJvcnJvd2VkIGluIGJhc2lzIHBvaW50cyhlLmcsIDcwMDAgPQo3MCUsIGV0Yykgd2l0aCByZXNwZWN0IHRvIGEgdG90YWwgb2JsaWdhdGlvbidzIGNvbGxhdGVyYWwgdmFsdWUAAAAADG9wZW5fbHR2X2JwcwAAAAsAAACHVGhlIG1heGltdW0gYW1vdW50IG9mIHN1cHBsaWVkIHRva2VucyB0aGF0IGNhbiBiZSBzdXBwbGllZCBpbiB0aGUgcG9vbChpLmUuLCBgYXZhaWxhYmxlYCArCmB0b3RhbF9ib3Jyb3dlZGApIDAgZGVub3RlcyB1bmxpbWl0ZWQgc3VwcGx5AAAAAAxzdXBwbHlfbGltaXQAAAALAAAASVRoZSBtYXhpbXVtIHV0aWxpemF0aW9uIHJhdGlvIHRoYXQgaXMgYWxsb3dlZCB0byBiZSByZWFjaGVkIHZpYSBib3Jyb3dpbmcAAAAAAAAbdXRpbGl6YXRpb25fcmF0aW9fbGltaXRfYnBzAAAAAAsAAACVQ29vbGRvd24gcGVyaW9kKGluIHNlY29uZHMpIHJlcXVpcmVkIGJldHdlZW4gYSBwYWlyIG9mIHNlcXVlbnRpYWwgd2l0aGRyYXdhbHMgd2hlbiB0aGUgcG9vbCdzIHV0aWxpemF0aW9uIHJhdGlvIGV4Y2VlZHMKYHV0aWxpemF0aW9uX3JhdGlvX2xpbWl0X2Jwc2AAAAAAAAAcd2l0aGRyYXdfc2NhcmNpdHlfY29vbGRvd25fcwAAAAYAAACbQmFzaXMgcG9pbnRzIG9mIHRoZSBwb29sJ3MgdG90YWwgc3VwcGx5IHRoYXQgY2FuIGJlIHdpdGhkcmF3biBpbiBhIHNpbmdsZSBvcGVyYXRpb24gd2hlbiB0aGUgcG9vbCdzIHV0aWxpemF0aW9uIHJhdGlvIGV4Y2VlZHMKYHV0aWxpemF0aW9uX3JhdGlvX2xpbWl0X2Jwc2AAAAAAG3dpdGhkcmF3X3NjYXJjaXR5X2xpbWl0X2JwcwAAAAAL",
-        "AAAAAQAAAAAAAAAAAAAAE1Bvb2xCb290c3RyYXBQZXJpb2QAAAAAAgAAABpSZW1haW5pbmcgYm9vdHN0cmFwIGFtb3VudAAAAAAAEHJlbWFpbmluZ19hbW91bnQAAAALAAAAH1RvdGFsIHByb3ZpZGVkIGJvb3RzdHJhcCBhbW91bnQAAAAADHRvdGFsX2Ftb3VudAAAAAs=",
-        "AAAAAQAAACNBIHJlcXVlc3QgZnJvbSB0aGUgc3VibWlzc2lvbiBiYXRjaAAAAAAAAAAAB1JlcXVlc3QAAAAAAwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAxyZXF1ZXN0X3R5cGUAAAAE",
-        "AAAAAwAAAAAAAAAAAAAAC1JlcXVlc3RUeXBlAAAAAAYAAAAAAAAAB0RlcG9zaXQAAAAAAAAAAAAAAAAGQm9ycm93AAAAAAABAAAAAAAAAAhXaXRoZHJhdwAAAAIAAAAAAAAABVJlcGF5AAAAAAAAAwAAAAAAAAANQWRkQ29sbGF0ZXJhbAAAAAAAAAQAAAAAAAAAEFJlbW92ZUNvbGxhdGVyYWwAAAAF",
-        "AAAAAQAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAoAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAIZGVwbG95ZXIAAAATAAAAAAAAABJpbnNvbHZlbmN5X2x0dl9icHMAAAAAAAsAAAAAAAAACGlzX293bmVkAAAAAQAAAAAAAAANbWF4X3Bvc2l0aW9ucwAAAAAAAAQAAAAAAAAAFG1pbl9jb2xsYXRlcmFsX3ZhbHVlAAAACwAAAAAAAAAEbmFtZQAAABAAAAAAAAAABm9yYWNsZQAAAAAAEwAAAAAAAAAGc3RhdHVzAAAAAAAEAAAAAAAAABZ1cGRhdGVfaW5fcXVldWVfcGVyaW9kAAAAAAPoAAAABg==",
-        "AAAAAgAAAAAAAAAAAAAADE1hcmtldFN0YXR1cwAAAAQAAAAAAAAAGkFsbCBvcGVyYXRpb25zIGFyZSBhbGxvd2VkAAAAAAAGQWN0aXZlAAAAAAAAAAAAIEJvcnJvdyBvcGVyYXRpb25zIGFyZSBwcm9oaWJpdGVkAAAADEJvcnJvd0Zyb3plbgAAAAAAAABAQm9ycm93aW5nIGFuZCBkZXBvc2l0aW5nIG9wZXJhdGlvbnMgb24gdGhlIG1hcmtldCBhcmUgcHJvaGliaXRlZAAAAA1EZXBvc2l0RnJvemVuAAAAAAAAAAAAACtBbGwgb3BlcmF0aW9ucyBvbiB0aGUgbWFya2V0IGFyZSBwcm9oaWJpdGVkAAAAAAZGcm96ZW4AAA==",
-        "AAAAAQAAAAAAAAAAAAAAClBvb2xVcGRhdGUAAAAAAAIAAAAAAAAACm5ld19jb25maWcAAAAAB9AAAAAKUG9vbENvbmZpZwAAAAAAAAAAABNxdWV1ZWRfaW5fdGltZXN0YW1wAAAAAAY=",
-        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAFAAAAAAAAAAAAAAABE5hbWUAAAAAAAAAAAAAAAVBZG1pbgAAAAAAAAAAAAAAAAAAE1VwZGF0ZUluUXVldWVQZXJpb2QAAAAAAAAAAAAAAAAHSXNPd25lZAAAAAAAAAAAAAAAAAxEZXBsb3llckhvc3QAAAAAAAAAAAAAAAZPcmFjbGUAAAAAAAAAAAAAAAAAEk1pbkNvbGxhdGVyYWxWYWx1ZQAAAAAAAAAAAAAAAAAQSW5zb2x2ZW5jeUx0dkJwcwAAAAAAAAAAAAAADE1heFBvc2l0aW9ucwAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAAAAAAAAAAAB0FjY3J1YWwAAAAAAAAAAAAAAAAIQWxsUG9vbHMAAAAAAAAAAAAAAA5BbGxPYmxpZ2F0aW9ucwAAAAAAAAAAAAAAAAAQQWxsTXVsdGlwbHlQYWlycwAAAAAAAAAAAAAADE1hcmtldFN0YXR1cwAAAAEAAAAAAAAADENvbmZpZ1VwZGF0ZQAAAAEAAAATAAAAAQAAAAAAAAAEUG9vbAAAAAEAAAATAAAAAQAAAAAAAAAKT2JsaWdhdGlvbgAAAAAAAQAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAAAAAADE11bHRpcGx5UGFpcgAAAAEAAAPtAAAAAgAAABMAAAATAAAAAAAAAAAAAAASRWFybk9ibGlnYXRpb25TZWVkAAA=",
-        "AAAAAQAAAC9QcmljZSBkYXRhIGZvciBhbiBhc3NldCBhdCBhIHNwZWNpZmljIHRpbWVzdGFtcAAAAAAAAAAACVByaWNlRGF0YQAAAAAAAAIAAAAAAAAABXByaWNlAAAAAAAACwAAAAAAAAAJdGltZXN0YW1wAAAAAAAABg==",
-        "AAAAAgAAAApBc3NldCB0eXBlAAAAAAAAAAAABUFzc2V0AAAAAAAAAgAAAAEAAAAAAAAAB1N0ZWxsYXIAAAAAAQAAABMAAAABAAAAAAAAAAVPdGhlcgAAAAAAAAEAAAAR" ]),
+        "AAAAAQAAAAAAAAAAAAAACFBvb2xEYXRhAAAABwAAAAAAAAADYXB5AAAAB9AAAAAWQW5udWFsUGVyY2VudGFnZVlpZWxkcwAAAAAAAAAAABVkX3Rva2VuX3JhdGVfY2VpbF9icHMAAAAAAAALAAAAAAAAABZqX3Rva2VuX3JhdGVfZmxvb3JfYnBzAAAAAAALAAAAAAAAABJvcmFjbGVfYXNzZXRfcHJpY2UAAAAAAAsAAAAAAAAABHBvb2wAAAfQAAAABFBvb2wAAAAAAAAAGHRvdGFsX2F2YWlsYWJsZV9hZGp1c3RlZAAAAAsAAAAAAAAADHRvdGFsX3N1cHBseQAAAAs=",
+        "AAAAAQAAAAAAAAAAAAAACk1hcmtldERhdGEAAAAAAAMAAAAAAAAADGdsb2JhbF9zdGF0ZQAAB9AAAAALR2xvYmFsU3RhdGUAAAAAAAAAABVvcmFjbGVfcHJpY2VfZGVjaW1hbHMAAAAAAAAEAAAAAAAAAApwb29sc19kYXRhAAAAAAPqAAAH0AAAAAhQb29sRGF0YQ==",
+        "AAAAAQAAAAAAAAAAAAAABFBvb2wAAAAVAAAAAAAAAA9iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAAWYmFkX2RlYnRfcmVxdWVzdF9jb3VudAAAAAAABAAAAAAAAAAOYm9ycm93X2Fwcl9icHMAAAAAAAsAAAAAAAAABmNvbmZpZwAAAAAH0AAAAApQb29sQ29uZmlnAAAAAAAAAAAACWZhcm1fZGVidAAAAAAAA+gAAAPuAAAAIAAAAAAAAAALZmFybV9zdXBwbHkAAAAD6AAAA+4AAAAgAAAAAAAAABppbnRlcmVzdF9yYXRlX21vZGlmaWVyX2JwcwAAAAAACwAAAAAAAAAWbGFzdF9hY2NydWFsX3RpbWVzdGFtcAAAAAAABgAAAAAAAAAEbmFtZQAAABAAAAAAAAAAEm9wZXJhdGlvbl9mZWVzX3N1bQAAAAAACwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAOc3VwcGx5X2Fwcl9icHMAAAAAAAsAAAAAAAAAEnRha2VfcmF0ZV9mZWVzX3N1bQAAAAAACwAAAAAAAAANdG9rZW5fYWRkcmVzcwAAAAAAABMAAAAAAAAADnRva2VuX2RlY2ltYWxzAAAAAAAEAAAAAAAAAAx0b2tlbl9zeW1ib2wAAAAQAAAAAAAAAA90b3RhbF9hdmFpbGFibGUAAAAACwAAAAAAAAAOdG90YWxfYm9ycm93ZWQAAAAAAAsAAAAAAAAAEHRvdGFsX2NvbGxhdGVyYWwAAAALAAAAAAAAAA50b3RhbF9kX3Rva2VucwAAAAAACwAAAAAAAAAOdG90YWxfal90b2tlbnMAAAAAAAs=",
+        "AAAAAQAAAAAAAAAAAAAAClBvb2xDb25maWcAAAAAAAcAAAAAAAAADWFjY3J1YWxfbW9kZWwAAAAAAAfQAAAADEFjY3J1YWxNb2RlbAAAAAAAAAAKZmVlX2NvbmZpZwAAAAAH0AAAAA1Qb29sRmVlQ29uZmlnAAAAAAAAAAAAAA1oZWFsdGhfY29uZmlnAAAAAAAH0AAAABBQb29sSGVhbHRoQ29uZmlnAAAAAAAAABNpbnRlcmVzdF9yYXRlX21vZGVsAAAAB9AAAAARSW50ZXJlc3RSYXRlTW9kZWwAAAAAAAAAAAAAFmlyX3JlYWN0aXZpdHlfY29uc3RhbnQAAAAAAAQAAAAAAAAABnN0YXR1cwAAAAAH0AAAAApQb29sU3RhdHVzAAAAAAAAAAAAHHRhcmdldF91dGlsaXphdGlvbl9yYXRpb19icHMAAAAL",
+        "AAAAAQAAAAAAAAAAAAAAClBvb2xTdGF0dXMAAAAAAAEAAAAAAAAABWZsYWdzAAAAAAAABA==",
+        "AAAAAQAAAAAAAAAAAAAADVBvb2xGZWVDb25maWcAAAAAAAAMAAAAAAAAABZhZGRfY29sbGF0ZXJhbF9mZWVfYnBzAAAAAAAEAAAAAAAAAA5ib3Jyb3dfZmVlX2JwcwAAAAAABAAAAAAAAAAPZGVwb3NpdF9mZWVfYnBzAAAAAAQAAAAAAAAAEmZsYXNoX2xvYW5fZmVlX2JwcwAAAAAABAAAAAAAAAAbb3BlcmF0aW9uX2ZlZV9iZW5lZmljaWFyaWVzAAAAA+gAAAPsAAAAEwAAAAQAAAAAAAAACXJlZmVycmVycwAAAAAAA+gAAAPsAAAAEwAAAAQAAAAAAAAAGXJlbW92ZV9jb2xsYXRlcmFsX2ZlZV9icHMAAAAAAAAEAAAAAAAAAA1yZXBheV9mZWVfYnBzAAAAAAAABAAAAAAAAAAXdGFrZV9yYXRlX2JlbmVmaWNpYXJpZXMAAAAD6AAAA+wAAAATAAAABAAAAAAAAAANdGFrZV9yYXRlX2JwcwAAAAAAAAQAAAAAAAAAEHdpdGhkcmF3X2ZlZV9icHMAAAAEAAAAAAAAAB13aXRoZHJhd19tYXhfc2NhcmNpdHlfZmVlX2JwcwAAAAAAAAQ=",
+        "AAAAAQAAAAAAAAAAAAAAEFBvb2xIZWFsdGhDb25maWcAAAAJAAAAAAAAAA1jbG9zZV9sdHZfYnBzAAAAAAAACwAAAAAAAAAUbGlhYmlsaXR5X2ZhY3Rvcl9icHMAAAALAAAAAAAAABxsaXF1aWRhdGlvbl9jbG9zZV9mYWN0b3JfYnBzAAAACwAAAAAAAAAdbWF4X2xpcXVpZGF0aW9uX2luY2VudGl2ZV9icHMAAAAAAAALAAAAAAAAAAxvcGVuX2x0dl9icHMAAAALAAAAAAAAAAxzdXBwbHlfbGltaXQAAAALAAAAAAAAABt1dGlsaXphdGlvbl9yYXRpb19saW1pdF9icHMAAAAACwAAAAAAAAAcd2l0aGRyYXdfc2NhcmNpdHlfY29vbGRvd25fcwAAAAYAAAAAAAAAG3dpdGhkcmF3X3NjYXJjaXR5X2xpbWl0X2JwcwAAAAAL",
+        "AAAABAAAAAAAAAAAAAAAB01DRXJyb3IAAAAAMgAAAAAAAAANSW50ZXJuYWxFcnJvcgAAAAAAAAAAAAAAAAAAEkludmFsaWRJbnB1dEFtb3VudAAAAAAAAQAAAAAAAAAXRGVwZW5kZW5jeUNvbnRyYWN0RXJyb3IAAAAAAgAAAAAAAAAQTWFya2V0SXNOb3RPd25lZAAAAAMAAAAAAAAAF0JvcnJvd0ZvcmJpZGRlbk9uTWFya2V0AAAAAAQAAAAAAAAAGERlcG9zaXRGb3JiaWRkZW5Pbk1hcmtldAAAAAUAAAAAAAAADk1hcmtldElzRnJvemVuAAAAAAAGAAAAAAAAABtJbnZhbGlkTWFya2V0Q29uZmlnT3JVcGRhdGUAAAAABwAAAAAAAAAUSW5jb3JyZWN0UmVxdWVzdFR5cGUAAAAIAAAAAAAAAA9PdmVyT3JVbmRlcmZsb3cAAAAACQAAAAAAAAAQVG9vTWFueVBvc2l0aW9ucwAAAAoAAAAAAAAAGk1pbkNvbGxhdGVyYWxWYWx1ZUlzTm90TWV0AAAAAAALAAAAAAAAABdOb25Qb3NpdGl2ZVNoYXJlc0Ftb3VudAAAAAAMAAAAAAAAABVJbnZhbGlkSW5pdGlhbGl6YXRpb24AAAAAAABkAAAAAAAAABBQb29sRG9lc05vdEV4aXN0AAAAZQAAAAAAAAAVSW52YWxpZExvYW5Qb29sQ29uZmlnAAAAAAAAZgAAAAAAAAASTm90RW5vdWdoUG9vbEZ1bmRzAAAAAABnAAAAAAAAABdEZXBvc2l0UG9vbERvZXNOb3RFeGlzdAAAAABoAAAAAAAAABZCb3Jyb3dQb29sRG9lc05vdEV4aXN0AAAAAABpAAAAAAAAABpDb2xsYXRlcmFsUG9vbERvZXNOb3RFeGlzdAAAAAAAagAAAAAAAAAgUG9vbEFscmVhZHlDb250YWluc1F1ZXVlZFBvb2xTZXQAAABrAAAAAAAAABxQb29sRG9lc05vdEhhdmVRdWV1ZWRQb29sU2V0AAAAbAAAAAAAAAAZUG9vbFNldElzTm90WWV0QXBwbGljYWJsZQAAAAAAAG0AAAAAAAAAGE9wZXJhdGlvbkZvcmJpZGRlbk9uUG9vbAAAAG4AAAAAAAAAKU1hcmtldEFscmVhZHlDb250YWluc1F1ZXVlZEluQ29uZmlnVXBkYXRlAAAAAAAAbwAAAAAAAAAlTWFya2V0RG9lc05vdEhhdmVRdWV1ZWRJbkNvbmZpZ1VwZGF0ZQAAAAAAAHAAAAAAAAAAJE1hcmtldENvbmZpZ1VwZGF0ZUlzTm90WWV0QXBwbGljYWJsZQAAAHEAAAAAAAAAEVBvb2xCYWREZWJ0TG9ja2VkAAAAAAAAcgAAAAAAAAAWT2JsaWdhdGlvbkRvZXNOb3RFeGlzdAAAAAAAyAAAAAAAAAAbRGVwb3NpdFBvc2l0aW9uRG9lc05vdEV4aXN0AAAAAMkAAAAAAAAAGkJvcnJvd1Bvc2l0aW9uRG9lc05vdEV4aXN0AAAAAADKAAAAAAAAABlXaXRoZHJhd1NjYXJjaXR5T3ZlckxpbWl0AAAAAAAAywAAAAAAAAAWU2NhcmNpdHlDb29sZG93blBlcmlvZAAAAAAAzAAAAAAAAAAcQm9ycm93UG9zaXRpb25Gb3JBc3NldEV4aXN0cwAAAM0AAAAAAAAAHURlcG9zaXRQb3NpdGlvbkZvckFzc2V0RXhpc3RzAAAAAAAAzgAAAAAAAAASVW5oZWFsdGh5T3BlcmF0aW9uAAAAAADPAAAAAAAAABdQb29sU3VwcGx5TGltaXRFeGNlZWRlZAAAAAGQAAAAAAAAAB9Qb29sVXRpbGl6YXRpb25SYXRpb0NhcEV4Y2VlZGVkAAAAAZEAAAAAAAAAG09yYWNsZURvZXNOb3RLbm93QXNzZXRQcmljZQAAAAH0AAAAAAAAABBPcmFjbGVTdGFsZVByaWNlAAAB9QAAAAAAAAAWTm9uUG9zaXRpdmVPcmFjbGVQcmljZQAAAAAB9gAAAAAAAAAYSW52YWxpZExpcXVpZGF0aW9uSW5wdXRzAAACWAAAAAAAAAATT2JsaWdhdGlvbklzSGVhbHRoeQAAAAJZAAAAAAAAACpPYmxpZ2F0aW9uQ29udGFpbnNPcGVuQ292ZXJCYWREZWJ0UmVxdWVzdHMAAAAAAloAAAAAAAAAIEJhZERlYnRDb3ZlcmFnZUNyaXRlcmlvbklzTm90TWV0AAACWwAAAAAAAAAdQXNzZXRDYW5ub3RCZVVzZWRBc0NvbGxhdGVyYWwAAAAAAAJcAAAAAAAAACZMaXF1aWRhdGlvbkV4Y2Vzc2l2ZURlbWFuZGVkQ29sbGF0ZXJhbAAAAAACXQAAAAAAAAALSW52YWxpZFN3YXAAAAACvQAAAAAAAAAcRmxhc2hCb3Jyb3dBbHJlYWR5UmVnaXN0ZXJlZAAAAr4AAAAAAAAAFFN3YXBTbGlwcGFnZUV4Y2VlZGVkAAACvw==",
+        "AAAABQAAAAAAAAAAAAAACVN3YXBFeGFjdAAAAAAAAAEAAAAKc3dhcF9leGFjdAAAAAAABgAAAAAAAAANc3dhcF9wcm92aWRlcgAAAAAAABMAAAABAAAAAAAAAAR1c2VyAAAAEwAAAAEAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAEAAAAAAAAACWFtb3VudF9pbgAAAAAAAAsAAAAAAAAAAAAAAA5taW5fYW1vdW50X291dAAAAAAACwAAAAAAAAAAAAAAD3JlY2VpdmVkX2Ftb3VudAAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAClJlcGF5RXZlbnQAAAAAAAEAAAALcmVwYXlfZXZlbnQAAAAABAAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAApvYmxpZ2F0aW9uAAAAAAfQAAAACk9ibGlnYXRpb24AAAAAAAAAAAAAAAAADHJlcGF5X3Jlc3VsdAAAB9AAAAALUmVwYXlSZXN1bHQAAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAC0JvcnJvd0V2ZW50AAAAAAEAAAAMYm9ycm93X2V2ZW50AAAABAAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAApvYmxpZ2F0aW9uAAAAAAfQAAAACk9ibGlnYXRpb24AAAAAAAAAAAAAAAAADWJvcnJvd19yZXN1bHQAAAAAAAfQAAAADEJvcnJvd1Jlc3VsdAAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAC0ZsYXNoQm9ycm93AAAAAAEAAAAMZmxhc2hfYm9ycm93AAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAAAAAAAAAAABHVzZXIAAAATAAAAAAAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAC1JlZnJlc2hQb29sAAAAAAEAAAAMcmVmcmVzaF9wb29sAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAC",
+        "AAAABQAAAAAAAAAAAAAADEFwcGx5UG9vbFNldAAAAAEAAAAOYXBwbHlfcG9vbF9zZXQAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAADERlcG9zaXRFdmVudAAAAAEAAAANZGVwb3NpdF9ldmVudAAAAAAAAAQAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA5vYmxpZ2F0aW9uX2tleQAAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAAKb2JsaWdhdGlvbgAAAAAH0AAAAApPYmxpZ2F0aW9uAAAAAAAAAAAAAAAAAA5kZXBvc2l0X3Jlc3VsdAAAAAAH0AAAAA1EZXBvc2l0UmVzdWx0AAAAAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAADFN3YXBGb3JFeGFjdAAAAAEAAAAOc3dhcF9mb3JfZXhhY3QAAAAAAAYAAAAAAAAADXN3YXBfcHJvdmlkZXIAAAAAAAATAAAAAQAAAAAAAAAEdXNlcgAAABMAAAABAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAAAAAAAA1tYXhfYW1vdW50X2luAAAAAAAACwAAAAAAAAAAAAAACmFtb3VudF9vdXQAAAAAAAsAAAAAAAAAAAAAAAtzZW50X2Ftb3VudAAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAADUNhbmNlbFBvb2xTZXQAAAAAAAABAAAAD2NhbmNlbF9wb29sX3NldAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAADUNsYWltTWlzbWF0Y2gAAAAAAAABAAAADmNsYWltX21pc21hdGNoAAAAAAAFAAAAAAAAAA5vYmxpZ2F0aW9uX2tleQAAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAACnJlcXVlc3RfaWQAAAAAAAYAAAAAAAAAAAAAAA9hcHByb3ZlZF9hbW91bnQAAAAACwAAAAAAAAAAAAAAD2FjdHVhbF9yZWNlaXZlZAAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAADVdpdGhkcmF3RXZlbnQAAAAAAAABAAAADndpdGhkcmF3X2V2ZW50AAAAAAAEAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAOb2JsaWdhdGlvbl9rZXkAAAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAAAAAACm9ibGlnYXRpb24AAAAAA+gAAAfQAAAACk9ibGlnYXRpb24AAAAAAAAAAAAAAAAAD3dpdGhkcmF3X3Jlc3VsdAAAAAfQAAAADldpdGhkcmF3UmVzdWx0AAAAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAADkZsYXNoTG9hbkV2ZW50AAAAAAABAAAAEGZsYXNoX2xvYW5fZXZlbnQAAAAFAAAAAAAAAAhjb250cmFjdAAAABMAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAJaW5pdGlhdG9yAAAAAAAAEwAAAAEAAAAAAAAABmFtb3VudAAAAAAACwAAAAAAAAAAAAAACWZlZXNfcGFpZAAAAAAAAAsAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAADkxpcXVpZGF0ZUV2ZW50AAAAAAABAAAAD2xpcXVpZGF0ZV9ldmVudAAAAAAHAAAAAAAAAApsaXF1aWRhdG9yAAAAAAATAAAAAQAAAAAAAAAXYm9ycm93ZXJfb2JsaWdhdGlvbl9rZXkAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAATYm9ycm93X3Bvb2xfYWRkcmVzcwAAAAATAAAAAQAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAEAAAAAAAAAE2JvcnJvd2VyX29ibGlnYXRpb24AAAAD6AAAB9AAAAAKT2JsaWdhdGlvbgAAAAAAAAAAAAAAAAAVbGlxdWlkYXRvcl9vYmxpZ2F0aW9uAAAAAAAD6AAAB9AAAAAKT2JsaWdhdGlvbgAAAAAAAAAAAAAAAAASbGlxdWlkYXRpb25fcmVzdWx0AAAAAAfQAAAAEUxpcXVpZGF0aW9uUmVzdWx0AAAAAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAADlF1ZXVlSW5Qb29sU2V0AAAAAAABAAAAEXF1ZXVlX2luX3Bvb2xfc2V0AAAAAAAAAgAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAC3Bvb2xfY29uZmlnAAAAB9AAAAAKUG9vbENvbmZpZwAAAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAD1Byb3Bvc2VOZXdBZG1pbgAAAAABAAAAEXByb3Bvc2VfbmV3X2FkbWluAAAAAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAEAAAAC",
+        "AAAABQAAAAAAAAAAAAAAEFBvb2xGYXJtU2V0RXZlbnQAAAABAAAAE3Bvb2xfZmFybV9zZXRfZXZlbnQAAAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAB2Zhcm1faWQAAAAD7gAAACAAAAAAAAAAAAAAAAlmYXJtX2tpbmQAAAAAAAARAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAEUlzc3VlQ292ZXJCYWREZWJ0AAAAAAAAAQAAABRpc3N1ZV9jb3Zlcl9iYWRfZGVidAAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAEVBvb2xCYWREZWJ0TG9ja2VkAAAAAAAAAQAAABRwb29sX2JhZF9kZWJ0X2xvY2tlZAAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAAhkZWFkbGluZQAAAAYAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAEVJlZnJlc2hPYmxpZ2F0aW9uAAAAAAAAAQAAABJyZWZyZXNoX29ibGlnYXRpb24AAAAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAEkFkZENvbGxhdGVyYWxFdmVudAAAAAAAAQAAABRhZGRfY29sbGF0ZXJhbF9ldmVudAAAAAQAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA5vYmxpZ2F0aW9uX2tleQAAAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAAAAAAAAKb2JsaWdhdGlvbgAAAAAH0AAAAApPYmxpZ2F0aW9uAAAAAAAAAAAAAAAAABVhZGRfY29sbGF0ZXJhbF9yZXN1bHQAAAAAAAfQAAAAE0FkZENvbGxhdGVyYWxSZXN1bHQAAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAEkRpc3RyaWJ1dGVQb29sRmVlcwAAAAAAAQAAABRkaXN0cmlidXRlX3Bvb2xfZmVlcwAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAEkR1cGxpY2F0ZVJlcXVlc3RJZAAAAAAAAQAAABRkdXBsaWNhdGVfcmVxdWVzdF9pZAAAAAMAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAKcmVxdWVzdF9pZAAAAAAABgAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAElVwZGF0ZU1hcmtldFN0YXR1cwAAAAAAAQAAABR1cGRhdGVfbWFya2V0X3N0YXR1cwAAAAEAAAAAAAAACm5ld19zdGF0dXMAAAAAB9AAAAAMTWFya2V0U3RhdHVzAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAE0FjY2VwdEFkbWluUHJvcG9zYWwAAAAAAQAAABVhY2NlcHRfYWRtaW5fcHJvcG9zYWwAAAAAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAE0luaXRpYWxpemVQb29sRXZlbnQAAAAAAQAAABVpbml0aWFsaXplX3Bvb2xfZXZlbnQAAAAAAAADAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAAx0b2tlbl9zeW1ib2wAAAAQAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAE1Bvb2xCYWREZWJ0VW5sb2NrZWQAAAAAAQAAABZwb29sX2JhZF9kZWJ0X3VubG9ja2VkAAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAFEluY29uc2lzdGVudFN3YXBTZW50AAAAAQAAABZpbmNvbnNpc3RlbnRfc3dhcF9zZW50AAAAAAAEAAAAAAAAAA1zd2FwX3Byb3ZpZGVyAAAAAAAAEwAAAAEAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAAAAAAC3NlbnRfYW1vdW50AAAAAAsAAAAAAAAAAAAAAA1tYXhfYW1vdW50X2luAAAAAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAFExlZGdlclRpbWVzdGFtcEVycm9yAAAAAQAAABZsZWRnZXJfdGltZXN0YW1wX2Vycm9yAAAAAAACAAAAAAAAABFjdXJyZW50X3RpbWVzdGFtcAAAAAAAAAYAAAAAAAAAAAAAABBzdG9yZWRfdGltZXN0YW1wAAAABgAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAFUZhcm1zQ29udHJhY3RTZXRFdmVudAAAAAAAAAEAAAAYZmFybXNfY29udHJhY3Rfc2V0X2V2ZW50AAAAAQAAAAAAAAAOZmFybXNfY29udHJhY3QAAAAAABMAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAFVBvb2xGYXJtc0NsZWFyZWRFdmVudAAAAAAAAAEAAAAYcG9vbF9mYXJtc19jbGVhcmVkX2V2ZW50AAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAC",
+        "AAAABQAAAAAAAAAAAAAAFVJlbW92ZUNvbGxhdGVyYWxFdmVudAAAAAAAAAEAAAAXcmVtb3ZlX2NvbGxhdGVyYWxfZXZlbnQAAAAABAAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAApvYmxpZ2F0aW9uAAAAAAPoAAAH0AAAAApPYmxpZ2F0aW9uAAAAAAAAAAAAAAAAABhyZW1vdmVfY29sbGF0ZXJhbF9yZXN1bHQAAAfQAAAAFlJlbW92ZUNvbGxhdGVyYWxSZXN1bHQAAAAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAFkZ1bmRVcGRhdGVNYXJrZXRTdGF0dXMAAAAAAAEAAAAZZnVuZF91cGRhdGVfbWFya2V0X3N0YXR1cwAAAAAAAAEAAAAAAAAACm5ld19zdGF0dXMAAAAAB9AAAAAMTWFya2V0U3RhdHVzAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAFlBvb2xJc01pc3NpbmdJblN0b3JhZ2UAAAAAAAEAAAAacG9vbF9pc19taXNzaW5nX2luX3N0b3JhZ2UAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAF0FwcGx5TWFya2V0Q29uZmlnVXBkYXRlAAAAAAEAAAAaYXBwbHlfbWFya2V0X2NvbmZpZ191cGRhdGUAAAAAAAMAAAAAAAAAEW5ld19tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAAAAAAHm5ld19taW5fY29sbGF0ZXJhbF92YWx1ZV9jZW50cwAAAAAACwAAAAAAAAAAAAAAE25ld19iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAF0JhZERlYnRSZXF1ZXN0Q2FuY2VsbGVkAAAAAAEAAAAaYmFkX2RlYnRfcmVxdWVzdF9jYW5jZWxsZWQAAAAAAAMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAApyZXF1ZXN0X2lkAAAAAAAGAAAAAAAAAJhgdHJ1ZWAgaWYgdGhlIHJlcXVlc3Qgd2FzIG1pc3NpbmcgZnJvbSB0aGUgSW5zdXJhbmNlIEZ1bmQgKGUuZy4gYXJjaGl2ZWQpOwpgZmFsc2VgIGlmIGl0IHdhcyBzdGlsbCBQZW5kaW5nIHBhc3QgdGhlIGRlYWRsaW5lIGFuZCB3YXMgYWN0aXZlbHkgY2FuY2VsbGVkLgAAAAdtaXNzaW5nAAAAAAEAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAGENhbmNlbE1hcmtldENvbmZpZ1VwZGF0ZQAAAAEAAAAbY2FuY2VsX21hcmtldF9jb25maWdfdXBkYXRlAAAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAGENsYWltQ292ZXJCYWREZWJ0UmVzdWx0cwAAAAEAAAAcY2xhaW1fY292ZXJfYmFkX2RlYnRfcmVzdWx0cwAAAAEAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAGEluY29uc2lzdGVudFN3YXBSZWNlaXZlZAAAAAEAAAAaaW5jb25zaXN0ZW50X3N3YXBfcmVjZWl2ZWQAAAAAAAQAAAAAAAAADXN3YXBfcHJvdmlkZXIAAAAAAAATAAAAAQAAAAAAAAAEcGF0aAAAA+oAAAATAAAAAAAAAAAAAAAPcmVjZWl2ZWRfYW1vdW50AAAAAAsAAAAAAAAAAAAAAA5taW5fYW1vdW50X291dAAAAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAGE5vblBvc2l0aXZlRFRva2Vuc0JvcnJvdwAAAAEAAAAcbm9uX3Bvc2l0aXZlX2RfdG9rZW5zX2JvcnJvdwAAAAMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAABZtaW50ZWRfZF90b2tlbnNfYW1vdW50AAAAAAALAAAAAAAAAAAAAAAUcmVhbF9ib3Jyb3dlZF9hbW91bnQAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAGFNldFRha2VSYXRlQmVuZWZpY2lhcmllcwAAAAEAAAAbc2V0X3Rha2VfcmF0ZV9iZW5lZmljaWFyaWVzAAAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA1iZW5lZmljaWFyaWVzAAAAAAAD7AAAABMAAAAEAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAGUZhcm1zQ29udHJhY3RDbGVhcmVkRXZlbnQAAAAAAAABAAAAHGZhcm1zX2NvbnRyYWN0X2NsZWFyZWRfZXZlbnQAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAGVBvb2xBbW91bnRCZWNvbWVzTmVnYXRpdmUAAAAAAAABAAAAHHBvb2xfYW1vdW50X2JlY29tZXNfbmVnYXRpdmUAAAACAAAAAAAAAApvbGRfYW1vdW50AAAAAAALAAAAAAAAAAAAAAAKbmV3X2Ftb3VudAAAAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAGVF1ZXVlSW5NYXJrZXRDb25maWdVcGRhdGUAAAAAAAABAAAAHXF1ZXVlX2luX21hcmtldF9jb25maWdfdXBkYXRlAAAAAAAAAwAAAAAAAAARbmV3X21heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAAAAAAAebmV3X21pbl9jb2xsYXRlcmFsX3ZhbHVlX2NlbnRzAAAAAAALAAAAAAAAAAAAAAATbmV3X2JhZF9kZWJ0X2xvY2tfZAAAAAAGAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAGVJlZmVycmVyRmVlRXhjZWVkc09wc0ZlZXMAAAAAAAABAAAAHXJlZmVycmVyX2ZlZV9leGNlZWRzX29wc19mZWVzAAAAAAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAEm9wZXJhdGlvbl9mZWVzX3N1bQAAAAAACwAAAAAAAAAAAAAADHJlZmVycmVyX2ZlZQAAAAsAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAGkNvbXB1dGVkSW50ZXJlc3RJc05lZ2F0aXZlAAAAAAABAAAAHWNvbXB1dGVkX2ludGVyZXN0X2lzX25lZ2F0aXZlAAAAAAAABAAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAD3Bvc2l0aW9uX3NoYXJlcwAAAAALAAAAAAAAAAAAAAAXdG9rZW5zX2Zyb21fc2hhcmVzX2NlaWwAAAAACwAAAAAAAAAAAAAAEWNvbXB1dGVkX2ludGVyZXN0AAAAAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAGk5vblBvc2l0aXZlSlRva2Vuc1dpdGhkcmF3AAAAAAABAAAAHm5vbl9wb3NpdGl2ZV9qX3Rva2Vuc193aXRoZHJhdwAAAAAAAwAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAAAAAAAFmJ1cm5lZF9qX3Rva2Vuc19hbW91bnQAAAAAAAsAAAAAAAAAAAAAABBkZXBvc2l0X2RlY3JlYXNlAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAG0luc3VyYW5jZUZ1bmRNaXNzaW5nUmVxdWVzdAAAAAABAAAAHmluc3VyYW5jZV9mdW5kX21pc3NpbmdfcmVxdWVzdAAAAAAAAwAAAAAAAAAOb2JsaWdhdGlvbl9rZXkAAAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAApyZXF1ZXN0X2lkAAAAAAAGAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAG1Bvb2xJbmNvbnNpc3RlbnRUb3RhbFNoYXJlcwAAAAABAAAAHnBvb2xfaW5jb25zaXN0ZW50X3RvdGFsX3NoYXJlcwAAAAAAAgAAAAAAAAAMdG90YWxfc2hhcmVzAAAACwAAAAAAAAAAAAAAEWluZGl2aWR1YWxfc2hhcmVzAAAAAAAACwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAG1Bvb2xJbmNvbnNpc3RlbnRUb3RhbFRva2VucwAAAAABAAAAHnBvb2xfaW5jb25zaXN0ZW50X3RvdGFsX3Rva2VucwAAAAAAAgAAAAAAAAAMdG90YWxfc2hhcmVzAAAACwAAAAAAAAAAAAAADHRvdGFsX3Rva2VucwAAAAsAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAHFV0aWxpemF0aW9uUmF0aW9FeGNlZWRzTGltaXQAAAABAAAAH3V0aWxpemF0aW9uX3JhdGlvX2V4Y2VlZHNfbGltaXQAAAAAAgAAAAAAAAAVdXRpbGl6YXRpb25fcmF0aW9fYnBzAAAAAAAACwAAAAAAAAAAAAAAG3V0aWxpemF0aW9uX3JhdGlvX2xpbWl0X2JwcwAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAHUluY29uc2lzdGVudEltbWVkaWF0ZUNvdmVyYWdlAAAAAAAAAQAAAB9pbmNvbnNpc3RlbnRfaW1tZWRpYXRlX2NvdmVyYWdlAAAAAAQAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAAAAAAMYmFsYW5jZV9kaWZmAAAACwAAAAEAAAAAAAAAC2RlYnRfYW1vdW50AAAAAAsAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAHU9ibGlnYXRpb25BbW50QmVjb21lc05lZ2F0aXZlAAAAAAAAAQAAACBvYmxpZ2F0aW9uX2FtbnRfYmVjb21lc19uZWdhdGl2ZQAAAAIAAAAAAAAACm9sZF9hbW91bnQAAAAAAAsAAAAAAAAAAAAAAApuZXdfYW1vdW50AAAAAAALAAAAAAAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAHU9ibGlnYXRpb25GYXJtc1JlZnJlc2hlZEV2ZW50AAAAAAAAAQAAACBvYmxpZ2F0aW9uX2Zhcm1zX3JlZnJlc2hlZF9ldmVudAAAAAMAAAAAAAAABHVzZXIAAAATAAAAAQAAAAAAAAAQbnVtX3N1cHBseV9mYXJtcwAAAAQAAAAAAAAAAAAAAA5udW1fZGVidF9mYXJtcwAAAAAABAAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAHU9ibGlnYXRpb25Jc1VuZXhwZWN0ZWRseUVtcHR5AAAAAAAAAQAAACBvYmxpZ2F0aW9uX2lzX3VuZXhwZWN0ZWRseV9lbXB0eQAAAAIAAAAAAAAADm9ibGlnYXRpb25fa2V5AAAAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAAAI=",
+        "AAAABQAAAAAAAAAAAAAAHVBvb2xDb250YWluc0luY29uc2lzdGVudFN0YXRlAAAAAAAAAQAAACBwb29sX2NvbnRhaW5zX2luY29uc2lzdGVudF9zdGF0ZQAAAAEAAAAAAAAABHBvb2wAAAfQAAAABFBvb2wAAAAAAAAAAg==",
+        "AAAABQAAAAAAAAAAAAAAHVBvc2l0aW9uc0NvdW50QmVjb21lc05lZ2F0aXZlAAAAAAAAAQAAACBwb3NpdGlvbnNfY291bnRfYmVjb21lc19uZWdhdGl2ZQAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAApvYmxpZ2F0aW9uAAAAAAfQAAAACk9ibGlnYXRpb24AAAAAAAEAAAAC",
+        "AAAABQAAAAAAAAAAAAAAHVJlZmVycmVySXNVbmV4cGVjdGVkbHlNaXNzaW5nAAAAAAAAAQAAACByZWZlcnJlcl9pc191bmV4cGVjdGVkbHlfbWlzc2luZwAAAAAAAAAC",
+        "AAAABQAAAAAAAAAAAAAAHVNldE9wZXJhdGlvbkZlZXNCZW5lZmljaWFyaWVzAAAAAAAAAQAAACBzZXRfb3BlcmF0aW9uX2ZlZXNfYmVuZWZpY2lhcmllcwAAAAIAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAAAAAAAA1iZW5lZmljaWFyaWVzAAAAAAAD7AAAABMAAAAEAAAAAAAAAAI=",
+        "AAAAAgAAAAAAAAAAAAAADEFjY3J1YWxNb2RlbAAAAAEAAAAAAAAAAAAAAApDb21wb3VuZGVkAAA=",
+        "AAAAAgAAAAAAAAAAAAAAB1JlcXVlc3QAAAAACgAAAAEAAAAAAAAAB0RlcG9zaXQAAAAAAQAAB9AAAAAPU3RhbmRhcmRSZXF1ZXN0AAAAAAEAAAAAAAAABkJvcnJvdwAAAAAAAQAAB9AAAAAPU3RhbmRhcmRSZXF1ZXN0AAAAAAEAAAAAAAAACFdpdGhkcmF3AAAAAQAAB9AAAAAPU3RhbmRhcmRSZXF1ZXN0AAAAAAEAAAAAAAAABVJlcGF5AAAAAAAAAQAAB9AAAAAPU3RhbmRhcmRSZXF1ZXN0AAAAAAEAAAAAAAAADUFkZENvbGxhdGVyYWwAAAAAAAABAAAH0AAAAA9TdGFuZGFyZFJlcXVlc3QAAAAAAQAAAAAAAAAQUmVtb3ZlQ29sbGF0ZXJhbAAAAAEAAAfQAAAAD1N0YW5kYXJkUmVxdWVzdAAAAAABAAAAAAAAAAtGbGFzaEJvcnJvdwAAAAABAAAH0AAAAA9TdGFuZGFyZFJlcXVlc3QAAAAAAQAAAAAAAAAPU3dhcEV4YWN0VG9rZW5zAAAAAAEAAAfQAAAAFlN3YXBFeGFjdFRva2Vuc1JlcXVlc3QAAAAAAAEAAAAAAAAAElN3YXBGb3JFeGFjdFRva2VucwAAAAAAAQAAB9AAAAAZU3dhcEZvckV4YWN0VG9rZW5zUmVxdWVzdAAAAAAAAAEAAAAAAAAACUxpcXVpZGF0ZQAAAAAAAAEAAAfQAAAAEExpcXVpZGF0ZVJlcXVlc3Q=",
+        "AAAAAQAAAAAAAAAAAAAAD1N0YW5kYXJkUmVxdWVzdAAAAAACAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAADHBvb2xfYWRkcmVzcwAAABM=",
+        "AAAAAQAAAAAAAAAAAAAAEExpcXVpZGF0ZVJlcXVlc3QAAAAFAAAAAAAAABNib3Jyb3dfcG9vbF9hZGRyZXNzAAAAABMAAAAAAAAAF2JvcnJvd2VyX29ibGlnYXRpb25fa2V5AAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAebWluX2RlbWFuZGVkX2NvbGxhdGVyYWxfYW1vdW50AAAAAAALAAAAAAAAAAxyZXBheV9hbW91bnQAAAAL",
+        "AAAAAQAAAAAAAAAAAAAAFlN3YXBFeGFjdFRva2Vuc1JlcXVlc3QAAAAAAAQAAAAAAAAACWFtb3VudF9pbgAAAAAAAAsAAAAAAAAADm1pbl9hbW91bnRfb3V0AAAAAAALAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAADXN3YXBfcHJvdmlkZXIAAAAAAAAT",
+        "AAAAAQAAAAAAAAAAAAAAGVN3YXBGb3JFeGFjdFRva2Vuc1JlcXVlc3QAAAAAAAAEAAAAAAAAAAphbW91bnRfb3V0AAAAAAALAAAAAAAAAA1tYXhfYW1vdW50X2luAAAAAAAACwAAAAAAAAAEcGF0aAAAA+oAAAATAAAAAAAAAA1zd2FwX3Byb3ZpZGVyAAAAAAAAEw==",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAFwAAAAAAAAAAAAAABE5hbWUAAAAAAAAAAAAAAAVBZG1pbgAAAAAAAAAAAAAAAAAABk9yYWNsZQAAAAAAAAAAAAAAAAAHQWNjcnVhbAAAAAAAAAAAAAAAAAdJc093bmVkAAAAAAAAAAAAAAAACEFsbFBvb2xzAAAAAAAAAAAAAAALR2xvYmFsU3RhdGUAAAAAAAAAAAAAAAAMRGVwbG95ZXJIb3N0AAAAAAAAAAAAAAAMTWF4UG9zaXRpb25zAAAAAAAAAAAAAAAMTWFya2V0U3RhdHVzAAAAAAAAAAAAAAANRmFybXNDb250cmFjdAAAAAAAAAEAAAAAAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAABAAAAEwAAAAEAAAAAAAAABFBvb2wAAAABAAAAEwAAAAAAAAAAAAAADUluc3VyYW5jZUZ1bmQAAAAAAAAAAAAAAAAAAA5BbGxPYmxpZ2F0aW9ucwAAAAAAAAAAAAAAAAAQSW5zb2x2ZW5jeUx0dkJwcwAAAAAAAAAAAAAAEkVhcm5PYmxpZ2F0aW9uU2VlZAAAAAAAAAAAAAAAAAAXTWluQ29sbGF0ZXJhbFZhbHVlQ2VudHMAAAAAAAAAAAAAAAATVXBkYXRlSW5RdWV1ZVBlcmlvZAAAAAAAAAAAAAAAABJNYXJrZXRDb25maWdVcGRhdGUAAAAAAAEAAAAAAAAACk9ibGlnYXRpb24AAAAAAAEAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAAAAAAAAAAAAA1Qcm9wb3NlZEFkbWluAAAAAAAAAAAAAAAAAAATQmFkRGVidExvY2tEdXJhdGlvbgA=",
+        "AAAAAQAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAwAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAPYmFkX2RlYnRfbG9ja19kAAAAAAYAAAAAAAAACGRlcGxveWVyAAAAEwAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAAA5pbnN1cmFuY2VfZnVuZAAAAAAAEwAAAAAAAAAIaXNfb3duZWQAAAABAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAabWluX2NvbGxhdGVyYWxfdmFsdWVfY2VudHMAAAAAAAsAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAABnN0YXR1cwAAAAAABAAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAABg==",
+        "AAAAAgAAAAAAAAAAAAAADE1hcmtldFN0YXR1cwAAAAcAAAAAAAAAAAAAAAZBY3RpdmUAAAAAAAAAAAAAAAAADEJvcnJvd0Zyb3plbgAAAAAAAAAAAAAAE0JvcnJvd0Zyb3plbkJ5QWRtaW4AAAAAAAAAAAAAAAANRGVwb3NpdEZyb3plbgAAAAAAAAAAAAAAAAAAFERlcG9zaXRGcm96ZW5CeUFkbWluAAAAAAAAAAAAAAAGRnJvemVuAAAAAAAAAAAAAAAAAA1Gcm96ZW5CeUFkbWluAAAA",
+        "AAAAAQAAAAAAAAAAAAAADE1hcmtldFVwZGF0ZQAAAAQAAAAAAAAAE25ld19iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAARbmV3X21heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAB5uZXdfbWluX2NvbGxhdGVyYWxfdmFsdWVfY2VudHMAAAAAAAsAAAAAAAAAE3F1ZXVlZF9pbl90aW1lc3RhbXAAAAAABg==",
+        "AAAAAQAAAAAAAAAAAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAACAAAAAAAAAApuZXdfY29uZmlnAAAAAAfQAAAAClBvb2xDb25maWcAAAAAAAAAAAATcXVldWVkX2luX3RpbWVzdGFtcAAAAAAG",
+        "AAAAAQAAAAAAAAAAAAAAEE1hcmtldEluaXRQYXJhbXMAAAAGAAAAAAAAAA9iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAAAhpc19vd25lZAAAAAEAAAAAAAAADW1heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAABptaW5fY29sbGF0ZXJhbF92YWx1ZV9jZW50cwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAABg==",
+        "AAAAAAAAAAAAAAAFcmVwYXkAAAAAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAGYm9ycm93AAAAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAHZGVwb3NpdAAAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
+        "AAAAAAAAAAAAAAAIZ2V0X3Bvb2wAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAfQAAAABFBvb2wAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAId2l0aGRyYXcAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAJbGlxdWlkYXRlAAAAAAAABgAAAAAAAAAKbGlxdWlkYXRvcgAAAAAAEwAAAAAAAAAIYm9ycm93ZXIAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAAAAAAAE2JvcnJvd19wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAMcmVwYXlfYW1vdW50AAAACwAAAAAAAAAebWluX2RlbWFuZGVkX2NvbGxhdGVyYWxfYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAKZmxhc2hfbG9hbgAAAAAABAAAAAAAAAAIY29udHJhY3QAAAATAAAAAAAAAAZjYWxsZXIAAAAAABMAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAMcmVmcmVzaF9wb29sAAAAAQAAAAAAAAAMcG9vbF9hZGRyZXNzAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAYAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAVhZG1pbgAAAAAAABMAAAAAAAAABm9yYWNsZQAAAAAAEwAAAAAAAAAOaW5zdXJhbmNlX2Z1bmQAAAAAABMAAAAAAAAACGRlcGxveWVyAAAAEwAAAAAAAAAGcGFyYW1zAAAAAAfQAAAAEE1hcmtldEluaXRQYXJhbXMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAANZ2V0X2FsbF9wb29scwAAAAAAAAAAAAABAAAD6gAAABM=",
+        "AAAAAAAAAAAAAAANZ2V0X3Bvb2xfZGF0YQAAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAB9AAAAAIUG9vbERhdGEAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAOYWRkX2NvbGxhdGVyYWwAAAAAAAQAAAAAAAAABHVzZXIAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAAAAAAIcmVmZXJyZXIAAAPoAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAOYXBwbHlfcG9vbF9zZXQAAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAPY2FuY2VsX3Bvb2xfc2V0AAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAPZ2V0X21hcmtldF9kYXRhAAAAAAAAAAABAAAD6QAAB9AAAAAKTWFya2V0RGF0YQAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAQY2xlYXJfcG9vbF9mYXJtcwAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAQZ2V0X2dsb2JhbF9zdGF0ZQAAAAAAAAABAAAH0AAAAAtHbG9iYWxTdGF0ZQA=",
+        "AAAAAAAAAAAAAAARcHJvcG9zZV9uZXdfYWRtaW4AAAAAAAABAAAAAAAAAAluZXdfYWRtaW4AAAAAAAATAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAARcXVldWVfaW5fcG9vbF9zZXQAAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAtwb29sX2NvbmZpZwAAAAfQAAAAClBvb2xDb25maWcAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAARcmVtb3ZlX2NvbGxhdGVyYWwAAAAAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAARc2ltdWxhdGVfd2l0aGRyYXcAAAAAAAAEAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAACHJlZmVycmVyAAAD6AAAABMAAAABAAAD6QAAB9AAAAAOV2l0aGRyYXdSZXN1bHQAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAASZ2V0X2Zhcm1zX2NvbnRyYWN0AAAAAAAAAAAAAQAAA+gAAAAT",
+        "AAAAAAAAAAAAAAAScmVmcmVzaF9vYmxpZ2F0aW9uAAAAAAABAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAASc2V0X2Zhcm1zX2NvbnRyYWN0AAAAAAABAAAAAAAAAA5mYXJtc19jb250cmFjdAAAAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAASc2V0X3Bvb2xfZGVidF9mYXJtAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAdmYXJtX2lkAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAASdXBkYXRlX3Bvb2xfc3RhdHVzAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAABBuZXdfc3RhdHVzX2ZsYWdzAAAABAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAATYXBwbHlfbWFya2V0X3VwZGF0ZQAAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAATZ2V0X2FsbF9vYmxpZ2F0aW9ucwAAAAAAAAAAAQAAA+oAAAfQAAAADU9ibGlnYXRpb25LZXkAAAA=",
+        "AAAAAAAAAAAAAAATZ2V0X3F1ZXVlZF9wb29sX3NldAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAfQAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAATZ2V0X3VzZXJfb2JsaWdhdGlvbgAAAAABAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAA+kAAAfQAAAACk9ibGlnYXRpb24AAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUY2FuY2VsX21hcmtldF91cGRhdGUAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUY2xlYXJfZmFybXNfY29udHJhY3QAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUZGlzdHJpYnV0ZV9wb29sX2ZlZXMAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUaXNzdWVfY292ZXJfYmFkX2RlYnQAAAABAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUc2V0X3Bvb2xfc3VwcGx5X2Zhcm0AAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAdmYXJtX2lkAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAUdXBkYXRlX21hcmtldF9zdGF0dXMAAAABAAAAAAAAAApuZXdfc3RhdHVzAAAAAAAEAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAVYWNjZXB0X3Byb3Bvc2VkX2FkbWluAAAAAAAAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAVc3VibWl0X3JlcXVlc3RzX2JhdGNoAAAAAAAAAwAAAAAAAAAEdXNlcgAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAAAAAAIcmVxdWVzdHMAAAPqAAAH0AAAAAdSZXF1ZXN0AAAAAAAAAAAIcmVmZXJyZXIAAAPoAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAWcXVldWVfaW5fbWFya2V0X3VwZGF0ZQAAAAAAAwAAAAAAAAARbmV3X21heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAB5uZXdfbWluX2NvbGxhdGVyYWxfdmFsdWVfY2VudHMAAAAAAAsAAAAAAAAAE25ld19iYWRfZGVidF9sb2NrX2QAAAAABgAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAYcmVmcmVzaF9vYmxpZ2F0aW9uX2Zhcm1zAAAAAQAAAAAAAAAEdXNlcgAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAZZGlzdHJpYnV0ZV9hbGxfcG9vbHNfZmVlcwAAAAAAAAAAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAZZnVuZF91cGRhdGVfbWFya2V0X3N0YXR1cwAAAAAAAAEAAAAAAAAACm5ld19zdGF0dXMAAAAAAAQAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAZZ2V0X29yYWNsZV9wcmljZV9kZWNpbWFscwAAAAAAAAAAAAABAAAABA==",
+        "AAAAAAAAAAAAAAAbZ2V0X21hcmtldF9xdWV1ZWRfaW5fdXBkYXRlAAAAAAAAAAABAAAD6QAAB9AAAAAMTWFya2V0VXBkYXRlAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAbZ2V0X3Bvb2xfYXNzZXRfb3JhY2xlX3ByaWNlAAAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAAAsAAAfQAAAAB01DRXJyb3IA",
+        "AAAAAAAAAAAAAAAcY2xhaW1fY292ZXJfYmFkX2RlYnRfcmVzdWx0cwAAAAEAAAAAAAAABHVzZXIAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAgc2V0X29wZXJhdGlvbl9mZWVzX2JlbmVmaWNpYXJpZXMAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAA1iZW5lZmljaWFyaWVzAAAAAAAD7AAAABMAAAAEAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAAAAAAAAAAAgc2V0X3Rha2VfcmF0ZV9mZWVzX2JlbmVmaWNpYXJpZXMAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAA1iZW5lZmljaWFyaWVzAAAAAAAD7AAAABMAAAAEAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
+        "AAAAAQAAAP1EZWxlZ2F0ZWUgaWRlbnRpZmllciBmb3IgZmFybSBzdGFrZXMuCgpTdXBwb3J0cyBtdWx0aXBsZSBzdGFrZSBpZGVudGl0aWVzIHBlciBvd25lciBhZGRyZXNzOgotIFNpbXBsZToganVzdCBvd25lciBhZGRyZXNzIChmb3IgY29udHJhY3RzIHdoZXJlIHVzZXIgaGFzIHNpbmdsZSBwb3NpdGlvbikKLSBXaXRoIHNlZWQ6IG93bmVyIGFkZHJlc3MgKyBzZWVkIChmb3IgY29udHJhY3RzIHdpdGggbXVsdGlwbGUgb2JsaWdhdGlvbnMgcGVyIHVzZXIpAAAAAAAAAAAAAAlEZWxlZ2F0ZWUAAAAAAAACAAAAE1RoZSBvd25lcidzIGFkZHJlc3MAAAAABW93bmVyAAAAAAAAEwAAADlPcHRpb25hbCBzZWVkIHRvIGRpc3Rpbmd1aXNoIG11bHRpcGxlIHBvc2l0aW9ucyBwZXIgb3duZXIAAAAAAAAEc2VlZAAAA+gAAAPuAAAAIA==",
+        "AAAAAgAAAAAAAAAAAAAADkNvdmVyYWdlU3RhdHVzAAAAAAACAAAAAAAAAAAAAAAHUGVuZGluZwAAAAABAAAAAAAAAAVSZWFkeQAAAAAAAAEAAAAL",
+        "AAAAAgAAAAAAAAAAAAAAEklzc3VlUmVxdWVzdFJlc3VsdAAAAAAAAgAAAAEAAAAAAAAACFJlY29yZGVkAAAAAQAAAAYAAAABAAAAAAAAAAlJbW1lZGlhdGUAAAAAAAABAAAACw==",
+        "AAAAAgAAAApBc3NldCB0eXBlAAAAAAAAAAAABUFzc2V0AAAAAAAAAgAAAAEAAAAAAAAAB1N0ZWxsYXIAAAAAAQAAABMAAAABAAAAAAAAAAVPdGhlcgAAAAAAAAEAAAAR",
+        "AAAAAQAAAC9QcmljZSBkYXRhIGZvciBhbiBhc3NldCBhdCBhIHNwZWNpZmljIHRpbWVzdGFtcAAAAAAAAAAACVByaWNlRGF0YQAAAAAAAAIAAAAAAAAABXByaWNlAAAAAAAACwAAAAAAAAAJdGltZXN0YW1wAAAAAAAABg==" ]),
       options
     )
   }
   public readonly fromJSON = {
-    upgrade: this.txFromJSON<null>,
-        submit_requests_batch: this.txFromJSON<Result<void>>,
-        get_global_state: this.txFromJSON<GlobalState>,
-        update_market: this.txFromJSON<Result<void>>,
-        update_market_status: this.txFromJSON<Result<void>>,
-        initialize_pool: this.txFromJSON<Result<string>>,
-        initialize_multiply_pair: this.txFromJSON<Result<void>>,
-        queue_in_pool_config_update: this.txFromJSON<Result<void>>,
-        cancel_pool_config_update: this.txFromJSON<Result<void>>,
-        apply_pool_config_update: this.txFromJSON<Result<void>>,
-        get_pool_config_queued_in_update: this.txFromJSON<Result<PoolUpdate>>,
-        bootstrap_pool: this.txFromJSON<Result<void>>,
-        deposit: this.txFromJSON<Result<void>>,
-        deposit_earn: this.txFromJSON<Result<void>>,
+    repay: this.txFromJSON<Result<void>>,
         borrow: this.txFromJSON<Result<void>>,
-        swap: this.txFromJSON<Result<i128>>,
-        donate_to_reserve: this.txFromJSON<Result<void>>,
-        add_collateral: this.txFromJSON<Result<void>>,
-        remove_collateral: this.txFromJSON<Result<void>>,
-        repay: this.txFromJSON<Result<void>>,
-        liquidate: this.txFromJSON<Result<void>>,
-        withdraw: this.txFromJSON<Result<void>>,
-        simulate_withdraw: this.txFromJSON<Result<WithdrawResult>>,
-        simulate_earn_withdraw: this.txFromJSON<Result<WithdrawResult>>,
-        withdraw_earn: this.txFromJSON<Result<void>>,
-        flash_loan: this.txFromJSON<Result<void>>,
-        deposit_with_leverage: this.txFromJSON<Result<void>>,
-        withdraw_from_leveraged: this.txFromJSON<Result<void>>,
-        redeem_accumulated_market_fees: this.txFromJSON<Result<void>>,
-        redeem_accumulated_host_fees: this.txFromJSON<Result<void>>,
-        cover_obligation_bad_debt: this.txFromJSON<Result<void>>,
-        cover_multiply_pair_bad_debt: this.txFromJSON<Result<void>>,
-        get_asset_decimals: this.txFromJSON<u32>,
-        get_oracle_price_decimals: this.txFromJSON<u32>,
-        get_pool_asset_oracle_price: this.txFromJSON<Result<i128>>,
-        get_user_obligation: this.txFromJSON<Result<Obligation>>,
-        refresh_obligation: this.txFromJSON<Result<void>>,
-        refresh_earn_obligation: this.txFromJSON<Result<void>>,
-        refresh_multiply_pair_obligation: this.txFromJSON<Result<void>>,
-        refresh_pool: this.txFromJSON<Result<void>>,
-        get_earn_user_obligation: this.txFromJSON<Result<Obligation>>,
-        get_multiply_pair_obligation: this.txFromJSON<Result<Obligation>>,
+        deposit: this.txFromJSON<Result<void>>,
+        upgrade: this.txFromJSON<null>,
         get_pool: this.txFromJSON<Result<Pool>>,
+        withdraw: this.txFromJSON<Result<void>>,
+        liquidate: this.txFromJSON<Result<void>>,
+        flash_loan: this.txFromJSON<Result<void>>,
+        refresh_pool: this.txFromJSON<Result<void>>,
         get_all_pools: this.txFromJSON<Array<string>>,
-        get_market_data: this.txFromJSON<Result<MarketData>>,
-        get_all_obligations: this.txFromJSON<Array<ObligationKey>>,
-        get_multiply_pair: this.txFromJSON<Result<MultiplyPair>>,
-        get_all_multiply_pairs: this.txFromJSON<Array<MultiplyPair>>,
         get_pool_data: this.txFromJSON<Result<PoolData>>,
-        reset_storage: this.txFromJSON<null>
+        add_collateral: this.txFromJSON<Result<void>>,
+        apply_pool_set: this.txFromJSON<Result<void>>,
+        cancel_pool_set: this.txFromJSON<Result<void>>,
+        get_market_data: this.txFromJSON<Result<MarketData>>,
+        clear_pool_farms: this.txFromJSON<Result<void>>,
+        get_global_state: this.txFromJSON<GlobalState>,
+        propose_new_admin: this.txFromJSON<Result<void>>,
+        queue_in_pool_set: this.txFromJSON<Result<void>>,
+        remove_collateral: this.txFromJSON<Result<void>>,
+        simulate_withdraw: this.txFromJSON<Result<WithdrawResult>>,
+        get_farms_contract: this.txFromJSON<Option<string>>,
+        refresh_obligation: this.txFromJSON<Result<void>>,
+        set_farms_contract: this.txFromJSON<Result<void>>,
+        set_pool_debt_farm: this.txFromJSON<Result<void>>,
+        update_pool_status: this.txFromJSON<Result<void>>,
+        apply_market_update: this.txFromJSON<Result<void>>,
+        get_all_obligations: this.txFromJSON<Array<ObligationKey>>,
+        get_queued_pool_set: this.txFromJSON<Result<QueuedPoolSet>>,
+        get_user_obligation: this.txFromJSON<Result<Obligation>>,
+        cancel_market_update: this.txFromJSON<Result<void>>,
+        clear_farms_contract: this.txFromJSON<Result<void>>,
+        distribute_pool_fees: this.txFromJSON<Result<void>>,
+        issue_cover_bad_debt: this.txFromJSON<Result<void>>,
+        set_pool_supply_farm: this.txFromJSON<Result<void>>,
+        update_market_status: this.txFromJSON<Result<void>>,
+        accept_proposed_admin: this.txFromJSON<Result<void>>,
+        submit_requests_batch: this.txFromJSON<Result<void>>,
+        queue_in_market_update: this.txFromJSON<Result<void>>,
+        refresh_obligation_farms: this.txFromJSON<Result<void>>,
+        distribute_all_pools_fees: this.txFromJSON<Result<void>>,
+        fund_update_market_status: this.txFromJSON<Result<void>>,
+        get_oracle_price_decimals: this.txFromJSON<u32>,
+        get_market_queued_in_update: this.txFromJSON<Result<MarketUpdate>>,
+        get_pool_asset_oracle_price: this.txFromJSON<Result<i128>>,
+        claim_cover_bad_debt_results: this.txFromJSON<Result<void>>,
+        set_operation_fees_beneficiaries: this.txFromJSON<Result<void>>,
+        set_take_rate_fees_beneficiaries: this.txFromJSON<Result<void>>
   }
 }
