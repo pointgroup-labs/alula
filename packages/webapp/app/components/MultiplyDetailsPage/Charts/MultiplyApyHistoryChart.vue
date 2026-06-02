@@ -9,7 +9,6 @@ import { calcMultiplyObligationNetApy, getApyRangeForMultiplier } from '~/utils/
 const MY_APY_COLOR = '#22d3ee'
 const MIN_APY_COLOR = '#8a8df4'
 const MAX_APY_COLOR = '#f59e0b'
-const MULTIPLIER_COLOR = '#47cd89'
 
 const route = useRoute()
 const statisticsStore = useMarketStatisticsStore()
@@ -59,7 +58,6 @@ const borrowData = computed(() => borrowHistory.value.slice(0, Number(activeFilt
 
 // Live header metrics from on-chain vault data
 const currentMyApy = computed(() => position.value?.currentApy ?? 0)
-const currentMultiplier = computed(() => position.value?.currentMultiplier ?? 0)
 
 const currentMinApy = computed(() => {
   if (!selectedVault.value) { return 0 }
@@ -91,7 +89,6 @@ const chartData = computed(() => {
       rawDates: [] as string[],
       minApyValues: [] as number[],
       myApyValues: [] as number[],
-      multiplierValues: [] as number[],
       maxApyValues: [] as number[],
     }
   }
@@ -106,7 +103,6 @@ const chartData = computed(() => {
   const minApyValues: number[] = []
   const maxApyValues: number[] = []
   const myApyValues: number[] = []
-  const multiplierValues: number[] = []
   let minY = 0
   let maxY = 0
 
@@ -141,7 +137,6 @@ const chartData = computed(() => {
         borrowApy,
       })
       myApyValues.push(myApyVal)
-      multiplierValues.push(userMult)
       minY = Math.min(minY, myApyVal, userMult)
       maxY = Math.max(maxY, myApyVal, userMult)
     }
@@ -154,7 +149,6 @@ const chartData = computed(() => {
     rawDates,
     minApyValues,
     myApyValues,
-    multiplierValues,
     maxApyValues,
   }
 })
@@ -174,7 +168,19 @@ let chart: ECharts | null = null
 const option = computed<EChartsOption>(() => {
   const gridLine = 'rgba(120, 160, 200, 0.18)'
   const axisText = 'rgba(180, 200, 220, 0.55)'
-  const { minY, maxY, labels, rawDates, minApyValues, myApyValues, multiplierValues, maxApyValues } = chartData.value
+  const { minY, maxY, labels, rawDates, minApyValues, myApyValues, maxApyValues } = chartData.value
+  const primarySeriesName = hasPosition.value ? 'My APY' : 'Min APY'
+  const primarySeriesColor = hasPosition.value ? MY_APY_COLOR : MIN_APY_COLOR
+  const primarySeriesValues = hasPosition.value ? myApyValues : minApyValues
+  const primarySeriesGradient = hasPosition.value
+    ? [
+        { offset: 0, color: 'rgba(34, 211, 238, 0.4)' },
+        { offset: 1, color: 'rgba(34, 211, 238, 0)' },
+      ]
+    : [
+        { offset: 0, color: 'rgba(138, 141, 244, 0.4)' },
+        { offset: 1, color: 'rgba(138, 141, 244, 0)' },
+      ]
 
   const range = maxY - minY
   const padding = range === 0 ? 0.5 : Math.max(range * 0.12, 0.2)
@@ -217,7 +223,6 @@ const option = computed<EChartsOption>(() => {
           ? [
               `${tooltipMarker(MY_APY_COLOR)}My APY: <b>${formatTooltipValue(myApyValues[idx] ?? 0)}</b>`,
               `${tooltipMarker(MAX_APY_COLOR)}Max APY: <b>${formatTooltipValue(maxApyValues[idx] ?? 0)}</b>`,
-              `${tooltipMarker(MULTIPLIER_COLOR)}Multiplier: <b>${formatTooltipValue(currentMultiplier.value, 'x')}</b>`,
             ]
           : [
               `${tooltipMarker(MIN_APY_COLOR)}Min APY: <b>${formatTooltipValue(minApyValues[idx] ?? 0)}</b>`,
@@ -266,58 +271,23 @@ const option = computed<EChartsOption>(() => {
     },
 
     series: [
-      ...(hasPosition.value
-        ? [{
-            name: 'My APY',
-            type: 'line' as const,
-            data: myApyValues,
-            smooth: 0.45,
-            showSymbol: false,
-            lineStyle: { width: 2, color: MY_APY_COLOR, cap: 'round' as const, join: 'round' as const },
-            itemStyle: { color: MY_APY_COLOR },
-            areaStyle: {
-              origin: 'start' as const,
-              opacity: 1,
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(34, 211, 238, 0.4)' },
-                { offset: 1, color: 'rgba(34, 211, 238, 0)' },
-              ]),
-            },
-          }, {
-            name: 'Multiplier',
-            type: 'line' as const,
-            data: multiplierValues,
-            smooth: 0.45,
-            showSymbol: false,
-            lineStyle: { width: 2, color: MULTIPLIER_COLOR, cap: 'round' as const, join: 'round' as const },
-            itemStyle: { color: MULTIPLIER_COLOR },
-            areaStyle: {
-              origin: 'start' as const,
-              opacity: 1,
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(71, 205, 137, 0.4)' },
-                { offset: 1, color: 'rgba(71, 205, 137, 0)' },
-              ]),
-            },
-          }]
-        : [{
-            name: 'Min APY',
-            type: 'line' as const,
-            data: minApyValues,
-            smooth: 0.45,
-            showSymbol: false,
-            lineStyle: { width: 2, color: MIN_APY_COLOR, cap: 'round' as const, join: 'round' as const },
-            itemStyle: { color: MIN_APY_COLOR },
-            areaStyle: {
-              origin: 'start' as const,
-              opacity: 1,
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(138, 141, 244, 0.4)' },
-                { offset: 1, color: 'rgba(138, 141, 244, 0)' },
-              ]),
-            },
-          }]),
       {
+        id: 'primary-apy',
+        name: primarySeriesName,
+        type: 'line',
+        data: primarySeriesValues,
+        smooth: 0.45,
+        showSymbol: false,
+        lineStyle: { width: 2, color: primarySeriesColor, cap: 'round', join: 'round' },
+        itemStyle: { color: primarySeriesColor },
+        areaStyle: {
+          origin: 'start' as const,
+          opacity: 1,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, primarySeriesGradient),
+        },
+      },
+      {
+        id: 'max-apy',
         name: 'Max APY',
         type: 'line',
         data: maxApyValues,
@@ -342,7 +312,7 @@ function render() {
   if (!chart) {
     return
   }
-  chart.setOption(option.value, { notMerge: false, replaceMerge: ['series'], lazyUpdate: true })
+  chart.setOption(option.value, { notMerge: false, lazyUpdate: true })
 }
 
 const debounceRender = useDebounceFn(render, 500)
@@ -400,13 +370,6 @@ onMounted(async () => {
             :color="MIN_APY_COLOR"
             label="Min APY"
             :value="`${formatPrice(currentMinApy, 1, 2)}%`"
-          />
-
-          <metric-indicator
-            v-if="hasPosition"
-            :color="MULTIPLIER_COLOR"
-            label="Multiplier"
-            :value="`${formatPrice(currentMultiplier, 2, 2)}x`"
           />
 
           <metric-indicator

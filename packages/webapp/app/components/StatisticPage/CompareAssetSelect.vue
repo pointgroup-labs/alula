@@ -107,7 +107,7 @@ watch(activeToken, (val) => {
     @click="dialog = true"
   >
     <template v-if="!activeToken">
-      Select Asset
+      Compare Asset
 
       <i-app-chevron-down class="chevron-icon" />
     </template>

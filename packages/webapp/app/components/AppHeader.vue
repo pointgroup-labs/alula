@@ -12,22 +12,24 @@ const { isEnabled } = useFeatureToggle()
 const route = useRoute()
 
 const tabs = computed(() => {
-  const navTabs = [{
-    label: 'Markets',
-    route: '/',
-    icon: marketsTabIcon,
-  },
-  {
-    label: 'Portfolio',
-    route: '/portfolio',
-    icon: accountTabIcon,
-    shortLabel: 'Portfolio',
-  },
-  {
-    label: 'Multiply',
-    route: '/multiply',
-    icon: multiplyTabIcon,
-  }]
+  const navTabs = [
+    {
+      label: 'Markets',
+      route: '/',
+      icon: marketsTabIcon,
+    },
+    {
+      label: 'Multiply',
+      route: '/multiply',
+      icon: multiplyTabIcon,
+    },
+    {
+      label: 'Portfolio',
+      route: '/portfolio',
+      icon: accountTabIcon,
+      shortLabel: 'Portfolio',
+    },
+  ]
 
   if (isEnabled('swap')) {
     navTabs.splice(2, 0, {

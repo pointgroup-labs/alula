@@ -345,19 +345,6 @@ const amountRules = [
             <template v-else>—</template>
           </span>
         </div>
-        <div class="swap-card__quote-row">
-          <span>Route</span>
-          <route-picker
-            :routes="routes"
-            :selected-route="selectedRoute"
-            :pinned-route-key="pinnedRouteKey"
-            :from-symbol="fromToken?.symbol"
-            :from-amount="amountNumber"
-            :to-symbol="toToken?.symbol"
-            :loading="loading"
-            @pin="pinRoute"
-          />
-        </div>
         <div
           v-if="isConnected && (isLoadingFee || txFee > 0)"
           class="swap-card__quote-row"
@@ -371,6 +358,19 @@ const amountRules = [
             />
             <template v-else>{{ txFee }} XLM</template>
           </span>
+        </div>
+        <div class="swap-card__quote-row">
+          <span>Route</span>
+          <route-picker
+            :routes="routes"
+            :selected-route="selectedRoute"
+            :pinned-route-key="pinnedRouteKey"
+            :from-symbol="fromToken?.symbol"
+            :from-amount="amountNumber"
+            :to-symbol="toToken?.symbol"
+            :loading="loading"
+            @pin="pinRoute"
+          />
         </div>
       </div>
 
