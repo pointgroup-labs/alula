@@ -117,6 +117,14 @@ export class MarketService extends BaseClient {
     return this.unwrapOk(result.result)
   }
 
+  async getFarmsContractAddress() {
+    const result = await this.client.get_farms_contract()
+    if (result.result === null) {
+      return null
+    }
+    return this.unwrapOk(result.result)
+  }
+
   /**
    * Retrieves a multiply pair configuration by its deposit and borrow pool addresses
    *

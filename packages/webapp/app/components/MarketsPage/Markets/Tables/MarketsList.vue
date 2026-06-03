@@ -7,6 +7,7 @@ const { width } = useWindowSize()
 
 const marketActions = useMarketActions()
 const userStore = useUserStore()
+const farmsStore = useFarmsStore()
 
 const isObligationsLoading = computed(() => userStore.loading)
 

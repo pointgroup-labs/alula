@@ -4,6 +4,24 @@ export const useFarmsStore = defineStore('farms', () => {
     farms: [],
   })
 
+  const marketsStore = useMarketsStore()
+  const markets = computed(() => marketsStore.state.markets)
+
+  watch(markets, async (m) => {
+    if (Object.keys(m).length === 0) {
+      return
+    }
+    const values = Object.values(m)
+    const addresses = await Promise.all(values.map(async (val) => {
+      return {
+        market: val.marketName,
+        address: await val.client?.market.getFarmsContractAddress(),
+      }
+    }))
+
+    console.log('%c[Farms Addresses]', 'color: #1dc978', addresses)
+  })
+
   return {
     state,
   }
