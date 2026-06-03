@@ -42,24 +42,6 @@ impl From<&ObligationKey> for Delegatee {
     }
 }
 
-impl From<ObligationKey> for FarmingKey {
-    fn from(obligation_key: ObligationKey) -> Self {
-        match obligation_key.seed {
-            Some(seed) => (obligation_key.user, seed).into(),
-            None => obligation_key.user.into(),
-        }
-    }
-}
-
-impl From<&ObligationKey> for FarmingKey {
-    fn from(obligation_key: &ObligationKey) -> Self {
-        match &obligation_key.seed {
-            Some(seed) => (obligation_key.user.clone(), seed.clone()).into(),
-            None => obligation_key.user.clone().into(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct Obligation {

@@ -170,7 +170,6 @@ pub fn process_submit_requests_batch(
                 )?;
                 liquidation_transfers.execute_transfers(e)?;
             }
-            RequestType::RefreshFarms => process_refresh_farms(e, obligation_key)?,
         };
     }
 

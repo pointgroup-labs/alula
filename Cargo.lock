@@ -625,7 +625,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "farms"
+version = "0.1.0"
+dependencies = [
+ "farms_interface",
+ "sep-40-oracle",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "farms-interface"
+version = "0.0.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "farms_interface"
 version = "0.0.1"
 dependencies = [
  "soroban-sdk",
