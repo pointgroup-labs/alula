@@ -12,7 +12,7 @@ export function useMcp() {
   const marketsTableStore = useMarketTableStore()
   const preparedMarkets = computed(() => marketsTableStore.marketWithTableItems?.map((m) => {
     const { assets, marketSize, tableItems, ...rest } = m
-    const marketPools = tableItems?.map((a) => {
+    const pools = tableItems?.map((a) => {
       const { raw, action, assetDecimals, asset, ...rest } = a
       const symbol = asset.symbol
       const kink2_ur_bps = raw.pool.config.interest_rate_model.values[0].kink2_ur_bps ?? 8000n
@@ -25,7 +25,7 @@ export function useMcp() {
     })
     return {
       ...rest,
-      marketPools,
+      pools,
     }
   }))
 
