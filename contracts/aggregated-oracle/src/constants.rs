@@ -12,3 +12,9 @@ pub const BPS_FACTOR: i128 = 10_000;
 
 pub const MIN_ORACLES_LEN: u32 = 1;
 pub const MAX_ORACLES_LEN: u32 = 10;
+
+// Extra slack added on top of a periodic oracle's own resolution before its
+// price is considered stale, so a reasonably-late periodic update is not
+// rejected. Only takes effect when `periodic_oracles_price_max_age` is wider
+// than `resolution + this`; otherwise the protocol ceiling clamps it.
+pub const PERIODIC_UPDATE_GRACE_PERIOD: u64 = 70; // 70 seconds

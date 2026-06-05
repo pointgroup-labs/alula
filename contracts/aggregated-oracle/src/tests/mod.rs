@@ -9,7 +9,7 @@ use soroban_sdk::{
 };
 
 use crate::{
-    constants::BPS_FACTOR,
+    constants::{BPS_FACTOR, PERIODIC_UPDATE_GRACE_PERIOD},
     contract::{AggregatedOracleContract, AggregatedOracleContractClient},
     storage::{DataKey, OracleConfigInput},
     tests::mock_oracle::{
@@ -729,6 +729,152 @@ fn test_push_oracle_price_update_is_reflected_immediately() {
     let second = contract_client.lastprice(&xlm_asset).unwrap();
     // If the cache were consulted, we'd still get 100. The correct answer is 200.
     assert_eq!(second.price, 200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
+}
+
+// ---------------------------------------------------------------------------
+// Periodic-oracle grace window (PERIODIC_UPDATE_GRACE_PERIOD)
+//
+// For periodic oracles the staleness ceiling is
+//   max_allowed_age = (resolution + PERIODIC_UPDATE_GRACE_PERIOD).min(max_age)
+// The grace term only has an effect when `max_age` is wider than
+// `resolution + grace`; otherwise the protocol `max_age` ceiling clamps it
+// away. The default fixture's AGGREGATED_ORACLE_MAX_AGE (360) equals the
+// oracle resolution, so it clamps the grace entirely — the tests below
+// therefore deploy with a deliberately wide max_age to exercise the grace
+// path itself.
+//
+// `EXPECTED_GRACE_PERIOD` is an INDEPENDENT literal, intentionally not derived
+// from `PERIODIC_UPDATE_GRACE_PERIOD`. The boundary tests below use this literal
+// for their arithmetic so that shrinking the production constant makes them
+// fail rather than silently track the change. The compile-time assertion ties
+// the two together: changing the production value triggers a build error here,
+// forcing the new value to be acknowledged deliberately.
+// ---------------------------------------------------------------------------
+
+const EXPECTED_GRACE_PERIOD: u64 = 70;
+const _: () = assert!(
+    PERIODIC_UPDATE_GRACE_PERIOD == EXPECTED_GRACE_PERIOD,
+    "PERIODIC_UPDATE_GRACE_PERIOD changed; update EXPECTED_GRACE_PERIOD and the grace-window \
+     tests deliberately"
+);
+
+/// A periodic price aged exactly `resolution + grace` is still accepted.
+/// Because this age already exceeds `resolution`, the price would be rejected
+/// without the grace term (or with a smaller one) — so this pins the grace
+/// value and guards against it being silently shrunk.
+#[test]
+fn test_periodic_oracle_accepted_at_grace_window_boundary() {
+    let e = get_default_env();
+    let now = e.ledger().timestamp();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+    let xlm_asset = Asset::Stellar(xlm_address.clone());
+
+    // Wide max_age so the `.min(max_age)` clamp does not swallow the grace.
+    const WIDE_MAX_AGE: u64 = 60 * 60; // 1 h, >> resolution + grace
+    // Oldest age that must still pass: full resolution + grace window.
+    let max_valid_age = ORACLES_RESOLUTION as u64 + EXPECTED_GRACE_PERIOD;
+
+    let (_, periodic_client, periodic_config) =
+        deploy_mock_oracle(&e, ORACLES_DECIMALS, ORACLES_RESOLUTION, &base_asset, true, true);
+
+    let feed_ts = now - max_valid_age;
+    periodic_client.set_price(&xlm_asset, &(100 * i128::pow(10, ORACLES_DECIMALS)), &feed_ts);
+
+    let (_, contract_client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        WIDE_MAX_AGE,
+        svec![&e, periodic_config],
+    );
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+
+    let lastprice = contract_client.lastprice(&xlm_asset).unwrap();
+    assert_eq!(lastprice.price, 100 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
+    // The single periodic source drives the published timestamp.
+    assert_eq!(lastprice.timestamp, feed_ts);
+}
+
+/// One second past `resolution + grace` the price is stale and dropped. With a
+/// single oracle the median has no contributors, so `lastprice` is `None`.
+#[test]
+fn test_periodic_oracle_rejected_just_past_grace_window() {
+    let e = get_default_env();
+    let now = e.ledger().timestamp();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+    let xlm_asset = Asset::Stellar(xlm_address.clone());
+
+    const WIDE_MAX_AGE: u64 = 60 * 60; // 1 h, >> resolution + grace
+    let just_too_old = ORACLES_RESOLUTION as u64 + EXPECTED_GRACE_PERIOD + 1;
+
+    let (_, periodic_client, periodic_config) =
+        deploy_mock_oracle(&e, ORACLES_DECIMALS, ORACLES_RESOLUTION, &base_asset, true, true);
+
+    let feed_ts = now - just_too_old;
+    periodic_client.set_price(&xlm_asset, &(100 * i128::pow(10, ORACLES_DECIMALS)), &feed_ts);
+
+    let (_, contract_client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        WIDE_MAX_AGE,
+        svec![&e, periodic_config],
+    );
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+
+    assert!(
+        contract_client.lastprice(&xlm_asset).is_none(),
+        "a periodic price older than resolution + grace must be rejected"
+    );
+}
+
+/// The grace window can never push the ceiling above the protocol `max_age`.
+/// With a tight `max_age` (< resolution + grace) a price that the grace term
+/// alone would accept is still rejected, proving the `.min(max_age)` clamp is
+/// live.
+#[test]
+fn test_periodic_grace_window_is_clamped_by_max_age() {
+    let e = get_default_env();
+    let now = e.ledger().timestamp();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+    let xlm_asset = Asset::Stellar(xlm_address.clone());
+
+    // resolution (360) < TIGHT_MAX_AGE (400) < resolution + grace (510).
+    const TIGHT_MAX_AGE: u64 = 400;
+    // Aged inside the grace window but beyond the tight max_age ceiling.
+    let age_within_grace_but_past_max_age = TIGHT_MAX_AGE + 1; // 401, still < 510
+
+    let (_, periodic_client, periodic_config) =
+        deploy_mock_oracle(&e, ORACLES_DECIMALS, ORACLES_RESOLUTION, &base_asset, true, true);
+
+    let feed_ts = now - age_within_grace_but_past_max_age;
+    periodic_client.set_price(&xlm_asset, &(100 * i128::pow(10, ORACLES_DECIMALS)), &feed_ts);
+
+    let (_, contract_client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        TIGHT_MAX_AGE,
+        svec![&e, periodic_config],
+    );
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+
+    assert!(
+        contract_client.lastprice(&xlm_asset).is_none(),
+        "max_age must clamp the grace window — a price past max_age is rejected"
+    );
 }
 
 // ---- Helpers -----
