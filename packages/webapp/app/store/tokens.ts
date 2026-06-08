@@ -11,7 +11,7 @@ type TokenRegistryItem = {
   icon: string
 }
 
-type TokenItem = {
+export type TokenItem = {
   id: string
   name: string
   symbol: string

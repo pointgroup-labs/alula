@@ -19,6 +19,10 @@ const tabs = [{
 {
   label: 'Position',
   value: 'position',
+},
+{
+  label: 'Statistics',
+  value: 'statistics',
 }]
 
 const defaultTab = tabs[0]!
@@ -30,10 +34,6 @@ function resolveTab(tabValue?: string | null) {
 const activeTab = ref(resolveTab(route.params.page as string | undefined))
 
 watch(() => activeTab.value?.value, (val) => {
-  if (!val) {
-    return
-  }
-
   if (route.params.page === val) {
     return
   }
@@ -70,6 +70,7 @@ watch(() => activeTab.value?.value, (val) => {
       v-if="activeTab.value === 'info'"
     />
     <leverage-position v-if="activeTab.value === 'position'" />
+    <multiply-statistics v-if="activeTab.value === 'statistics'" />
   </template>
 
   <div
@@ -86,5 +87,17 @@ watch(() => activeTab.value?.value, (val) => {
   flex-direction: column;
   gap: 32px;
   padding-bottom: 72px;
+
+  .table-loading-spinner,
+  .multiply-details__empty {
+    padding: 32px;
+    margin: 0 auto;
+    color: $navi-50;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 16px;
+    gap: 12px;
+  }
 }
 </style>

@@ -2,6 +2,8 @@ import { getRuntimeConfig } from '~/utils/config'
 
 const config = getRuntimeConfig()
 
+export const API_URL = 'https://api.alula.finance'
+
 export const ALULA_URL = 'https://alula.finance'
 
 export const DOCS_URL = 'https://docs.alula.finance'

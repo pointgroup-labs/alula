@@ -21,7 +21,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
     const markets = Object.entries(marketsStore.state.markets)
     const preparedTableData = []
     for (const [marketName, data] of markets) {
-      const oraclePriceDecimals = data?.marketState.oracle_price_decimals ?? 0
+      const oraclePriceDecimals = data?.marketState?.oracle_price_decimals ?? 0
       const poolsData = data?.marketState?.pools_data ?? []
       const assets: TableAsset['asset'][] = []
       const marketSize = {
@@ -96,6 +96,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
 
       preparedTableData.push({
         marketName,
+        marketAddress: data?.address,
         assets,
         marketSize,
         tableItems,
@@ -180,6 +181,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
 
 export type MarketWithTableItems = {
   marketName: string
+  marketAddress: string
   assets: TableAsset['asset'][]
   tableItems: MarketTableItem[]
   marketSize: {

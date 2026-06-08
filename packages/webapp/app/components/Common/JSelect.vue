@@ -142,7 +142,14 @@ onMounted(() => {
       {{ selectedLabel || label }}
     </slot>
 
+    <i-app-cross-icon
+      v-if="selectedOption && unselected"
+      class="cross-icon"
+      @click.stop="selectedOption = undefined"
+    />
+
     <i-app-chevron-down
+      v-else
       class="chevron-icon"
       :class="isShow ? 'chevron-icon--show' : 'chevron-icon--hide'"
     />
@@ -190,6 +197,22 @@ onMounted(() => {
 
 <style lang="scss">
 .j-select {
+  .cross-icon {
+    cursor: pointer;
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  .chevron-icon {
+    cursor: pointer;
+    min-width: 8px !important;
+    width: 8px !important;
+    height: 8px !important;
+
+    &--show {
+      transform: rotate(180deg);
+    }
+  }
   .dropdown-menu {
     .select-item {
       &:hover {

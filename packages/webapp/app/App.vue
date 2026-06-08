@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { PasswordProtect, usePasswordProtect } from '~/features/password-protect'
+import { McpChat } from './features/mcp'
 
 const { isNeedLogin } = usePasswordProtect()
 
@@ -26,5 +27,10 @@ onMounted(() => {
   <NuxtLayout v-else>
     <NuxtPage />
   </NuxtLayout>
+
+  <client-only v-if="!isNeedLogin">
+    <mcp-chat />
+  </client-only>
+
   <b-toast-orchestrator />
 </template>

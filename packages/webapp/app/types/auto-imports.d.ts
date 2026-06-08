@@ -19,6 +19,10 @@ declare global {
   const XLM_NATIVE_RESERVE: typeof import('../composables/swap/use-swap').XLM_NATIVE_RESERVE
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
+  const bucket: typeof import('../store/market-statistics').bucket
+  const bucketBy: typeof import('../store/market-statistics').bucketBy
+  const bucketByActiv: typeof import('../store/market-statistics').bucketByActiv
+  const bucketByFilter: typeof import('../store/market-statistics').bucketByFilter
   const calcUserTotalShares: typeof import('../store/user')['calcUserTotalShares']
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
@@ -56,6 +60,7 @@ declare global {
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const getTxActionLabel: typeof import('../store/recent-activity').getTxActionLabel
   const h: typeof import('vue').h
+  const historyDataByBucket: typeof import('../store/market-statistics').historyDataByBucket
   const ignorableWatch: typeof import('@vueuse/core').ignorableWatch
   const inject: typeof import('vue').inject
   const injectLocal: typeof import('@vueuse/core').injectLocal
@@ -245,6 +250,9 @@ declare global {
   const useMarketAssetFilterStore: typeof import('../store/filter').useMarketAssetFilterStore
   const useMarketFilter: typeof import('../store/filter').useMarketFilter
   const useMarketFilterStore: typeof import('../store/filter').useMarketFilterStore
+  const useMarketStatistic: typeof import('../store/market-statistics').useMarketStatistic
+  const useMarketStatistics: typeof import('../store/market-statistics').useMarketStatistics
+  const useMarketStatisticsStore: typeof import('../store/market-statistics').useMarketStatisticsStore
   const useMarketTable: typeof import('../composables/market/table').useMarketTable
   const useMarketTableStore: typeof import('../store/market-table').useMarketTableStore
   const useMarketsStore: typeof import('../store/markets').useMarketsStore
@@ -282,6 +290,7 @@ declare global {
   const usePointer: typeof import('@vueuse/core').usePointer
   const usePointerLock: typeof import('@vueuse/core').usePointerLock
   const usePointerSwipe: typeof import('@vueuse/core').usePointerSwipe
+  const usePoolStatistics: typeof import('../composables/pool-statistics').usePoolStatistics
   const usePreferredColorScheme: typeof import('@vueuse/core').usePreferredColorScheme
   const usePreferredContrast: typeof import('@vueuse/core').usePreferredContrast
   const usePreferredDark: typeof import('@vueuse/core').usePreferredDark
@@ -289,6 +298,7 @@ declare global {
   const usePreferredReducedMotion: typeof import('@vueuse/core').usePreferredReducedMotion
   const usePreferredReducedTransparency: typeof import('@vueuse/core').usePreferredReducedTransparency
   const usePrevious: typeof import('@vueuse/core').usePrevious
+  const usePriceStore: typeof import('../store/price').usePriceStore
   const useRafFn: typeof import('@vueuse/core').useRafFn
   const useRecentActivity: typeof import('../store/recent-activity').useRecentActivity
   const useRecentActivityStore: typeof import('../store/recent-activity').useRecentActivityStore
@@ -400,6 +410,9 @@ declare global {
   // @ts-ignore
   export type { Network } from '../store/rpc'
   import('../store/rpc')
+  // @ts-ignore
+  export type { TokenItem } from '../store/tokens'
+  import('../store/tokens')
   // @ts-ignore
   export type { MultiplyObligationUI, UserState } from '../store/user'
   import('../store/user')
@@ -627,6 +640,7 @@ declare module 'vue' {
     readonly useMarket: UnwrapRef<typeof import('../composables/market')['useMarket']>
     readonly useMarketActions: UnwrapRef<typeof import('../composables/market-actions')['useMarketActions']>
     readonly useMarketFilterStore: UnwrapRef<typeof import('../store/filter')['useMarketFilterStore']>
+    readonly useMarketStatisticsStore: UnwrapRef<typeof import('../store/market-statistics')['useMarketStatisticsStore']>
     readonly useMarketTableStore: UnwrapRef<typeof import('../store/market-table')['useMarketTableStore']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
     readonly useMediaControls: UnwrapRef<typeof import('@vueuse/core')['useMediaControls']>
@@ -660,6 +674,7 @@ declare module 'vue' {
     readonly usePointer: UnwrapRef<typeof import('@vueuse/core')['usePointer']>
     readonly usePointerLock: UnwrapRef<typeof import('@vueuse/core')['usePointerLock']>
     readonly usePointerSwipe: UnwrapRef<typeof import('@vueuse/core')['usePointerSwipe']>
+    readonly usePoolStatistics: UnwrapRef<typeof import('../composables/pool-statistics')['usePoolStatistics']>
     readonly usePreferredColorScheme: UnwrapRef<typeof import('@vueuse/core')['usePreferredColorScheme']>
     readonly usePreferredContrast: UnwrapRef<typeof import('@vueuse/core')['usePreferredContrast']>
     readonly usePreferredDark: UnwrapRef<typeof import('@vueuse/core')['usePreferredDark']>
@@ -667,6 +682,7 @@ declare module 'vue' {
     readonly usePreferredReducedMotion: UnwrapRef<typeof import('@vueuse/core')['usePreferredReducedMotion']>
     readonly usePreferredReducedTransparency: UnwrapRef<typeof import('@vueuse/core')['usePreferredReducedTransparency']>
     readonly usePrevious: UnwrapRef<typeof import('@vueuse/core')['usePrevious']>
+    readonly usePriceStore: UnwrapRef<typeof import('../store/price')['usePriceStore']>
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRecentActivityStore: UnwrapRef<typeof import('../store/recent-activity')['useRecentActivityStore']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>

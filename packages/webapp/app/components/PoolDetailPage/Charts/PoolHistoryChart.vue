@@ -1,30 +1,13 @@
 <script lang="ts" setup>
 import type { ECharts, EChartsOption } from 'echarts'
 import * as echarts from 'echarts'
-import { labelWithDateOrMonth, normalizeChartDate } from '~/utils/chart'
 
-function generateMockData(): { timestamp: string, value: number }[] {
-  const data: { timestamp: string, value: number }[] = []
-  const today = new Date()
-  const startDate = new Date()
-  startDate.setMonth(today.getMonth() - 6)
+import { normalizeChartDate } from '~/utils/chart'
 
-  const currentDate = new Date(startDate)
-  // eslint-disable-next-line no-unmodified-loop-condition
-  while (currentDate <= today) {
-    const dateStr = currentDate.toISOString().split('T')[0]
-    const value = +(Math.random() * (10 - 5) + 5).toFixed(1)
-    data.push({ timestamp: String(dateStr), value })
-    currentDate.setDate(currentDate.getDate() + 1)
-  }
-  return data
-}
+const statisticsStore = useMarketStatisticsStore()
 
-const mockSupply = computed(() => generateMockData())
-const mockBorrow = computed(() => generateMockData())
-
-const currentSupplyApy = computed(() => mockSupply.value.at(-1)?.value ?? 0)
-const currentBorrowApy = computed(() => mockBorrow.value.at(-1)?.value ?? 0)
+const route = useRoute()
+const router = useRouter()
 
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value <= 650)
@@ -32,27 +15,35 @@ const isMobile = computed(() => width.value <= 650)
 const chartFilter = useChartFilter()
 const activeFilter = toRef(chartFilter, 'activeFilter')
 
-const maxY = ref(12)
+const historyData = computed(() => {
+  const length = activeFilter.value.value ?? 0
+  const data = statisticsStore.historyMap.get(`${statisticsStore.marketAddress}-${statisticsStore.poolAddress}-1d`) ?? []
+  return data.slice(0, Number(length))
+})
+
+const currentSupplyApy = computed(() => Number(historyData.value[0]?.supply_apy_bps ?? 0) / 100)
+const currentBorrowApy = computed(() => Number(historyData.value[0]?.borrow_apy_bps ?? 0) / 100)
+
+const maxY = ref(1)
 const labels = ref<string[]>([])
+const dates = ref<string[]>([])
 const supplyValues = ref<number[]>([])
 const borrowValues = ref<number[]>([])
 
-watch([mockSupply, mockBorrow, activeFilter], ([s, b, f]) => {
-  if (!s || !b || !f) { return }
+watch(historyData, (data) => {
+  dates.value = data.map(d => String(d.start_time))
+  labels.value = data.map(d => normalizeChartDate(String(d.start_time), false))
 
-  const fs = chartFilter.filterData(s) ?? []
-  const fb = chartFilter.filterData(b) ?? []
-
-  labels.value = fs.map(i => i.timestamp)
-
-  maxY.value = 12
-  supplyValues.value = fs.map((i) => {
-    maxY.value = Math.max(maxY.value, i.value)
-    return i.value
+  maxY.value = 1
+  supplyValues.value = data.map((d) => {
+    const v = Number(d.supply_apy_bps) / 100
+    maxY.value = Math.max(maxY.value, v)
+    return v
   })
-  borrowValues.value = fb.map((i) => {
-    maxY.value = Math.max(maxY.value, i.value)
-    return i.value
+  borrowValues.value = data.map((d) => {
+    const v = Number(d.borrow_apy_bps) / 100
+    maxY.value = Math.max(maxY.value, v)
+    return v
   })
 }, { immediate: true })
 
@@ -70,7 +61,9 @@ const option = computed<EChartsOption>(() => {
   return {
     backgroundColor: 'transparent',
     animation: true,
-    animationDurationUpdate: 400,
+    animationDelay: 0,
+    animationDuration: 500,
+    animationDurationUpdate: 500,
     animationEasingUpdate: 'cubicOut',
 
     grid: { left: 0, right: 10, top: 0, bottom: 12 },
@@ -88,10 +81,20 @@ const option = computed<EChartsOption>(() => {
       textStyle: { color: '#E8EDF5', fontSize: 12 },
       formatter: (params: any) => {
         const arr = Array.isArray(params) ? params : [params]
-        const dateRaw = arr[0]?.axisValue as string
-        const title = normalizeChartDate(dateRaw, true)
-        const lines = arr.map((p: any) => `${p.marker}${p.seriesName}: <b">${p.data}%</b>`)
-        return `<div style="margin-bottom:6px;">${title}</div>${lines.join('<br/>')}`
+        const idx: number = arr[0]?.dataIndex ?? 0
+        const raw = dates.value[idx]
+        let dateStr = arr[0]?.axisValue as string
+        if (raw) {
+          const d = new Date(raw)
+          const y = d.getFullYear()
+          const mo = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          const h = String(d.getHours()).padStart(2, '0')
+          const min = String(d.getMinutes()).padStart(2, '0')
+          dateStr = `${y}/${mo}/${day} ${h}:${min}`
+        }
+        const lines = arr.map((p: any) => `${p.marker}${p.seriesName}: <b>${truncatePercent(p.data, 2)}%</b>`)
+        return `<div style="margin-bottom:6px;color:#b4c8dc;">${dateStr}</div>${lines.join('<br/>')}`
       },
     },
 
@@ -107,9 +110,7 @@ const option = computed<EChartsOption>(() => {
         color: axisText,
         fontSize: isMobile.value ? 10 : 12,
         margin: 14,
-        formatter: (v: string) => {
-          return labelWithDateOrMonth(v, activeFilter.value?.value === 180, false)
-        },
+        formatter: (v: string) => v,
       },
     },
 
@@ -179,6 +180,12 @@ function render() {
   chart.setOption(option.value, { notMerge: false, lazyUpdate: true })
 }
 
+function goToStatistics() {
+  const marketAddress = route.params?.market as string
+  const poolAddress = route.params?.pool as string
+  router.push(`/statistics/${marketAddress}/${poolAddress}`)
+}
+
 watch(option, () => {
   render()
 })
@@ -213,6 +220,13 @@ onMounted(async () => {
       <div class="stat-card__header">
         <h3 class="title">
           Interest Rate History
+
+          <j-tooltip>
+            <i-app-export-icon @click="goToStatistics" />
+            <template #content>
+              Go to detail pool statistics
+            </template>
+          </j-tooltip>
         </h3>
 
         <div class="current-metrics-data">
@@ -251,6 +265,20 @@ onMounted(async () => {
 
 <style lang="scss">
 section#market-history-chart {
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    [class*='tooltip'] {
+      opacity: 0.7;
+      cursor: pointer;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
   .current-metrics-data {
     display: flex;
     align-items: center;

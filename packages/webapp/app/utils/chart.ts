@@ -12,6 +12,13 @@ export function normalizeChartDate(date: string, withYear = true): string {
   return res
 }
 
+export function chartDateHM(date: string) {
+  const dateStr = new Date(date)
+  const h = String(dateStr.getHours()).padStart(2, '0')
+  const min = String(dateStr.getMinutes()).padStart(2, '0')
+  return `${h}:${min}`
+}
+
 export function labelWithDateOrMonth(date: string, isMonth = false, withYear = true): string {
   if (isMonth) {
     const month = new Date(date).getMonth()

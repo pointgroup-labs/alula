@@ -1,17 +1,12 @@
 <script lang="ts" setup>
 import { bpsToNumber } from '@alula/client-sdk'
 
-const route = useRoute()
-
 const { width } = useWindowSize()
 
 const marketsStore = useMarketsStore()
 
-const marketAddress = route.params?.market as string
-const poolAddress = route.params?.pool as string
-
-const selectedMarketName = ref()
-const selectedPoolAddress = ref()
+const selectedMarketName = computed(() => marketsStore.selectedMarketName)
+const selectedPoolAddress = computed(() => marketsStore.selectedPoolAddress)
 
 const marketTableStore = useMarketTableStore()
 
@@ -19,18 +14,6 @@ const marketWithTableItems = computed(() => marketTableStore.marketWithTableItem
 
 const selectedMarket = computed(() => marketWithTableItems.value.find(m => m.marketName === selectedMarketName.value))
 const selectedPool = computed(() => selectedMarket.value?.tableItems.find(p => p.pool_address === selectedPoolAddress.value))
-
-watch(() => marketsStore.state.markets, (storeMarkets) => {
-  if (!storeMarkets || Object.keys(storeMarkets).length === 0) {
-    return
-  }
-  const markets = Object.entries(storeMarkets)
-  const market = markets.find(([, data]) => data.address === marketAddress)
-  const pool = market?.[1]?.marketState?.pools_data?.find(p => p.pool.pool_address === poolAddress)
-
-  selectedMarketName.value = market?.[0]
-  selectedPoolAddress.value = pool?.pool.pool_address
-}, { immediate: true })
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
 
@@ -86,18 +69,14 @@ const detailCardsData = computed(() => {
     </div>
 
     <template v-if="selectedPool">
-      <div class="market-pill">
+      <market-pill>
         {{ selectedPool?.market ?? '' }} Market
-      </div>
+      </market-pill>
 
-      <div
-        v-if="width > 650"
-        class="market-pill"
-      >
-        <div class="market-name">
-          Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
-        </div>
-      </div>
+      <market-pill v-if="width > 650">
+        Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
+      </market-pill>
+
     </template>
 
     <div class="pool-metrics">
