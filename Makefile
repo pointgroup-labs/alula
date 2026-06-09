@@ -20,8 +20,8 @@ SOROSWAP_BASE_URL     := https://github.com/soroswap/core/releases/download
 SOROSWAP_ROUTER_URL   := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_router_soroswap-router_pkg0.0.1_cli21.0.0/soroswap-router_v0.0.1.wasm
 SOROSWAP_PAIR_URL     := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_pair_soroswap-pair_pkg0.0.1_cli21.0.0/soroswap-pair_v0.0.1.wasm
 
-AQUA_BASE_URL         := https://github.com/AquaToken/soroban-amm/releases/download
-AQUA_POOL_URL         := $(AQUA_BASE_URL)/v2.0.2_soroban-liquidity-pool-contract_pkg2.0.1_cli25.1.0/soroban-liquidity-pool-contract_v2.0.1.wasm
+# AQUA_BASE_URL         := https://github.com/AquaToken/soroban-amm/releases/download
+# AQUA_POOL_URL         := $(AQUA_BASE_URL)/v2.0.2_soroban-liquidity-pool-contract_pkg2.0.1_cli25.1.0/soroban-liquidity-pool-contract_v2.0.1.wasm
 
 # Network
 NETWORK               := testnet
@@ -106,7 +106,7 @@ build/prepare:
 	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DEPLOY_OPTIMIZED_DIR) $(DOWNLOADS_DIR)
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-router.wasm,$(SOROSWAP_ROUTER_URL))
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-pair.wasm,$(SOROSWAP_PAIR_URL))
-	$(call download_wasm,$(DOWNLOADS_DIR)/aqua-pool.wasm,$(AQUA_POOL_URL))
+# 	$(call download_wasm,$(DOWNLOADS_DIR)/aqua-pool.wasm,$(AQUA_POOL_URL))
 
 build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))

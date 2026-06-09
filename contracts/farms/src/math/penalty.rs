@@ -3,7 +3,7 @@ use soroban_fixed_point_math::FixedPoint;
 use crate::{
     constants::BPS_FACTOR,
     error::FCError,
-    state::{Delegation, Farm, FarmingPosition, LockingMode},
+    state::{DelegateeState, Delegation, Farm, LockingMode},
     utils::MathUtils,
 };
 
@@ -15,7 +15,7 @@ use crate::{
 /// Rounding uses ceil (protocol-favorable) to prevent dust-amount penalty evasion.
 pub fn calculate_early_withdrawal_penalty(
     farm: &Farm,
-    farming_position: &FarmingPosition,
+    delegatee_state: &DelegateeState,
     amount: i128,
     current_ts: u64,
 ) -> Result<(i128, i128), FCError> {
@@ -29,7 +29,7 @@ pub fn calculate_early_withdrawal_penalty(
 
     let lock_start = match cfg.locking_mode {
         LockingMode::None => return Ok((amount, 0)),
-        LockingMode::Continuous => farming_position.last_stake_ts,
+        LockingMode::Continuous => delegatee_state.last_stake_ts,
         LockingMode::WithExpiry => cfg.locking_ts,
     };
 

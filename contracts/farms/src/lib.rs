@@ -13,6 +13,6 @@ mod utils;
 
 pub use contract::*;
 pub use error::FCError;
-pub use farms_interface::FarmingKey;
+pub use farms_interface::Delegatee;
 pub use math::reward_curve::{RewardCurvePoint, RewardScheduleCurve};
 pub use state::*;

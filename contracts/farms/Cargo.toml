@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = true
 
 [dependencies]
-farms_interface = { path = "../../farms_interface" }
+farms-interface = { path = "../../libs/farms-interface" }
 sep-40-oracle = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }

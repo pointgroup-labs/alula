@@ -38,4 +38,6 @@ pub enum FCError {
     OraclePriceStale = 38,
     UnauthorizedCaller = 39,
     NoPendingDeposit = 40,
+    NotInitialized = 41,
+    FarmAlreadyExists = 42,
 }
