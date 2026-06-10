@@ -255,6 +255,10 @@ onMounted(() => {
         <div class="statistic-label">
           {{ cardLabel }}
 
+          <info-tooltip v-if="chartType === 'tvl_usd_cents'">
+            Total market's TVL also includes 'collateral only' assets
+          </info-tooltip>
+
           <j-loading-spinner
             v-if="isLoading && chartPoints.length === 0 && pairChartPoints.length === 0"
             width="14px"
@@ -335,6 +339,9 @@ onMounted(() => {
       font-size: 14px;
       color: $text-tertiary;
       position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
 
       @media (max-width: $breakpoint-xs) {
         font-size: 12px;
