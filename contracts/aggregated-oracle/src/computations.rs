@@ -2,20 +2,25 @@ use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{Address, Env, Map, Vec};
 
 use crate::{
+    constants::PERIODIC_UPDATE_GRACE_PERIOD,
     events,
     storage::{self, OracleConfig},
 };
 
 /// Computes the median of `lastprice().price` received from the oracles and returns
-/// PriceData with the median price and the oldest timestamp from all source oracles.
+/// PriceData with the median price and a timestamp that reflects only
+/// periodic sources.
 ///
 /// In the case of a specific oracle that is not aware of the price, its price doesn't get included in the computation
 ///
 /// # Returns
-/// * `Some(PriceData)` - PriceData with the median price and the oldest timestamp from source oracles
+/// * `Some(PriceData)` - PriceData with the median price and either
+///   the oldest periodic-source timestamp or, if no periodic source
+///   contributed, the current ledger timestamp.
 /// * `None` - If no valid prices are available
 pub fn compute_median(e: &Env, token_address: &Address) -> Option<PriceData> {
-    let (prices, oldest_timestamp) = get_last_prices_with_oldest_timestamp(e, token_address);
+    let (prices, oldest_periodic_timestamp) =
+        get_last_prices_with_oldest_periodic_timestamp(e, token_address);
 
     if prices.is_empty() {
         events::AllOraclesUnawareOfPrice { token_address: token_address.clone() }.publish(e);
@@ -34,8 +39,9 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<PriceData> {
     } else {
         sorted_prices.get(n / 2).unwrap().0 // safe
     };
+    let timestamp = oldest_periodic_timestamp.unwrap_or_else(|| e.ledger().timestamp());
 
-    Some(PriceData { price: median, timestamp: oldest_timestamp })
+    Some(PriceData { price: median, timestamp })
 }
 
 /// Sorts prices via the Tree sort algorithm, handling duplicates by using a counter in the key
@@ -60,23 +66,41 @@ fn tree_sort(e: &Env, vec: Vec<i128>) -> Vec<(i128, u32)> {
 /// specific oracle doesn't return the price, or the price's timestamp is incorrect/outdated, it
 /// doesn't get included in the resulting list.
 ///
+/// The returned timestamp tracks the oldest signing time across the
+/// **periodic** contributors only. Heartbeat contributors
+/// (e.g. Redstone push model) are intentionally excluded from this calculation
+/// because their signing time can be `resolution`-seconds old by
+/// design, which would systematically bias the aggregated median's
+/// timestamp toward "stale" even when every contributor just passed
+/// its own per-source freshness check.
+///
 /// # Returns
-/// * `(Vec<i128>, u64)` - Vector of valid prices and the oldest timestamp among them
-pub fn get_last_prices_with_oldest_timestamp(e: &Env, token_address: &Address) -> (Vec<i128>, u64) {
+/// * `(Vec<i128>, Option<u64>)` - Vector of valid prices and, if at
+///   least one periodic source contributed, the oldest periodic
+///   signing timestamp among them; otherwise `None`.
+pub fn get_last_prices_with_oldest_periodic_timestamp(
+    e: &Env,
+    token_address: &Address,
+) -> (Vec<i128>, Option<u64>) {
     let mut prices = Vec::new(e);
-    let mut oldest_timestamp = u64::MAX;
+    let mut oldest_periodic_timestamp: Option<u64> = None;
 
     for oracle_config in storage::get_oracles(e) {
         if let Some(price_data) = get_last_price(e, token_address, &oracle_config) {
-            if price_data.timestamp < oldest_timestamp {
-                oldest_timestamp = price_data.timestamp;
+            if oracle_config.is_price_update_periodic {
+                let ts = match oldest_periodic_timestamp {
+                    Some(current_oldest) => current_oldest.min(price_data.timestamp),
+                    None => price_data.timestamp,
+                };
+
+                oldest_periodic_timestamp = Some(ts);
             }
 
             prices.push_back(price_data.price);
         }
     }
 
-    (prices, oldest_timestamp)
+    (prices, oldest_periodic_timestamp)
 }
 
 /// # Returns
@@ -90,15 +114,32 @@ fn get_last_price(
     oracle_config: &OracleConfig,
 ) -> Option<PriceData> {
     let current_timestamp = e.ledger().timestamp();
-    let mut oracle_cache = storage::get_oracle_price_data_cache(e, &oracle_config.address)
-        .unwrap_or_else(|| Map::new(e));
 
-    if let Some(lastprice) = oracle_cache.get(token_address.clone())
-        && lastprice.timestamp + (oracle_config.resolution as u64) > current_timestamp
-    {
-        // No need to fetch the price if it hasn't been updated
-        return Some(lastprice);
-    }
+    let oracle_client = PriceFeedClient::new(e, &oracle_config.address);
+    let oracle_resolution = oracle_client.resolution() as u64;
+
+    // Periodic sources publish at a known cadence, so within one
+    // `oracle_resolution` window the answer is guaranteed unchanged and
+    // caching saves a cross-contract call. Heartbeat sources (e.g.
+    // Redstone) republish on deviation/heartbeat at no fixed cadence, so
+    // any cached value can be stale-vs-fresh-on-chain at unpredictable
+    // moments; caching them is incorrect. We therefore only touch
+    // the cache map at all for periodic sources.
+    let mut oracle_cache = if oracle_config.is_price_update_periodic {
+        let cache =
+            storage::get_oracle_price_data_cache(e, &oracle_config.address).unwrap_or(Map::new(e));
+
+        if let Some(lastprice) = cache.get(token_address.clone())
+            && lastprice.timestamp + oracle_resolution > current_timestamp
+        {
+            // No need to fetch the price if it hasn't been updated.
+            return Some(lastprice);
+        }
+
+        Some(cache)
+    } else {
+        None
+    };
 
     let asset = if oracle_config.is_stellar_data_based {
         Asset::Stellar(token_address.clone())
@@ -108,14 +149,11 @@ fn get_last_price(
         Asset::Other(token_ticker)
     };
 
-    let oracle_client = PriceFeedClient::new(e, &oracle_config.address);
     let price_data = oracle_client.lastprice(&asset);
 
     let mut price_data = if let Some(price_data) = price_data {
         price_data
     } else {
-        // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
-        // in the first try. The same holds for the second try
         events::OracleUnawareOfAssetVariant {
             asset: asset.clone(),
             oracle_address: oracle_config.address.clone(),
@@ -123,8 +161,6 @@ fn get_last_price(
         }
         .publish(e);
 
-        // NB: It might be possible that an oracle contains information about the asset's price as
-        // another [`Asset`] variant
         let another_variant_asset = match &asset {
             Asset::Other(_symbol) => Asset::Stellar(token_address.clone()),
             Asset::Stellar(token_address) => {
@@ -149,13 +185,29 @@ fn get_last_price(
         price_data
     };
 
-    let max_age = storage::get_max_age(e);
-    if current_timestamp < price_data.timestamp
-        || (current_timestamp - price_data.timestamp) > max_age
-    {
+    let periodic_oracles_price_max_age = storage::get_periodic_oracles_price_max_age(e);
+
+    // Periodic oracles carry real timestamps and have a known update cadence, so we apply
+    // both checks: oracle_resolution catches a stuck oracle that hasn't been updated within
+    // its own tick window, and periodic_oracles_price_max_age is the protocol-level ceiling.
+    // Heartbeat oracles (e.g. Redstone) are driven by deviation/heartbeat rather than
+    // a fixed tick, so periodic_oracles_price_max_age is not meaningful for them — only
+    // oracle_resolution (the heartbeat window configured on the adapter) applies.
+    let age = current_timestamp.saturating_sub(price_data.timestamp);
+
+    let max_allowed_age = if oracle_config.is_price_update_periodic {
+        // NB: + grace window so a reasonably-late periodic update doesn't get rejected.
+        (oracle_resolution + PERIODIC_UPDATE_GRACE_PERIOD).min(periodic_oracles_price_max_age)
+    } else {
+        oracle_resolution
+    };
+
+    let is_timestamp_invalid = current_timestamp < price_data.timestamp || age > max_allowed_age;
+
+    if is_timestamp_invalid {
         events::InvalidOraclePriceTimestamp {
             asset,
-            max_age,
+            max_allowed_age,
             price_data,
             token_address: token_address.clone(),
             oracle_address: oracle_config.address.clone(),
@@ -182,9 +234,11 @@ fn get_last_price(
         // Update price_data with normalized price for caching
         price_data.price = normalized_price;
 
-        // Update the cache with PriceData
-        oracle_cache.set(token_address.clone(), price_data.clone());
-        storage::set_oracle_price_data_cache(e, &oracle_config.address, &oracle_cache);
+        // Update the cache with PriceData (periodic sources only).
+        if let Some(cache) = oracle_cache.as_mut() {
+            cache.set(token_address.clone(), price_data.clone());
+            storage::set_oracle_price_data_cache(e, &oracle_config.address, cache);
+        }
 
         // Return PriceData
         Some(price_data)

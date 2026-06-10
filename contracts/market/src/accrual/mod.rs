@@ -76,6 +76,7 @@ mod test {
 
     use super::{Accrual, AccrualModel};
     use crate::{constants::*, error::MCError};
+    
     #[test]
     fn test_zero_seconds_passed() {
         let e = Env::default();

@@ -10,9 +10,10 @@ pub enum MMCError {
 
     // Market Manager errors (1000+)
     MarketAlreadyExists = 1000,
-    InvalidMarketState = 1001,
-    UpgradeAlreadyExists = 1002,
-    UpgradeDoesNotExist = 1003,
-    UpgradeIsNotYetApplicable = 1004,
-    NoPendingAdmin = 1005,
+    UpgradeAlreadyExists = 1001,
+    UpgradeDoesNotExist = 1002,
+    UpgradeIsNotYetApplicable = 1003,
+    NoPendingAdmin = 1004,
+    MarketNotDeployedByManager = 1005,
+    BadUpgradeInQueuePeriod = 1006,
 }

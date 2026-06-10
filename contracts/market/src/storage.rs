@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, String, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -116,7 +116,6 @@ pub enum DataKey {
     QueuedPoolSet(Address),
     Pool(Address),
     InsuranceFund,
-    AllObligations,
     InsolvencyLtvBps,
     EarnObligationSeed,
     MinCollateralValueCents,
@@ -346,6 +345,7 @@ pub fn queue_in_pool_set(
     let queued_pool_set =
         QueuedPoolSet { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
     e.storage().persistent().set(&key, &queued_pool_set);
+    extend_shared(e, &key);
 
     Ok(())
 }
@@ -431,33 +431,7 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
     res
 }
 
-// Registers a new obligation key in the contract storage
-pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
-    let storage = e.storage().persistent();
-    let mut obligations = get_all_obligations(e);
-    obligations.set(obligation_key.clone(), ());
-    storage.set(&DataKey::AllObligations, &obligations);
-    extend_shared(e, &DataKey::AllObligations);
-}
-
-// Gets all obligation keys stored in the contract
-pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
-    let storage = e.storage().persistent();
-    if let Some(obligations) = storage.get(&DataKey::AllObligations) {
-        extend_shared(e, &DataKey::AllObligations);
-        obligations
-    } else {
-        Map::new(e)
-    }
-}
-
 // Removes an obligation from the contract storage by its key
-// Also removes the obligation key from the list of all obligations
 pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
-    let storage = e.storage().persistent();
-    storage.remove(&DataKey::Obligation(obligation_key.clone()));
-    let mut obligations = get_all_obligations(e);
-
-    obligations.remove(obligation_key.clone());
-    storage.set(&DataKey::AllObligations, &obligations);
+    e.storage().persistent().remove(&DataKey::Obligation(obligation_key.clone()));
 }

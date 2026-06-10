@@ -263,16 +263,6 @@ fn get_multiply_pair_obligation(
 
 ---
 
-#### `get_all_obligations`
-
-Get all obligation keys in the market.
-
-```rust
-fn get_all_obligations() -> Vec<ObligationKey>
-```
-
----
-
 ### Pools
 
 #### `get_pool`

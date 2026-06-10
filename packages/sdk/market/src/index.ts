@@ -391,7 +391,7 @@ export interface SwapForExactTokensRequest {
   swap_provider: string;
 }
 
-export type DataKey = {tag: "Name", values: void} | {tag: "Admin", values: void} | {tag: "Oracle", values: void} | {tag: "Accrual", values: void} | {tag: "IsOwned", values: void} | {tag: "AllPools", values: void} | {tag: "GlobalState", values: void} | {tag: "DeployerHost", values: void} | {tag: "MaxPositions", values: void} | {tag: "MarketStatus", values: void} | {tag: "FarmsContract", values: void} | {tag: "QueuedPoolSet", values: readonly [string]} | {tag: "Pool", values: readonly [string]} | {tag: "InsuranceFund", values: void} | {tag: "AllObligations", values: void} | {tag: "InsolvencyLtvBps", values: void} | {tag: "EarnObligationSeed", values: void} | {tag: "MinCollateralValueCents", values: void} | {tag: "UpdateInQueuePeriod", values: void} | {tag: "MarketConfigUpdate", values: void} | {tag: "Obligation", values: readonly [ObligationKey]} | {tag: "ProposedAdmin", values: void} | {tag: "BadDebtLockDuration", values: void};
+export type DataKey = {tag: "Name", values: void} | {tag: "Admin", values: void} | {tag: "Oracle", values: void} | {tag: "Accrual", values: void} | {tag: "IsOwned", values: void} | {tag: "AllPools", values: void} | {tag: "GlobalState", values: void} | {tag: "DeployerHost", values: void} | {tag: "MaxPositions", values: void} | {tag: "MarketStatus", values: void} | {tag: "FarmsContract", values: void} | {tag: "QueuedPoolSet", values: readonly [string]} | {tag: "Pool", values: readonly [string]} | {tag: "InsuranceFund", values: void} | {tag: "InsolvencyLtvBps", values: void} | {tag: "EarnObligationSeed", values: void} | {tag: "MinCollateralValueCents", values: void} | {tag: "UpdateInQueuePeriod", values: void} | {tag: "MarketConfigUpdate", values: void} | {tag: "Obligation", values: readonly [ObligationKey]} | {tag: "ProposedAdmin", values: void} | {tag: "BadDebtLockDuration", values: void};
 
 
 export interface GlobalState {
@@ -609,11 +609,6 @@ export interface Client {
   apply_market_update: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a get_all_obligations transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  get_all_obligations: (options?: MethodOptions) => Promise<AssembledTransaction<Array<ObligationKey>>>
-
-  /**
    * Construct and simulate a get_queued_pool_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   get_queued_pool_set: ({pool_address}: {pool_address: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<QueuedPoolSet>>>
@@ -820,7 +815,7 @@ export class Client extends ContractClient {
         "AAAAAQAAAAAAAAAAAAAAEExpcXVpZGF0ZVJlcXVlc3QAAAAFAAAAAAAAABNib3Jyb3dfcG9vbF9hZGRyZXNzAAAAABMAAAAAAAAAF2JvcnJvd2VyX29ibGlnYXRpb25fa2V5AAAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAAAAAAXY29sbGF0ZXJhbF9wb29sX2FkZHJlc3MAAAAAEwAAAAAAAAAebWluX2RlbWFuZGVkX2NvbGxhdGVyYWxfYW1vdW50AAAAAAALAAAAAAAAAAxyZXBheV9hbW91bnQAAAAL",
         "AAAAAQAAAAAAAAAAAAAAFlN3YXBFeGFjdFRva2Vuc1JlcXVlc3QAAAAAAAQAAAAAAAAACWFtb3VudF9pbgAAAAAAAAsAAAAAAAAADm1pbl9hbW91bnRfb3V0AAAAAAALAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAADXN3YXBfcHJvdmlkZXIAAAAAAAAT",
         "AAAAAQAAAAAAAAAAAAAAGVN3YXBGb3JFeGFjdFRva2Vuc1JlcXVlc3QAAAAAAAAEAAAAAAAAAAphbW91bnRfb3V0AAAAAAALAAAAAAAAAA1tYXhfYW1vdW50X2luAAAAAAAACwAAAAAAAAAEcGF0aAAAA+oAAAATAAAAAAAAAA1zd2FwX3Byb3ZpZGVyAAAAAAAAEw==",
-        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAFwAAAAAAAAAAAAAABE5hbWUAAAAAAAAAAAAAAAVBZG1pbgAAAAAAAAAAAAAAAAAABk9yYWNsZQAAAAAAAAAAAAAAAAAHQWNjcnVhbAAAAAAAAAAAAAAAAAdJc093bmVkAAAAAAAAAAAAAAAACEFsbFBvb2xzAAAAAAAAAAAAAAALR2xvYmFsU3RhdGUAAAAAAAAAAAAAAAAMRGVwbG95ZXJIb3N0AAAAAAAAAAAAAAAMTWF4UG9zaXRpb25zAAAAAAAAAAAAAAAMTWFya2V0U3RhdHVzAAAAAAAAAAAAAAANRmFybXNDb250cmFjdAAAAAAAAAEAAAAAAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAABAAAAEwAAAAEAAAAAAAAABFBvb2wAAAABAAAAEwAAAAAAAAAAAAAADUluc3VyYW5jZUZ1bmQAAAAAAAAAAAAAAAAAAA5BbGxPYmxpZ2F0aW9ucwAAAAAAAAAAAAAAAAAQSW5zb2x2ZW5jeUx0dkJwcwAAAAAAAAAAAAAAEkVhcm5PYmxpZ2F0aW9uU2VlZAAAAAAAAAAAAAAAAAAXTWluQ29sbGF0ZXJhbFZhbHVlQ2VudHMAAAAAAAAAAAAAAAATVXBkYXRlSW5RdWV1ZVBlcmlvZAAAAAAAAAAAAAAAABJNYXJrZXRDb25maWdVcGRhdGUAAAAAAAEAAAAAAAAACk9ibGlnYXRpb24AAAAAAAEAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAAAAAAAAAAAAA1Qcm9wb3NlZEFkbWluAAAAAAAAAAAAAAAAAAATQmFkRGVidExvY2tEdXJhdGlvbgA=",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAFgAAAAAAAAAAAAAABE5hbWUAAAAAAAAAAAAAAAVBZG1pbgAAAAAAAAAAAAAAAAAABk9yYWNsZQAAAAAAAAAAAAAAAAAHQWNjcnVhbAAAAAAAAAAAAAAAAAdJc093bmVkAAAAAAAAAAAAAAAACEFsbFBvb2xzAAAAAAAAAAAAAAALR2xvYmFsU3RhdGUAAAAAAAAAAAAAAAAMRGVwbG95ZXJIb3N0AAAAAAAAAAAAAAAMTWF4UG9zaXRpb25zAAAAAAAAAAAAAAAMTWFya2V0U3RhdHVzAAAAAAAAAAAAAAANRmFybXNDb250cmFjdAAAAAAAAAEAAAAAAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAABAAAAEwAAAAEAAAAAAAAABFBvb2wAAAABAAAAEwAAAAAAAAAAAAAADUluc3VyYW5jZUZ1bmQAAAAAAAAAAAAAAAAAABBJbnNvbHZlbmN5THR2QnBzAAAAAAAAAAAAAAASRWFybk9ibGlnYXRpb25TZWVkAAAAAAAAAAAAAAAAABdNaW5Db2xsYXRlcmFsVmFsdWVDZW50cwAAAAAAAAAAAAAAABNVcGRhdGVJblF1ZXVlUGVyaW9kAAAAAAAAAAAAAAAAEk1hcmtldENvbmZpZ1VwZGF0ZQAAAAAAAQAAAAAAAAAKT2JsaWdhdGlvbgAAAAAAAQAAB9AAAAANT2JsaWdhdGlvbktleQAAAAAAAAAAAAAAAAAADVByb3Bvc2VkQWRtaW4AAAAAAAAAAAAAAAAAABNCYWREZWJ0TG9ja0R1cmF0aW9uAA==",
         "AAAAAQAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAwAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAPYmFkX2RlYnRfbG9ja19kAAAAAAYAAAAAAAAACGRlcGxveWVyAAAAEwAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAAA5pbnN1cmFuY2VfZnVuZAAAAAAAEwAAAAAAAAAIaXNfb3duZWQAAAABAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAabWluX2NvbGxhdGVyYWxfdmFsdWVfY2VudHMAAAAAAAsAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAABnN0YXR1cwAAAAAABAAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAABg==",
         "AAAAAgAAAAAAAAAAAAAADE1hcmtldFN0YXR1cwAAAAcAAAAAAAAAAAAAAAZBY3RpdmUAAAAAAAAAAAAAAAAADEJvcnJvd0Zyb3plbgAAAAAAAAAAAAAAE0JvcnJvd0Zyb3plbkJ5QWRtaW4AAAAAAAAAAAAAAAANRGVwb3NpdEZyb3plbgAAAAAAAAAAAAAAAAAAFERlcG9zaXRGcm96ZW5CeUFkbWluAAAAAAAAAAAAAAAGRnJvemVuAAAAAAAAAAAAAAAAAA1Gcm96ZW5CeUFkbWluAAAA",
         "AAAAAQAAAAAAAAAAAAAADE1hcmtldFVwZGF0ZQAAAAQAAAAAAAAAE25ld19iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAARbmV3X21heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAB5uZXdfbWluX2NvbGxhdGVyYWxfdmFsdWVfY2VudHMAAAAAAAsAAAAAAAAAE3F1ZXVlZF9pbl90aW1lc3RhbXAAAAAABg==",
@@ -854,7 +849,6 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAASc2V0X3Bvb2xfZGVidF9mYXJtAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAAAdmYXJtX2lkAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
         "AAAAAAAAAAAAAAASdXBkYXRlX3Bvb2xfc3RhdHVzAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAABBuZXdfc3RhdHVzX2ZsYWdzAAAABAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
         "AAAAAAAAAAAAAAATYXBwbHlfbWFya2V0X3VwZGF0ZQAAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
-        "AAAAAAAAAAAAAAATZ2V0X2FsbF9vYmxpZ2F0aW9ucwAAAAAAAAAAAQAAA+oAAAfQAAAADU9ibGlnYXRpb25LZXkAAAA=",
         "AAAAAAAAAAAAAAATZ2V0X3F1ZXVlZF9wb29sX3NldAAAAAABAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAQAAA+kAAAfQAAAADVF1ZXVlZFBvb2xTZXQAAAAAAAfQAAAAB01DRXJyb3IA",
         "AAAAAAAAAAAAAAATZ2V0X3VzZXJfb2JsaWdhdGlvbgAAAAABAAAAAAAAAAR1c2VyAAAH0AAAAA1PYmxpZ2F0aW9uS2V5AAAAAAAAAQAAA+kAAAfQAAAACk9ibGlnYXRpb24AAAAAB9AAAAAHTUNFcnJvcgA=",
         "AAAAAAAAAAAAAAAUY2FuY2VsX21hcmtldF91cGRhdGUAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
@@ -911,7 +905,6 @@ export class Client extends ContractClient {
         set_pool_debt_farm: this.txFromJSON<Result<void>>,
         update_pool_status: this.txFromJSON<Result<void>>,
         apply_market_update: this.txFromJSON<Result<void>>,
-        get_all_obligations: this.txFromJSON<Array<ObligationKey>>,
         get_queued_pool_set: this.txFromJSON<Result<QueuedPoolSet>>,
         get_user_obligation: this.txFromJSON<Result<Obligation>>,
         cancel_market_update: this.txFromJSON<Result<void>>,

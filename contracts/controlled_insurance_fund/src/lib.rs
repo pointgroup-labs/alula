@@ -1,6 +1,8 @@
 #![no_std]
 use insurance_fund_interface::{CoverageStatus, InsuranceFund, IssueRequestResult};
-use soroban_sdk::{Address, Env, contract, contractevent, contractimpl, panic_with_error, token};
+use soroban_sdk::{
+    Address, BytesN, Env, contract, contractevent, contractimpl, panic_with_error, token,
+};
 use storage::Request;
 
 use crate::error::ContractError;
@@ -43,6 +45,7 @@ impl ControlledInsuranceFundContract {
     /// If the fund does not have enough *free* liquidity for available for withdraw
     pub fn withdraw(e: Env, token: Address, to: Address, amount: i128) {
         require_admin(&e);
+        storage::extend_instance(&e);
 
         let token_client = token::Client::new(&e, &token);
         let current_balance = token_client.balance(&e.current_contract_address());
@@ -62,12 +65,16 @@ impl ControlledInsuranceFundContract {
     /// If the fund does not have enough *free* liquidity to cover this request
     pub fn mark_ready(e: Env, request_id: u64, covered_amount: i128) {
         require_admin(&e);
+        storage::extend_instance(&e);
 
         let Some(mut request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);
         };
         if !matches!(request.status, CoverageStatus::Pending) {
             panic_with_error!(&e, ContractError::RequestIsReady);
+        }
+        if covered_amount < 0 {
+            panic_with_error!(&e, ContractError::InvalidAmount);
         }
 
         let real_covered_amount = i128::min(covered_amount, request.amount);
@@ -101,6 +108,7 @@ impl ControlledInsuranceFundContract {
     /// this behavior
     pub fn update_market_status(e: Env, new_status: u32) {
         require_admin(&e);
+        storage::extend_instance(&e);
 
         let market = storage::get_market(&e);
         let market_client = market::MarketPartialClient::new(&e, &market);
@@ -130,6 +138,11 @@ impl ControlledInsuranceFundContract {
 
         Ok(())
     }
+
+    pub fn upgrade(e: Env, wasm_hash: BytesN<32>) {
+        require_admin(&e);
+        e.deployer().update_current_contract_wasm(wasm_hash);
+    }
 }
 
 #[contractimpl]
@@ -142,6 +155,10 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
         require_market(&e);
         storage::extend_instance(&e);
+
+        if amount <= 0 {
+            panic_with_error!(&e, ContractError::InvalidAmount);
+        }
 
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);

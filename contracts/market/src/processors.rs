@@ -284,8 +284,7 @@ pub fn process_deposit<'a>(
         }
     }
 
-    let mut obligation = Obligation::try_get(e, obligation_key)
-        .unwrap_or_else(|_| Obligation::new(e, obligation_key));
+    let mut obligation = Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e));
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
@@ -375,8 +374,7 @@ pub fn process_add_collateral<'a>(
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_positive(amount)?;
 
-    let mut obligation =
-        Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    let mut obligation = Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e));
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
@@ -698,8 +696,7 @@ pub fn process_liquidate<'a>(
         Obligation::try_get(e, &liquidator_obligation_key).ok();
 
     if liquidation_result.j_tokens_seized.is_positive() {
-        let mut liquidator_obligation =
-            liquidator_event_obligation.unwrap_or(Obligation::new(e, &liquidator_obligation_key));
+        let mut liquidator_obligation = liquidator_event_obligation.unwrap_or(Obligation::new(e));
 
         liquidator_obligation.liquidation_increase_j_tokens(
             e,
