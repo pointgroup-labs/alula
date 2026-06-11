@@ -11,6 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@alula/farms-sdk": "link:../sdk/farms",
     "@alula/market-manager-sdk": "link:../sdk/market_manager",
     "@alula/market-sdk": "link:../sdk/market",
     "@creit.tech/stellar-wallets-kit": "^1.7.7",

@@ -12,14 +12,12 @@ export const useFarmsStore = defineStore('farms', () => {
       return
     }
     const values = Object.values(m)
-    const addresses = await Promise.all(values.map(async (val) => {
-      return {
-        market: val.marketName,
-        address: await val.client?.market.getFarmsContractAddress(),
-      }
-    }))
 
-    console.log('%c[Farms Addresses]', 'color: #1dc978', addresses)
+    if (values.length > 0) {
+      const farmsClient = values[0]?.client?.farms
+      const farms = await farmsClient?.getMarketFarms()
+      console.log('%c[Farms]', 'color: #1dc978', farms)
+    }
   })
 
   return {

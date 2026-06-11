@@ -117,12 +117,17 @@ export class MarketService extends BaseClient {
     return this.unwrapOk(result.result)
   }
 
-  async getFarmsContractAddress() {
+  /**
+   * Retrieves the address of the farms contract
+   *
+   * @return A Promise of type string containing the address of the farms contract
+   */
+  async getFarmsContractAddress(): Promise<string | null> {
     const result = await this.client.get_farms_contract()
     if (result.result === null) {
       return null
     }
-    return this.unwrapOk(result.result)
+    return result.result
   }
 
   /**

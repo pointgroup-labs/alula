@@ -1,6 +1,7 @@
 import type { RPCcluster } from './types'
 import { ObligationService } from './services'
 import { BorrowingService } from './services/borrowing'
+import { FarmsService } from './services/farms'
 import { LendingService } from './services/lending'
 import { MarketService } from './services/market'
 import { MarketManagerService } from './services/market-manager'
@@ -52,15 +53,16 @@ export type AlulaClientOptions = {
  * ```
  */
 export class AlulaClient {
-  public readonly rpc: RPCcluster
   public readonly market: MarketService
   public readonly obligation: ObligationService
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
   public readonly multiply: MultiplyService
+  public readonly marketManager: MarketManagerService
+  public readonly farms: FarmsService
+  public readonly rpc: RPCcluster
   public readonly swap: SwapService
   public readonly wallet: WalletService
-  public readonly marketManager: MarketManagerService
   public readonly horizonRpcUrl?: string
   public readonly sorobanRpcUrl?: string
 
@@ -90,6 +92,7 @@ export class AlulaClient {
     this.wallet = new WalletService(context)
     this.obligation = new ObligationService(context)
     this.marketManager = new MarketManagerService(context)
+    this.farms = new FarmsService(context, market)
   }
 
   static async create(config: AlulaClientConfig): Promise<AlulaClient> {
