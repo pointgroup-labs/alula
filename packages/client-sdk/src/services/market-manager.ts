@@ -31,18 +31,4 @@ export class MarketManagerService extends BaseClient {
       networkPassphrase: this.networkPassphrase,
     })
   }
-
-  /**
-   * Get list of all available markets
-   */
-  async getMarketList() {
-    return (await this.client.get_markets()).result
-  }
-
-  /**
-   * Get markets (alias for getMarketList)
-   */
-  async getMarkets() {
-    return this.getMarketList()
-  }
 }

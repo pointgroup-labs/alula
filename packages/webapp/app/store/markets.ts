@@ -4,6 +4,8 @@ import { defineStore } from 'pinia'
 
 export const MAIN_MARKET_NAME = 'main'
 
+const MARKET_ADDRESSES = ['CCSH53YGXKFTT3TWTTWI6JLR2OQDX56Y3TU57PWM5L3NWUTKM3WXCREW']
+
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
     loading: false,
@@ -59,8 +61,7 @@ export const useMarketsStore = defineStore('markets', () => {
   }
 
   async function getMarketsList() {
-    const map = await alulaClient.value?.marketManager.getMarketList()
-    state.marketsList = [...map]?.map(([address]) => address)
+    state.marketsList = MARKET_ADDRESSES
     console.log('%c[Markets Addresses]', 'color: #FFB726', state.marketsList)
   }
 
