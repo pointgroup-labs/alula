@@ -20,6 +20,6 @@
     "soroswap_swap_provider": "link:../sdk/soroswap_swap_provider"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^6.0.3"
   }
 }
