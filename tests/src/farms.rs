@@ -2,7 +2,7 @@
 // #![allow(clippy::inconsistent_digit_grouping)]
 
 // use farms::{
-//     DelegatedFarmConfig, Delegation, FarmConfig, FarmingKey, FarmsClient, FarmsContract,
+//     DelegatedFarmConfig, Delegation, FarmConfig, Delegatee, FarmsClient, FarmsContract,
 //     LockingMode, NonDelegatedFarmConfig, OptionalOracle, OracleConfig, RewardCurvePoint,
 //     RewardScheduleCurve, RewardType,
 // };
@@ -78,14 +78,13 @@
 //         self.e.ledger().timestamp()
 //     }
 
-//     fn fk(&self, user: &Address) -> FarmingKey {
-//         FarmingKey::new(user.clone())
+//     fn fk(&self, user: &Address) -> Delegatee {
+//         Delegatee::new(user.clone())
 //     }
 
 //     fn default_non_delegated_config(&self) -> FarmConfig {
 //         FarmConfig {
 //             token: self.stake_token.clone(),
-//             admin: self.admin.clone(),
 //             deposit_cap: 0,
 //             treasury_fee_bps: 0,
 //             min_harvest_delay: 0,

@@ -227,6 +227,9 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/aqua_swap_provider.optimized.wasm" \
 		--output-dir ./packages/sdk/aqua_swap_provider --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/farms.optimized.wasm" \
+		--output-dir ./packages/sdk/farms --network "$(NETWORK)"
 	$(call success,"SDK generated")
 
 # ══════════════════════════════════════════════════════════════════════════════
