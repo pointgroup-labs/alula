@@ -1,5 +1,5 @@
 //! Kinked Interest Rate model implementation.
-//! For more details, see: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
+//! For more details, see: `https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`
 
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype, panic_with_error};

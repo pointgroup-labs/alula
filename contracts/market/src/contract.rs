@@ -340,14 +340,6 @@ pub trait Market {
     // Returns accumulated market data. Intended to be used in simulations only
     fn get_market_data(e: Env) -> Result<MarketData, MCError>;
 
-    // Returns a list of all user obligations in the protocol
-    //
-    // WARNING: It is originally intended to be used in `read-only` simulations,
-    // yet, simulations as well as on-ledger invocations are constrained by the resource limits.
-    // A proper way of accessing a list of all obligations would be to read
-    // the corresponding storage entry
-    fn get_all_obligations(e: Env) -> Vec<ObligationKey>;
-
     // Sets the farms contract address for this market
     //
     // # Arguments
@@ -891,17 +883,6 @@ impl Market for MarketContract {
         };
 
         Ok(market_data)
-    }
-
-    fn get_all_obligations(e: Env) -> Vec<ObligationKey> {
-        let obligations_map = Obligation::get_all(&e);
-
-        let mut obligations_vec = Vec::new(&e);
-        for obligation_key in obligations_map.keys() {
-            obligations_vec.push_back(obligation_key)
-        }
-
-        obligations_vec
     }
 
     fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError> {

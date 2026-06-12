@@ -26,15 +26,15 @@ pub trait InsuranceFund {
     /// If the Market contract hasn't authorized the call
     ///
     /// # Returns
-    /// [`IssueRequestResult::Recorded(u64)`] - where `u64` value represents a unique `request_id` tracking this specific coverage event,
-    /// [`IssueRequestResult::Immediate(i128)`] - where `i128` is the amount covered if the fund can(and decides) immediately cover the request
+    /// `IssueRequestResult::Recorded(u64)` - where `u64` value represents a unique `request_id` tracking this specific coverage event,
+    /// `IssueRequestResult::Immediate(i128)` - where `i128` is the amount covered if the fund can(and decides) immediately cover the request
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult;
 
     /// Returns the status of an active coverage request
     ///
     /// # Returns
-    /// [`Some(CoverageStatus)`] - status of the request if active,
-    /// [`None`] otherwise
+    /// `Some(CoverageStatus)` - status of the request if active,
+    /// `None` otherwise
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus>;
 
     /// Finalizes the coverage, transfers tokens to the Market contract, and removes the request from storage

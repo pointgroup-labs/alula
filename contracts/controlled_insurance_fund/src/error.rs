@@ -10,4 +10,5 @@ pub enum ContractError {
     MarketIsAlreadySet = 5,
     ProposedAdminIsNotSet = 6,
     OverOrUnderflow = 10,
+    InvalidAmount = 11,
 }
