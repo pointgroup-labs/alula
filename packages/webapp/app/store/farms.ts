@@ -1,5 +1,7 @@
+import type { FarmState } from '@alula/farms-sdk'
+
 export const useFarmsStore = defineStore('farms', () => {
-  const state = reactive<FarmsState>({
+  const state = reactive<FarmsStoreState>({
     loading: false,
     farms: [],
   })
@@ -8,109 +10,42 @@ export const useFarmsStore = defineStore('farms', () => {
   const markets = computed(() => marketsStore.state.markets)
 
   watch(markets, async (m) => {
-    if (Object.keys(m).length === 0) {
+    if (Object.keys(m).length === 0 || state.farms.length > 0) {
       return
     }
     const values = Object.values(m)
 
     if (values.length > 0) {
-      const farmsClient = values[0]?.client?.farms
-      const farms = await farmsClient?.getMarketFarms()
-      console.log('%c[Farms]', 'color: #1dc978', farms)
+      const farmsData = await Promise.all(
+        values.map(async (v) => {
+          return {
+            marketName: v.marketName,
+            marketAddress: v.address,
+            farms: await v.client?.farms?.getMarketFarms(),
+          }
+        }),
+      )
+      state.farms = farmsData.filter(Boolean)
+      console.log('%c[Farms]', 'color: #1dc978', state.farms)
     }
   })
 
+  function getMarketFarms(address: string) {
+    return state.farms.find(f => f?.marketAddress === address || f.marketName === address)?.farms
+  }
+
   return {
     state,
+
+    getMarketFarms,
   }
 })
 
-export type FarmsState = {
+export type FarmsStoreState = {
   loading: boolean
-  farms: FarmView[]
-}
-
-export type FarmView = {
-  address: string
-
-  token: {
-    symbol: string
-    icon: string
-    decimals: number
-    address: string
-  }
-
-  totalStaked: string
-  tvlUsd: string
-  numUsers: number
-
-  isFrozen: boolean
-
-  apr: number
-
-  rewards: RewardView[]
-
-  config: {
-    depositCap: string
-    minStakeAmount: string
-
-    lockingMode: 'none' | 'continuous' | 'with_expiry'
-
-    lockingDuration: number
-    warmup: number
-    cooldown: number
-
-    earlyWithdrawalPenaltyBps: number
-
-    treasuryFeeBps: number
-  }
-}
-
-export type RewardView = {
-  token: {
-    symbol: string
-    icon: string
-    decimals: number
-    address: string
-  }
-
-  rewardType: 'proportional' | 'constant'
-
-  rewardsAvailable: string
-  rewardsIssuedCumulative: string
-
-  apr: number
-
-  emissionPerDay: string
-
-  schedule: {
-    start: number
-    emissionPerSecond: string
+  farms: {
+    marketName: string
+    marketAddress: string
+    farms?: FarmState[]
   }[]
-}
-
-export type FarmingPositionView = {
-  owner: string
-
-  activeStake: string
-
-  pendingDeposit: {
-    amount: string
-    unlockAt: number
-  }
-
-  pendingWithdrawal: {
-    amount: string
-    unlockAt: number
-  }
-
-  unclaimedRewards: {
-    token: string
-    amount: string
-    usdValue: string
-  }[]
-
-  totalRewardsUsd: string
-
-  lastStakeTs: number
 }

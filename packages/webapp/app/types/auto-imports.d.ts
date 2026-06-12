@@ -398,7 +398,7 @@ declare global {
   export type { SwapTokenOption } from '../composables/swap/use-swap'
   import('../composables/swap/use-swap')
   // @ts-ignore
-  export type { FarmsState, FarmView, RewardView, FarmingPositionView } from '../store/farms'
+  export type { FarmsStoreState } from '../store/farms'
   import('../store/farms')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'

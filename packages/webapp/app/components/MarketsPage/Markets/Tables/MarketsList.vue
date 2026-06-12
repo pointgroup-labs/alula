@@ -7,7 +7,6 @@ const { width } = useWindowSize()
 
 const marketActions = useMarketActions()
 const userStore = useUserStore()
-const farmsStore = useFarmsStore()
 
 const isObligationsLoading = computed(() => userStore.loading)
 
@@ -242,12 +241,12 @@ watch([
               class="table-cell justify-content-center flex"
               style="opacity: .8;"
             >
-              <j-pill-label
-                variant="cyan"
-                size="sm"
-              >
-                {{ data.item.deposit_apy }}
-              </j-pill-label>
+              <j-insentive-apy
+                :apy="data.item.deposit_apy"
+                :farms="market.farms"
+                :pool-data="data.item.raw"
+                farm-type="supply"
+              />
             </div>
           </template>
 
@@ -256,12 +255,13 @@ watch([
               class="table-cell justify-content-center"
               style="opacity: .8;"
             >
-              <j-pill-label
+              <j-insentive-apy
+                :apy="data.item.borrow_apy"
+                :farms="market.farms"
+                :pool-data="data.item.raw"
+                farm-type="borrow"
                 variant="indigo"
-                size="sm"
-              >
-                {{ data.item.borrow_apy }}
-              </j-pill-label>
+              />
             </div>
           </template>
 

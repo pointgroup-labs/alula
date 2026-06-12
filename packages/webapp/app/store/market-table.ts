@@ -1,3 +1,4 @@
+import type { FarmState } from '@alula/farms-sdk'
 import type { MarketTableItem, TableAsset } from '~/types/table'
 import { bpsToNumber, calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 
@@ -6,6 +7,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
   const userStore = useUserStore()
   const filterStore = useMarketFilterStore()
   const { getFullTokenData } = useTokensStore()
+  const { getMarketFarms } = useFarmsStore()
 
   const route = useRoute()
 
@@ -94,12 +96,15 @@ export const useMarketTableStore = defineStore('market-table', () => {
         }
       })
 
+      const farms = getMarketFarms(data?.address)
+
       preparedTableData.push({
         marketName,
         marketAddress: data?.address,
         assets,
         marketSize,
         tableItems,
+        farms,
       })
     }
     return preparedTableData
@@ -188,4 +193,5 @@ export type MarketWithTableItems = {
     supplied: number
     borrowed: number
   }
+  farms?: FarmState[]
 }

@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@alula/client-sdk": "workspace:^",
-    "@alula/farms": "link:../sdk/farms",
+    "@alula/farms-sdk": "link:../sdk/farms",
     "@alula/market-manager-sdk": "link:../sdk/market_manager",
     "@alula/market-sdk": "link:../sdk/market",
     "@bootstrap-vue-next/nuxt": "^0.30.5",

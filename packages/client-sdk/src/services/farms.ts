@@ -47,7 +47,7 @@ export class FarmsService extends BaseClient {
     return this.client
   }
 
-  async getMarketFarms() {
+  async getMarketFarms(): Promise<FarmState[]> {
     const farmsAddresses = await this.getAllFarms()
     const farms = []
     for (const farm_id of farmsAddresses) {

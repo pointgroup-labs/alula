@@ -18,7 +18,7 @@ const isDev
 
 const sdkMarketEntry = resolve(__dirname, '../sdk/market/dist/index.js')
 const sdkMarketManagerEntry = resolve(__dirname, '../sdk/farms/dist/index.js')
-const sdkMFarmsEntry = resolve(__dirname, '../sdk/market_manager/dist/index.js')
+const sdkFarmsEntry = resolve(__dirname, '../sdk/farms/dist/index.js')
 const sdkAquaSwapProviderEntry = resolve(__dirname, '../sdk/aqua_swap_provider/dist/index.js')
 const sdkSoroswapSwapProviderEntry = resolve(__dirname, '../sdk/soroswap_swap_provider/dist/index.js')
 
@@ -127,7 +127,7 @@ export default defineNuxtConfig({
       alias: {
         '@alula/market-sdk': sdkMarketEntry,
         '@alula/market-manager-sdk': sdkMarketManagerEntry,
-        '@alula/farms': sdkMFarmsEntry,
+        '@alula/farms-sdk': sdkFarmsEntry,
         'aqua_swap_provider': sdkAquaSwapProviderEntry,
         'soroswap_swap_provider': sdkSoroswapSwapProviderEntry,
         'buffer': 'buffer',

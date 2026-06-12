@@ -7,7 +7,11 @@ type TokenRegistryItem = {
   id: string
   name: string
   symbol: string
-  token_address: string
+  decimals: number
+  token_addresses: {
+    testnet: string
+    mainnet: string
+  }
   icon: string
 }
 
@@ -15,7 +19,11 @@ export type TokenItem = {
   id: string
   name: string
   symbol: string
-  tokenAddress: string
+  decimals: number
+  tokenAddresses: {
+    testnet: string
+    mainnet: string
+  }
   icon: string
 }
 
@@ -36,7 +44,8 @@ function normalizeToken(token: TokenRegistryItem): TokenItem {
     id: normalizeTokenKey(token.id),
     name: normalizeTokenName(token.name),
     symbol: token.symbol,
-    tokenAddress: token.token_address,
+    decimals: token.decimals,
+    tokenAddresses: token.token_addresses,
     icon: `${DATA_URL}${token.icon}`,
   }
 }
@@ -67,6 +76,17 @@ export const useTokensStore = defineStore('tokens', () => {
     return [...uniqueTokens.values()]
   })
 
+  function getTokenByAddress(address: string) {
+    for (const token of state.tokens.values()) {
+      if (
+        token.tokenAddresses.testnet === address
+        || token.tokenAddresses.mainnet === address
+      ) {
+        return token
+      }
+    }
+  }
+
   function getToken(token: string): TokenItem | undefined {
     return state.tokens.get(normalizeTokenKey(token))
   }
@@ -79,6 +99,10 @@ export const useTokensStore = defineStore('tokens', () => {
     return getToken(token)?.symbol ?? token
   }
 
+  function getTokenDecimals(token: string): number {
+    return getToken(token)?.decimals ?? 7
+  }
+
   function getTokenIcon(token: string): string {
     return getToken(token)?.icon ?? getToken('native')?.icon ?? ''
   }
@@ -88,6 +112,7 @@ export const useTokensStore = defineStore('tokens', () => {
       name: getTokenName(symbol),
       symbol: getTokenSymbol(symbol),
       icon: getTokenIcon(symbol),
+      decimals: getTokenDecimals(symbol),
     }
   }
 
@@ -132,5 +157,6 @@ export const useTokensStore = defineStore('tokens', () => {
     getTokenName,
     getTokenSymbol,
     getFullTokenData,
+    getTokenByAddress,
   }
 })

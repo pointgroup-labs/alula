@@ -105,7 +105,7 @@ importers:
       '@alula/client-sdk':
         specifier: workspace:^
         version: link:../client-sdk
-      '@alula/farms':
+      '@alula/farms-sdk':
         specifier: link:../sdk/farms
         version: link:../sdk/farms
       '@alula/market-manager-sdk':
