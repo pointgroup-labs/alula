@@ -67,7 +67,7 @@ impl Pool {
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
         let take_rate_accrual_part = accrued
-            .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
+            .fixed_mul_floor(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let new_take_rate_fees_sum =

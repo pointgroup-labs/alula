@@ -22,7 +22,7 @@ const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 pub enum ASPError {
     OverOrUnderflow = 1,
     InvalidPath = 2,
-    ZeroSwapResult = 3,
+    InvalidSwapResult = 3,
     NegativeAmount = 4,
     TokenNotFoundInPool = 5,
     AmountTooLarge = 6,
@@ -72,8 +72,8 @@ impl ProxySwap for AquaSwapProviderContract {
             panic_with_error!(&e, ASPError::OverOrUnderflow);
         });
 
-        if received <= 0 {
-            panic_with_error!(&e, ASPError::ZeroSwapResult);
+        if received < min_amount_out {
+            panic_with_error!(&e, ASPError::InvalidSwapResult);
         }
 
         received
@@ -106,8 +106,8 @@ impl ProxySwap for AquaSwapProviderContract {
             panic_with_error!(&e, ASPError::OverOrUnderflow);
         });
 
-        if spent <= 0 {
-            panic_with_error!(&e, ASPError::ZeroSwapResult);
+        if spent > max_amount_in {
+            panic_with_error!(&e, ASPError::InvalidSwapResult);
         }
 
         spent

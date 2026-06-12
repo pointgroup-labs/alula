@@ -36,7 +36,7 @@ if (typeof window !== "undefined") {
 export const SSPError = {
   1: {message:"OverOrUnderflow"},
   2: {message:"InvalidPath"},
-  3: {message:"ZeroSwapResult"}
+  3: {message:"InvalidSwapResult"}
 }
 
 export interface Client {
@@ -80,7 +80,7 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAABAAAAAAAAAAAAAAACFNTUEVycm9yAAAAAwAAAAAAAAAPT3Zlck9yVW5kZXJmbG93AAAAAAEAAAAAAAAAC0ludmFsaWRQYXRoAAAAAAIAAAAAAAAADlplcm9Td2FwUmVzdWx0AAAAAAAD",
+      new ContractSpec([ "AAAABAAAAAAAAAAAAAAACFNTUEVycm9yAAAAAwAAAAAAAAAPT3Zlck9yVW5kZXJmbG93AAAAAAEAAAAAAAAAC0ludmFsaWRQYXRoAAAAAAIAAAAAAAAAEUludmFsaWRTd2FwUmVzdWx0AAAAAAAAAw==",
         "AAAAAAAAAAAAAAAKc3dhcF9leGFjdAAAAAAABAAAAAAAAAAEdXNlcgAAABMAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAAAAAAObWluX2Ftb3VudF9vdXQAAAAAAAsAAAABAAAACw==",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAABnJvdXRlcgAAAAAAEwAAAAA=",
         "AAAAAAAAAAAAAAANZ2V0X2Ftb3VudF9pbgAAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAKYW1vdW50X291dAAAAAAACwAAAAEAAAAL",

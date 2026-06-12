@@ -67,13 +67,7 @@ pub struct Obligation {
 
 impl Obligation {
     // Creates a new obligation for the specified obligation key
-    //
-    // # WARNING
-    // Modifies the obligation's pools storage data by appending the user's address to the
-    // obligation's list
-    pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
-        storage::register_obligation(e, obligation_key);
-
+    pub fn new(e: &Env) -> Self {
         Self {
             deposits: Map::new(e),
             borrows: Map::new(e),
@@ -157,13 +151,6 @@ impl Obligation {
     // - [`Err(MCError::ObligationDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, obligation_key: &ObligationKey) -> Result<Self, MCError> {
         storage::get_obligation(e, obligation_key).ok_or(MCError::ObligationDoesNotExist)
-    }
-
-    // # Returns
-    //
-    // [`Map<ObligationKey, ()>`] containing all obligation keys in the market
-    pub fn get_all(e: &Env) -> Map<ObligationKey, ()> {
-        storage::get_all_obligations(e)
     }
 
     // Removes obligation from the contract's storage
@@ -1526,7 +1513,7 @@ fn compute_withdraw_scarcity_fee_bps(
             pool.config.fee_config.withdraw_max_scarcity_fee_bps as i128,
             max_utilization_ratio_diff_bps,
         )
-        .unwrap() as u32; // safe
+        .map_over_or_underflow()? as u32;
 
     Ok(fee)
 }
