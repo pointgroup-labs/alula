@@ -61,7 +61,9 @@ const option = computed<EChartsOption>(() => {
   return {
     backgroundColor: 'transparent',
     animation: true,
-    animationDurationUpdate: 400,
+    animationDelay: 0,
+    animationDuration: 500,
+    animationDurationUpdate: 500,
     animationEasingUpdate: 'cubicOut',
 
     grid: { left: 0, right: 10, top: 0, bottom: 12 },

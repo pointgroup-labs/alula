@@ -71,18 +71,13 @@ const maxApyClass = computed(() => {
     </div>
 
     <template v-if="depositPoolData">
-      <div class="market-pill">
+      <market-pill>
         {{ selectedVault?.market ?? '' }} Market
-      </div>
+      </market-pill>
 
-      <div
-        v-if="width > 650"
-        class="market-pill"
-      >
-        <div class="market-name">
-          Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
-        </div>
-      </div>
+      <market-pill v-if="width > 650">
+        Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
+      </market-pill>
     </template>
 
     <div class="pool-metrics">
@@ -168,29 +163,6 @@ const maxApyClass = computed(() => {
         font-size: 12px;
         opacity: 0.8;
       }
-    }
-  }
-
-  .market-pill {
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 12px;
-    font-size: $text-xs;
-    color: $text-tertiary;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-    text-transform: capitalize;
-    background-color: color-mix(in oklab, $secondary 60%, transparent);
-    border-radius: $radius-full;
-
-    span {
-      color: $text-primary;
-    }
-
-    @media (max-width: $breakpoint-xs) {
-      padding: 2px 16px;
     }
   }
 

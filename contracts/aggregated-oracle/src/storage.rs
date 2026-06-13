@@ -7,7 +7,7 @@ use crate::{constants::*, error::AOCError};
 pub enum DataKey {
     Admin,
     ProposedAdmin,
-    MaxAge,
+    PeriodicUpdateMaxAge,
     Decimals,
     BaseAsset,
     Assets,
@@ -47,11 +47,14 @@ pub fn remove_proposed_admin(e: &Env) {
     e.storage().instance().remove(&DataKey::ProposedAdmin);
 }
 
-pub fn set_max_age(e: &Env, max_age: u64) {
-    e.storage().instance().set(&DataKey::MaxAge, &max_age);
+pub fn set_periodic_oracles_price_max_age(e: &Env, periodic_oracles_price_max_age: u64) {
+    e.storage().instance().set(&DataKey::PeriodicUpdateMaxAge, &periodic_oracles_price_max_age);
 }
-pub fn get_max_age(e: &Env) -> u64 {
-    e.storage().instance().get(&DataKey::MaxAge).expect("Max age must've been set")
+pub fn get_periodic_oracles_price_max_age(e: &Env) -> u64 {
+    e.storage()
+        .instance()
+        .get(&DataKey::PeriodicUpdateMaxAge)
+        .expect("Periodic update max age must've been set")
 }
 
 pub fn set_decimals(e: &Env, decimals: u32) {
@@ -121,7 +124,8 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
 }
 
 pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
-    let Some(assets_map) = e.storage().instance().get::<_, Map<Address, Symbol>>(&DataKey::Assets)
+    let Some(assets_map) =
+        e.storage().instance().get::<_, Map<Address, AssetData>>(&DataKey::Assets)
     else {
         return false;
     };
@@ -183,6 +187,14 @@ pub struct OracleConfigInput {
     /// parameter first, and only if it returns [`None`] will receive [`Asset::Other`] afterwards.
     /// The opposite behavior takes place otherwise
     pub is_stellar_data_based: bool,
+    /// Indicator of whether the oracle updates the price once every `resolution()` seconds or
+    /// when either one of the following two conditions meets:
+    /// 1. The price has diverged for more than a specified percentage
+    /// from the old one;
+    /// 2. The maximum time period (aka heartbeat) has passed since the previous update.
+    ///
+    /// Having `true` here indicates the `resolution()` based update oracles and `false` the `deviation\heartbeat` based oracles
+    pub is_price_update_periodic: bool,
 }
 
 /// `SEP-40` compliant oracle contract's configuration
@@ -193,13 +205,19 @@ pub struct OracleConfig {
     pub address: Address,
     /// Number of decimals representing a fractional part of a price
     pub decimals: u32,
-    /// Default tick period timeframe
-    pub resolution: u32,
     /// Indicator of whether the oracle gets the data from or out of the `Stellar` ledger.
     /// Oracles that have this set to `true` will receive a request with [`Asset::Stellar`] asset
     /// parameter first, and only if it returns [`None`] will receive [`Asset::Other`] afterwards.
     /// The opposite behavior takes place otherwise
     pub is_stellar_data_based: bool,
+    /// Indicator of whether the oracle updates the price once every `resolution()` seconds or
+    /// when either one of the following two conditions meets:
+    /// 1. The price has diverged for more than a specified percentage
+    /// from the old one;
+    /// 2. The maximum time period (aka heartbeat) has passed since the previous update.
+    ///
+    /// Having `true` here indicates the `resolution()` based update oracles and `false` the `deviation\heartbeat` based oracles
+    pub is_price_update_periodic: bool,
 }
 
 // ---- TTL Bumper ----

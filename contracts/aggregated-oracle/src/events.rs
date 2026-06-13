@@ -36,7 +36,7 @@ pub struct InvalidOraclePriceTimestamp {
     #[topic]
     pub asset: Asset,
     pub price_data: PriceData,
-    pub max_age: u64,
+    pub max_allowed_age: u64,
 }
 
 #[contractevent]

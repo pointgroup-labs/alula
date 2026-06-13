@@ -10,16 +10,14 @@
       <portfolio-borrow-table />
     </div>
 
-    <features-toggle feature="multiply">
-      <div
-        class="portfolio-multiply__cards card"
-      >
-        <div class="portfolio-card__title">
-          My Multiplies
-        </div>
-        <portfolio-multiply-table only-multiplied />
+    <div
+      class="portfolio-multiply__cards card"
+    >
+      <div class="portfolio-card__title">
+        My Multiplies
       </div>
-    </features-toggle>
+      <portfolio-multiply-table only-multiplied />
+    </div>
   </main>
 </template>
 

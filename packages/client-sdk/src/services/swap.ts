@@ -300,6 +300,11 @@ export class SwapService extends BaseClient {
     return await this.txHelper.signAndSend(tx, params.user, kit, options)
   }
 
+  /** Returns the simulated transaction fee in XLM. */
+  getTransactionFee(tx: any): number {
+    return this.txHelper.getTransactionFee(tx)
+  }
+
   private async getExpectedAmountsOut(
     swapProviderAddress: string,
     amountIn: bigint,

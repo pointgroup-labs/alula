@@ -131,10 +131,7 @@ fn v3_batch(
 ) -> Vec<Request> {
     svec![
         e,
-        Request::FlashBorrow(StandardRequest {
-            amount: flash_x,
-            pool_address: usdc_pool.clone(),
-        }),
+        Request::FlashBorrow(StandardRequest { amount: flash_x, pool_address: usdc_pool.clone() }),
         Request::SwapExactTokens(SwapExactTokensRequest {
             swap_provider: swap_provider.clone(),
             path: svec![e, usdc_token.clone(), gold_token.clone()],
@@ -145,10 +142,7 @@ fn v3_batch(
             amount: margin + swap_floor_y,
             pool_address: gold_pool.clone(),
         }),
-        Request::Borrow(StandardRequest {
-            amount: borrow_amount,
-            pool_address: usdc_pool.clone(),
-        }),
+        Request::Borrow(StandardRequest { amount: borrow_amount, pool_address: usdc_pool.clone() }),
     ]
 }
 
@@ -241,11 +235,7 @@ fn v3_floor_on_money_produces_exact_position_no_bonus() {
     // Position is exactly the literals.
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, p.expected_collateral(), "collateral must equal margin + Y exactly");
     assert_eq!(debt, p.expected_debt(), "debt must equal X + flash_fee exactly");
 
@@ -314,11 +304,7 @@ fn v3_favorable_slippage_yields_xlm_bonus_position_unchanged() {
     // Position STILL exactly the literals — V3's whole point.
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(
         collateral,
         p.expected_collateral(),
@@ -399,9 +385,7 @@ fn v3_adverse_slippage_reverts_atomically_no_state_change() {
 
     // Obligation must not have been created.
     assert!(
-        contract_client
-            .try_get_user_obligation(&ObligationKey::new(user.clone()))
-            .is_err(),
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).is_err(),
         "no obligation should exist after atomic revert"
     );
 
@@ -481,8 +465,11 @@ fn v3_wrong_order_addcollateral_before_flashborrow_reverts() {
         }),
     ];
 
-    let result = contract_client
-        .try_submit_requests_batch(&ObligationKey::new(user.clone()), &bad_batch, &None);
+    let result = contract_client.try_submit_requests_batch(
+        &ObligationKey::new(user.clone()),
+        &bad_batch,
+        &None,
+    );
 
     // Token transfer of the missing Y GOLD throws — the contract surfaces this as a
     // host-level invocation failure; `try_*` returns Err(Err(_)) for non-MCError reverts.
@@ -493,9 +480,7 @@ fn v3_wrong_order_addcollateral_before_flashborrow_reverts() {
 
     // Obligation must not have been created (atomic rollback).
     assert!(
-        contract_client
-            .try_get_user_obligation(&ObligationKey::new(user.clone()))
-            .is_err(),
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).is_err(),
         "no obligation should exist after wrong-order revert"
     );
 
@@ -572,22 +557,13 @@ fn v3_two_users_get_identical_positions_under_different_slippage() {
     let obl_floor = contract_client.get_user_obligation(&ObligationKey::new(user_floor.clone()));
     let obl_fav = contract_client.get_user_obligation(&ObligationKey::new(user_favorable.clone()));
 
-    let collat_floor =
-        obl_floor.deposits.get(gold_pool_address.clone()).unwrap().collateral;
+    let collat_floor = obl_floor.deposits.get(gold_pool_address.clone()).unwrap().collateral;
     let collat_fav = obl_fav.deposits.get(gold_pool_address.clone()).unwrap().collateral;
     assert_eq!(collat_floor, collat_fav, "collateral identical regardless of slippage");
     assert_eq!(collat_floor, p.expected_collateral());
 
-    let debt_floor = obl_floor
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
-    let debt_fav = obl_fav
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt_floor = obl_floor.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
+    let debt_fav = obl_fav.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(debt_floor, debt_fav, "debt identical regardless of slippage");
     assert_eq!(debt_floor, p.expected_debt());
 
@@ -660,12 +636,12 @@ fn v3_extreme_favorable_slippage_2x_position_still_exact() {
     // Position bit-for-bit identical to the floor-rate case despite 2x DEX output.
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
-    assert_eq!(collateral, p.expected_collateral(), "collateral STILL exactly margin + Y at 2x rate");
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
+    assert_eq!(
+        collateral,
+        p.expected_collateral(),
+        "collateral STILL exactly margin + Y at 2x rate"
+    );
     assert_eq!(debt, p.expected_debt(), "debt STILL exactly X + flash_fee at 2x rate");
 
     // Wallet bonus = (Y × 2) − Y = Y. Net GOLD change = -margin + Y.
@@ -736,19 +712,12 @@ fn v3_just_below_floor_one_unit_short_reverts() {
 
     let result =
         contract_client.try_submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
-    assert!(
-        result.is_err(),
-        "even a tiny shortfall (24 units of 247_500) must revert"
-    );
+    assert!(result.is_err(), "even a tiny shortfall (24 units of 247_500) must revert");
 
     // Atomic rollback — wallet untouched.
     assert_eq!(usdc_token_client.balance(user), usdc_before);
     assert_eq!(gold_token_client.balance(user), gold_before);
-    assert!(
-        contract_client
-            .try_get_user_obligation(&ObligationKey::new(user.clone()))
-            .is_err()
-    );
+    assert!(contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).is_err());
 }
 
 // -- Test 8: large slippage with conservative floor — multiply STILL succeeds -
@@ -823,12 +792,11 @@ fn v3_large_slippage_with_low_floor_multiply_succeeds() {
     // Position is the usual V3 literals.
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
-    assert_eq!(collateral, expected_collateral, "collateral exactly margin + Y under -50% slippage");
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
+    assert_eq!(
+        collateral, expected_collateral,
+        "collateral exactly margin + Y under -50% slippage"
+    );
     assert_eq!(debt, expected_debt, "debt exactly X + flash_fee under -50% slippage");
 
     // Output (Y) exactly cancels AddCollateral's Y → net wallet GOLD change = -margin.
@@ -910,11 +878,7 @@ fn v3_skewed_quote_gold_expensive_position_exact_at_floor() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, expected_collateral, "collateral exact under skewed quote");
     assert_eq!(debt, expected_debt, "debt exact under skewed quote");
 
@@ -993,11 +957,7 @@ fn v3_skewed_quote_gold_cheap_with_favorable_slippage() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, expected_collateral, "collateral exact despite +10% favorable");
     assert_eq!(debt, expected_debt, "debt exact despite +10% favorable");
 
@@ -1028,12 +988,10 @@ fn update_pool_fee(
         accrual_model: current.config.accrual_model,
         interest_rate_model: current.config.interest_rate_model,
         ir_reactivity_constant: current.config.ir_reactivity_constant,
+        target_utilization_ratio_bps: current.config.target_utilization_ratio_bps,
     };
     fixture.contract_client.queue_in_pool_set(pool_address, &new_config);
-    fixture
-        .e
-        .ledger()
-        .with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    fixture.e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
     fixture.contract_client.apply_pool_set(pool_address);
 }
 
@@ -1102,7 +1060,7 @@ fn v3_silently_milks_user_when_borrow_fee_bps_nonzero() {
     contract_client.submit_requests_batch(&ObligationKey::new(user_a.clone()), &batch, &None);
 
     let usdc_after_a = usdc_token_client.balance(user_a);
-    let expected_borrow_fee = ((p.borrow_amount * 1) + 10_000 - 1) / 10_000;
+    let expected_borrow_fee = (p.borrow_amount + 10_000 - 1) / 10_000;
     let wallet_delta = usdc_before_a - usdc_after_a;
     assert_eq!(
         wallet_delta, expected_borrow_fee,
@@ -1135,14 +1093,9 @@ fn v3_silently_milks_user_when_borrow_fee_bps_nonzero() {
         &batch_b,
         &None,
     );
+    assert!(result.is_err(), "with zero USDC buffer, V3 must revert when borrow_fee_bps != 0");
     assert!(
-        result.is_err(),
-        "with zero USDC buffer, V3 must revert when borrow_fee_bps != 0"
-    );
-    assert!(
-        contract_client
-            .try_get_user_obligation(&ObligationKey::new(user_b.clone()))
-            .is_err(),
+        contract_client.try_get_user_obligation(&ObligationKey::new(user_b.clone())).is_err(),
         "no obligation should be created on revert"
     );
 }
@@ -1205,14 +1158,12 @@ fn v3_breaks_determinism_when_add_collateral_fee_bps_nonzero() {
 
     if outcome.is_ok() {
         // Batch succeeded but collateral is short by the fee — determinism broken.
-        let obligation =
-            contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
-        let collateral =
-            obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
+        let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
+        let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
         assert!(
             collateral < p.expected_collateral(),
-            "collateral must be LESS than margin + Y when add_collateral_fee_bps != 0; \
-             got {} expected {}",
+            "collateral must be LESS than margin + Y when add_collateral_fee_bps != 0; got {} \
+             expected {}",
             collateral,
             p.expected_collateral()
         );
@@ -1274,11 +1225,7 @@ fn v3_under_open_ltv_succeeds() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, margin + swap_floor_y);
     assert_eq!(debt, borrow_amount);
 
@@ -1346,11 +1293,7 @@ fn v3_over_open_ltv_reverts_with_unhealthy_operation() {
         Err(Ok(MCError::UnhealthyOperation)),
         "borrow over open_ltv must trip the health check"
     );
-    assert!(
-        contract_client
-            .try_get_user_obligation(&ObligationKey::new(user.clone()))
-            .is_err()
-    );
+    assert!(contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).is_err());
 }
 
 // -- Test 15: referrer not registered in pool — explicit failure mode ---------
@@ -1408,21 +1351,13 @@ fn v3_with_unregistered_referrer_still_deterministic() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(
         collateral,
         p.expected_collateral(),
         "unregistered referrer must not affect V3 collateral"
     );
-    assert_eq!(
-        debt,
-        p.expected_debt(),
-        "unregistered referrer must not affect V3 debt"
-    );
+    assert_eq!(debt, p.expected_debt(), "unregistered referrer must not affect V3 debt");
 }
 
 // -- Test 16: multi-hop swap path [USDC, BTC, GOLD] ---------------------------
@@ -1491,11 +1426,7 @@ fn v3_multi_hop_swap_path_works() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, p.expected_collateral(), "multi-hop preserves V3 collateral invariant");
     assert_eq!(debt, p.expected_debt(), "multi-hop preserves V3 debt invariant");
 }
@@ -1521,10 +1452,7 @@ fn v3_reverts_when_flash_loan_disabled() {
     let mut current = fixture.contract_client.get_pool(usdc_pool_address).config;
     current.status.flags &= !(1u32 << 3); // POOL_STATUS_FLASH_LOAN_ENABLED
     fixture.contract_client.queue_in_pool_set(usdc_pool_address, &current);
-    fixture
-        .e
-        .ledger()
-        .with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    fixture.e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
     fixture.contract_client.apply_pool_set(usdc_pool_address);
 
     let swap = e.register(ConfigurableSwap, ());
@@ -1667,11 +1595,7 @@ fn v3_with_custom_flash_loan_fee_bps_works() {
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
     let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(collateral, margin + swap_floor_y, "collateral exact under fee=9bps");
     assert_eq!(debt, borrow_amount, "debt exact under fee=9bps");
     assert_eq!(flash_fee_amt, 223, "flash fee math sanity check");
@@ -1732,11 +1656,7 @@ fn v3_with_zero_flash_loan_fee_works() {
     contract_client.submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
     assert_eq!(debt, flash_x, "debt = X exactly when flash_loan_fee_bps == 0");
 }
 
@@ -1865,16 +1785,8 @@ fn v3_adds_to_preexisting_borrow_position() {
     contract_client.submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
-    assert_eq!(
-        debt,
-        prior_debt + p.expected_debt(),
-        "V3 must add to existing debt"
-    );
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
+    assert_eq!(debt, prior_debt + p.expected_debt(), "V3 must add to existing debt");
 }
 
 // -- Test 23: tiny amounts (1 µ each) — smallest representable position ------
@@ -1912,7 +1824,7 @@ fn v3_with_tiny_amounts_handles_rounding_correctly() {
     let margin: i128 = 1;
     let flash_x: i128 = 1;
     let swap_floor_y: i128 = 1;
-    let flash_fee_amt: i128 = (flash_x * 1 + 10_000 - 1) / 10_000;
+    let flash_fee_amt: i128 = (flash_x + 10_000 - 1) / 10_000;
     assert_eq!(flash_fee_amt, 1, "ceiling produces 1 µ fee for any positive flash");
     let borrow_amount = flash_x + flash_fee_amt;
 
@@ -1936,24 +1848,17 @@ fn v3_with_tiny_amounts_handles_rounding_correctly() {
     // Critically: must NOT corrupt state.
     match outcome {
         Ok(_) => {
-            let obligation =
-                contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
-            let collateral =
-                obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
-            let debt = obligation
-                .borrows
-                .get(usdc_pool_address.clone())
-                .unwrap()
-                .originally_borrowed;
+            let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
+            let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
+            let debt =
+                obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
             assert_eq!(collateral, margin + swap_floor_y);
             assert_eq!(debt, borrow_amount);
         }
         Err(_) => {
             // Acceptable failure: typed rounding error. Position must not exist.
             assert!(
-                contract_client
-                    .try_get_user_obligation(&ObligationKey::new(user.clone()))
-                    .is_err(),
+                contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).is_err(),
                 "tiny-amount failure must not leave partial state"
             );
         }
@@ -2061,21 +1966,13 @@ fn v3_grossed_up_borrow_amount_succeeds_with_nonzero_borrow_fee_bps() {
     assert_eq!(
         usdc_after - usdc_before,
         borrower_to_receive - flash_repay,
-        "wallet USDC delta must equal grossed-up surplus (≤ 1 unit from ceil rounding); \
-         any larger drain would mean phantom debt re-introduced"
+        "wallet USDC delta must equal grossed-up surplus (≤ 1 unit from ceil rounding); any \
+         larger drain would mean phantom debt re-introduced"
     );
 
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
-    let collateral = obligation
-        .deposits
-        .get(gold_pool_address.clone())
-        .unwrap()
-        .collateral;
-    let debt = obligation
-        .borrows
-        .get(usdc_pool_address.clone())
-        .unwrap()
-        .originally_borrowed;
+    let collateral = obligation.deposits.get(gold_pool_address.clone()).unwrap().collateral;
+    let debt = obligation.borrows.get(usdc_pool_address.clone()).unwrap().originally_borrowed;
 
     assert_eq!(
         collateral,
@@ -2084,7 +1981,7 @@ fn v3_grossed_up_borrow_amount_succeeds_with_nonzero_borrow_fee_bps() {
     );
     assert_eq!(
         debt, borrow_amount,
-        "debt must equal the grossed-up borrow_amount (legitimate borrow-fee debt, \
-         not slippage-scaled phantom debt)"
+        "debt must equal the grossed-up borrow_amount (legitimate borrow-fee debt, not \
+         slippage-scaled phantom debt)"
     );
 }

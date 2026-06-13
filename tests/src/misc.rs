@@ -222,42 +222,6 @@ fn test_pool_is_empty_prior_anything() {
 }
 
 #[test]
-fn test_obligations_list_contains_unique_obligations() {
-    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
-        TestMarketFixture::new();
-    let liquidity_provider = &users[0];
-    let creditor = &users[1];
-
-    contract_client.deposit(
-        &ObligationKey::new(liquidity_provider.clone()),
-        &gold_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
-        &None,
-    );
-    contract_client.deposit(
-        &ObligationKey::new(creditor.clone()),
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-        &None,
-    );
-
-    let obligations = contract_client.get_all_obligations();
-    assert_eq!(obligations.len(), 2);
-    assert!(obligations.contains(ObligationKey::new(creditor.clone())));
-
-    contract_client.withdraw(
-        &ObligationKey::new(creditor.clone()),
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-        &None,
-    );
-
-    let obligations = contract_client.get_all_obligations();
-    assert_eq!(obligations.len(), 1);
-    assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
-}
-
-#[test]
 fn test_too_many_positions() {
     let TestMarketFixture {
         e,

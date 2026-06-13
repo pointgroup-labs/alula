@@ -2,6 +2,7 @@
 import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
 import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
+import statisticsTabIcon from '~/assets/img/icons/statistics-icon.svg?raw'
 import { useFeatureToggle } from '~/features/features-toggle'
 
 const { width } = useWindowSize()
@@ -11,25 +12,24 @@ const { isEnabled } = useFeatureToggle()
 const route = useRoute()
 
 const tabs = computed(() => {
-  const navTabs = [{
-    label: 'Markets',
-    route: '/',
-    icon: marketsTabIcon,
-  },
-  {
-    label: 'Portfolio',
-    route: '/portfolio',
-    icon: accountTabIcon,
-    shortLabel: 'Portfolio',
-  }]
-
-  if (isEnabled('multiply')) {
-    navTabs.splice(1, 0, {
+  const navTabs = [
+    {
+      label: 'Markets',
+      route: '/',
+      icon: marketsTabIcon,
+    },
+    {
       label: 'Multiply',
       route: '/multiply',
       icon: multiplyTabIcon,
-    })
-  }
+    },
+    {
+      label: 'Portfolio',
+      route: '/portfolio',
+      icon: accountTabIcon,
+      shortLabel: 'Portfolio',
+    },
+  ]
 
   if (isEnabled('swap')) {
     navTabs.splice(2, 0, {
@@ -37,6 +37,17 @@ const tabs = computed(() => {
       route: '/swap',
       icon: multiplyTabIcon,
     })
+  }
+
+  if (width.value < 1024) {
+    navTabs.push(
+      {
+        label: 'Statistics',
+        route: '/statistics',
+        icon: statisticsTabIcon,
+        shortLabel: 'Statistics',
+      },
+    )
   }
   return navTabs
 })
@@ -96,11 +107,7 @@ watch(() => route.path, (p) => {
 <style lang="scss">
 header {
   border-bottom: 1px solid $border-primary;
-  // Lift the header above page content (was 1) so its inline popovers — like
-  // the More-menu dropdown — can stack over sticky panels, charts, and other
-  // page elements that create their own stacking contexts. 100 is high enough
-  // to win against regular content but stays well below modal layers.
-  z-index: 100;
+  z-index: 0;
   position: relative;
 
   .header-wrapper {

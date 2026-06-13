@@ -12,6 +12,12 @@ const items: MoreMenuItem[] = [
     to: '/transparency',
     description: 'Live contracts, parameters, audits',
   },
+   {
+    kind: 'route',
+    label: 'Statistics',
+    to: '/statistics',
+    description: 'Live market & pool data',
+  },
   {
     kind: 'external',
     label: 'Documentation',
@@ -30,7 +36,7 @@ const isActive = computed(() => items.some(
   <j-popover
     position="bottom"
     placement="bottom-start"
-    :teleport-to-body="false"
+    :teleport-to-body="true"
     hover
     no-fade
     close-popup

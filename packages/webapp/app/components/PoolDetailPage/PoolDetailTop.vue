@@ -69,18 +69,14 @@ const detailCardsData = computed(() => {
     </div>
 
     <template v-if="selectedPool">
-      <div class="market-pill">
+      <market-pill>
         {{ selectedPool?.market ?? '' }} Market
-      </div>
+      </market-pill>
 
-      <div
-        v-if="width > 650"
-        class="market-pill"
-      >
-        <div class="market-name">
-          Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
-        </div>
-      </div>
+      <market-pill v-if="width > 650">
+        Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
+      </market-pill>
+
     </template>
 
     <div class="pool-metrics">
