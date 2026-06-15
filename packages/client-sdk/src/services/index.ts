@@ -1,5 +1,4 @@
 export * from './borrowing'
-export * from './farms'
 export * from './lending'
 export * from './leverage'
 export * from './market'

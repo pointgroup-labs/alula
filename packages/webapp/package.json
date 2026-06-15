@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "pnpm build:sdk && nuxt dev",
     "build": "nuxt generate",
-    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/aqua_swap_provider build && pnpm --dir ../sdk/soroswap_swap_provider build && pnpm --dir ../sdk/farms build",
+    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/aqua_swap_provider build && pnpm --dir ../sdk/soroswap_swap_provider build",
     "build:client-sdk": "pnpm -r --filter @alula/client-sdk run build",
-    "build:sdk": "pnpm build:market-sdk && pnpm build:client-sdk",
+    "build:farms-sdk": "pnpm -r --filter @alula/farms-sdk run build",
+    "build:sdk": "pnpm build:market-sdk && pnpm build:client-sdk && pnpm build:farms-sdk",
     "build:ssg": "pnpm build:sdk && nuxt generate",
     "build:ssr": "nuxt build",
     "build:staging:ssg": "pnpm build:sdk && nuxt generate",
@@ -23,7 +24,7 @@
   },
   "dependencies": {
     "@alula/client-sdk": "workspace:^",
-    "@alula/farms-sdk": "link:../sdk/farms",
+    "@alula/farms-sdk": "workspace:^",
     "@alula/market-manager-sdk": "link:../sdk/market_manager",
     "@alula/market-sdk": "link:../sdk/market",
     "@bootstrap-vue-next/nuxt": "^0.30.5",

@@ -6,6 +6,7 @@ export const useFarmsStore = defineStore('farms', () => {
     farms: [],
   })
 
+  const clientStore = useClientStore()
   const marketsStore = useMarketsStore()
   const markets = computed(() => marketsStore.state.markets)
 
@@ -16,17 +17,29 @@ export const useFarmsStore = defineStore('farms', () => {
     const values = Object.values(m)
 
     if (values.length > 0) {
-      const farmsData = await Promise.all(
-        values.map(async (v) => {
-          return {
-            marketName: v.marketName,
-            marketAddress: v.address,
-            farms: await v.client?.farms?.getMarketFarms(),
-          }
-        }),
-      )
-      state.farms = farmsData.filter(Boolean)
-      console.log('%c[Farms]', 'color: #1dc978', state.farms)
+      const farmsMap = new Map<string, FarmState>()
+      for (const market of values) {
+        const marketName = market.marketName
+        const farmsContractAddress = await market.client?.market?.getFarmsContractAddress()
+        if (!farmsContractAddress) {
+          continue
+        }
+        const farmsClient = await clientStore.initFarmsClient(farmsContractAddress)
+        const getMarketFarms = await farmsClient?.getMarketFarms()
+        farmsMap.set(marketName, getMarketFarms)
+      }
+      console.log('%c[Farms]', 'color: #1dc978', farmsMap)
+    //   const farmsData = await Promise.all(
+    //     values.map(async (v) => {
+    //       return {
+    //         marketName: v.marketName,
+    //         marketAddress: v.address,
+    //         farms: await v.client?.farms?.getMarketFarms(),
+    //       }
+    //     }),
+    //   )
+    //   state.farms = farmsData.filter(Boolean)
+      // console.log('%c[Farms]', 'color: #1dc978', state.farms)
     }
   })
 

@@ -55,9 +55,6 @@ importers:
 
   packages/client-sdk:
     dependencies:
-      '@alula/farms-sdk':
-        specifier: link:../sdk/farms
-        version: link:../sdk/farms
       '@alula/market-manager-sdk':
         specifier: link:../sdk/market_manager
         version: link:../sdk/market_manager
@@ -79,6 +76,25 @@ importers:
       soroswap_swap_provider:
         specifier: link:../sdk/soroswap_swap_provider
         version: link:../sdk/soroswap_swap_provider
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/farms-sdk:
+    dependencies:
+      '@alula/farms-sdk':
+        specifier: link:../sdk/farms
+        version: link:../sdk/farms
+      '@creit.tech/stellar-wallets-kit':
+        specifier: ^1.7.7
+        version: 1.9.5(@solana/sysvars@5.5.1(fastestsmallesttextencoderdecoder@1.0.22)(typescript@6.0.3))(@stellar/stellar-base@14.0.4)(@stellar/stellar-sdk@14.4.3)(@trezor/connect@9.7.2(@solana/sysvars@5.5.1(fastestsmallesttextencoderdecoder@1.0.22)(typescript@6.0.3))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(tslib@2.8.1)(typescript@6.0.3)(utf-8-validate@5.0.10)(ws@8.19.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@18.3.1)(tslib@2.8.1)(typescript@6.0.3)(utf-8-validate@5.0.10)(ws@8.19.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
+      '@stellar/stellar-sdk':
+        specifier: ^14.1.1
+        version: 14.4.3
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -106,8 +122,8 @@ importers:
         specifier: workspace:^
         version: link:../client-sdk
       '@alula/farms-sdk':
-        specifier: link:../sdk/farms
-        version: link:../sdk/farms
+        specifier: workspace:^
+        version: link:../farms-sdk
       '@alula/market-manager-sdk':
         specifier: link:../sdk/market_manager
         version: link:../sdk/market_manager
