@@ -167,14 +167,25 @@ watch([
           </template>
 
           <template #cell(supplyApy)="data">
-            <div class="table-cell justify-content-center text-cyan">
-              {{ truncatePercent(supplyApyPercent(data.item), 2) }}%
+            <div class="table-cell justify-content-center">
+              <j-insentive-apy
+                :market-name="vault.market"
+                :pool-data="data.item.depositPoolData"
+                farm-type="supply"
+                :apy="`${truncatePercent(supplyApyPercent(data.item), 2)}%`"
+              />
             </div>
           </template>
 
           <template #cell(borrowApy)="data">
-            <div class="table-cell justify-content-center text-indigo">
-              {{ truncatePercent(borrowApyPercent(data.item), 2) }}%
+            <div class="table-cell justify-content-center">
+              <j-insentive-apy
+                :market-name="vault.market"
+                :pool-data="data.item.borrowPoolData"
+                farm-type="borrow"
+                :apy="`${truncatePercent(borrowApyPercent(data.item), 2)}%`"
+                variant="indigo"
+              />
             </div>
           </template>
 

@@ -6,6 +6,7 @@ const {
   items,
 } = defineProps<{
   items: MarketTableItem[]
+  marketName: string
 }>()
 
 const emits = defineEmits(['dialogHandler', 'onRowClicked'])
@@ -57,12 +58,12 @@ function dialogHandler(item: MarketTableItem, action: string) {
             Supply APY
           </div>
           <div class="info-wrapper__value">
-            <j-pill-label
-              variant="cyan"
-              size="sm"
-            >
-              {{ item.deposit_apy }}
-            </j-pill-label>
+            <j-insentive-apy
+              :apy="item.deposit_apy"
+              :pool-data="item.raw"
+              farm-type="supply"
+              :market-name="marketName"
+            />
           </div>
         </div>
         <div class="info-wrapper with-pill">
@@ -76,6 +77,12 @@ function dialogHandler(item: MarketTableItem, action: string) {
             >
               {{ item.borrow_apy }}
             </j-pill-label>
+                  <j-insentive-apy
+              :apy="item.borrow_apy"
+              :pool-data="item.raw"
+              farm-type="borrow"
+              :market-name="marketName"
+            />
           </div>
         </div>
         <div

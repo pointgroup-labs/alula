@@ -216,6 +216,7 @@ declare global {
   const useEventSource: typeof import('@vueuse/core').useEventSource
   const useExplorerLink: typeof import('../composables/explorer-link').useExplorerLink
   const useEyeDropper: typeof import('@vueuse/core').useEyeDropper
+  const useFarms: typeof import('../composables/farms/use-farms').useFarms
   const useFarmsS: typeof import('../store/farms').useFarmsS
   const useFarmsStore: typeof import('../store/farms').useFarmsStore
   const useFavicon: typeof import('@vueuse/core').useFavicon
@@ -617,6 +618,7 @@ declare module 'vue' {
     readonly useEventSource: UnwrapRef<typeof import('@vueuse/core')['useEventSource']>
     readonly useExplorerLink: UnwrapRef<typeof import('../composables/explorer-link')['useExplorerLink']>
     readonly useEyeDropper: UnwrapRef<typeof import('@vueuse/core')['useEyeDropper']>
+    readonly useFarms: UnwrapRef<typeof import('../composables/farms/use-farms')['useFarms']>
     readonly useFarmsStore: UnwrapRef<typeof import('../store/farms')['useFarmsStore']>
     readonly useFavicon: UnwrapRef<typeof import('@vueuse/core')['useFavicon']>
     readonly useFetch: UnwrapRef<typeof import('@vueuse/core')['useFetch']>

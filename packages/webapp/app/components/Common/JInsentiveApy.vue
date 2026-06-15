@@ -1,127 +1,39 @@
 <script lang="ts" setup>
-import type { FarmState } from '@alula/farms-sdk'
 import type { PoolData } from '@alula/market-sdk'
+import { toRef } from 'vue'
 
-const {
-  apy,
-  variant = 'cyan',
-  size = 'sm',
-  farms,
-  poolData,
-  farmType,
-} = defineProps<{
-  apy: string
+const props = withDefaults(defineProps<{
+  apy: string | number
   variant?: 'cyan' | 'indigo' | 'success' | 'danger'
   size?: 'lg' | 'md' | 'sm'
-  farms?: FarmState[]
   farmType: 'supply' | 'borrow'
   poolData: PoolData
-}>()
-
-const SECONDS_PER_YEAR = 31_556_926
-const SECONDS_PER_WEEK = 604_800
-
-/* TODO: remove after test and use real price */
-const TEST_AQUA_PRICE = 0.000_377_8
-
-const marketsStore = useMarketsStore()
-const { getTokenByAddress } = useTokensStore()
-
-const isSupplyFarms = computed(() => farmType === 'supply')
-
-const poolFarmId = computed(() => isSupplyFarms.value ? poolData.pool?.farm_supply : poolData.pool?.farm_debt)
-const poolFarm = computed(() => {
-  if (!poolFarmId.value || !farms) {
-    return null
-  }
-  const farmIdHex = Buffer.isBuffer(poolFarmId.value) ? poolFarmId.value.toString('hex') : Buffer.from(poolFarmId.value).toString('hex')
-  return farms.find(f => Buffer.from(f.farm.id).toString('hex') === farmIdHex) || null
+  marketName: string
+}>(), {
+  variant: 'cyan',
+  size: 'sm',
 })
 
-const actualRewards = computed(() => {
-  const activeRewards = poolFarm.value?.rewards?.filter((r) => {
-    const nowUnix = Date.now() / 1000
-    const points = r.reward_schedule_curve.points
-    const start = Number(points.at(0)?.ts_start) || 0
-    const end = Number(points.at(-1)?.ts_start) || 0
-    return nowUnix > start && nowUnix < end
-  })
-  return activeRewards ?? []
-})
+const isSupplyFarms = computed(() => props.farmType === 'supply')
 
-const preparedRewards = computed(() => {
-  const rewards = actualRewards.value.map((r) => {
-    /* reward asset data */
-    const asset = getTokenByAddress(r.reward_token)
-
-    /* reward data */
-    const rewardAssetDecimals = asset?.decimals ?? 7
-    const rewardPerTimeUnit = Number(r.reward_schedule_curve.points.at(0)?.reward_per_time_unit) || 0
-    const rewardPerSec = Number(rewardPerTimeUnit) / 10 ** rewardAssetDecimals
-    const rewardPerYear = rewardPerSec * SECONDS_PER_YEAR
-    const rewardAssetPrice = getAssetPrice(r.reward_token)
-    const rewardPerYearUSD = rewardPerYear * rewardAssetPrice
-
-    /* reward per week data */
-    const rewardPerWeek = rewardPerSec * SECONDS_PER_WEEK
-    const rewardPerWeekUSD = rewardPerWeek * rewardAssetPrice
-
-    /* pool data */
-    const poolAssetAmount = isSupplyFarms.value
-      ? Number(bigintToNumber(poolData.total_supply, poolData.pool.token_decimals)) || 0
-      : Number(bigintToNumber(poolData.pool.total_borrowed, poolData.pool.token_decimals)) || 0
-
-    const poolAssetPrice = getAssetPrice(poolData.pool.pool_address)
-    const poolAssetAmountUSD = poolAssetAmount * poolAssetPrice
-
-    /* reward APY data */
-    const rewardAPY = poolAssetAmountUSD > 0 ? (rewardPerYearUSD / poolAssetAmountUSD) * 100 : 0
-    return {
-      asset,
-      rewardToken: r.reward_token,
-      rewardAPY,
-      rewardPerWeekUSD,
-    }
-  })
-  return rewards
-})
-
-const apyData = computed(() => {
-  const lendApyBps = isSupplyFarms.value ? poolData.apy.supply_bps : poolData.apy.borrow_bps
-  const lendAPY = lendApyBps / 100
-  const totalRewardsAPY = preparedRewards.value.reduce((acc, el) => acc += el.rewardAPY, 0)
-  const combinedAPY = isSupplyFarms.value
-    ? lendAPY + totalRewardsAPY
-    : lendAPY - totalRewardsAPY
-  return {
-    lendAPY,
-    combinedAPY,
-  }
+const {
+  apyData,
+  poolFarm,
+  actualRewards,
+  preparedRewards,
+} = useFarms({
+  marketName: toRef(props, 'marketName'),
+  pool: toRef(props, 'poolData'),
+  farmType: toRef(props, 'farmType'),
 })
 
 const farmsClasses = computed(() => {
-  const classes = []
-  if (poolFarm.value) {
-    classes.push(`farms-badge--${farmType}`)
+  if (!poolFarm.value) {
+    return []
   }
-  return classes
-})
 
-function getAssetPrice(address: string) {
-  for (const marketName in marketsStore.state.markets) {
-    const market = marketsStore.state.markets[marketName]
-    const actualPool = market?.marketState?.pools_data?.find((p) => {
-      return p.pool.pool_address === address
-    })
-    if (actualPool) {
-      const oraclePriceDecimals = market?.marketState.oracle_price_decimals ?? 14
-      const oracleAssetPrice = actualPool.oracle_asset_price
-      return Number(bigintToNumber(oracleAssetPrice, oraclePriceDecimals)) || 0
-    }
-  }
-  /* TODO: remove after we have real price for not exist in market asset */
-  return TEST_AQUA_PRICE
-}
+  return [`farms-badge--${props.farmType}`]
+})
 </script>
 
 <template>

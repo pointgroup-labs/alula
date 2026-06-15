@@ -3,7 +3,7 @@ import type { FarmState } from '@alula/farms-sdk'
 export const useFarmsStore = defineStore('farms', () => {
   const state = reactive<FarmsStoreState>({
     loading: false,
-    farms: [],
+    farms: new Map(),
   })
 
   const clientStore = useClientStore()
@@ -11,13 +11,13 @@ export const useFarmsStore = defineStore('farms', () => {
   const markets = computed(() => marketsStore.state.markets)
 
   watch(markets, async (m) => {
-    if (Object.keys(m).length === 0 || state.farms.length > 0) {
+    if (Object.keys(m).length === 0 || state.farms.size > 0) {
       return
     }
     const values = Object.values(m)
 
     if (values.length > 0) {
-      const farmsMap = new Map<string, FarmState>()
+      const farmsMap = new Map<string, FarmState[]>()
       for (const market of values) {
         const marketName = market.marketName
         const farmsContractAddress = await market.client?.market?.getFarmsContractAddress()
@@ -26,25 +26,19 @@ export const useFarmsStore = defineStore('farms', () => {
         }
         const farmsClient = await clientStore.initFarmsClient(farmsContractAddress)
         const getMarketFarms = await farmsClient?.getMarketFarms()
-        farmsMap.set(marketName, getMarketFarms)
+        if (getMarketFarms) {
+          farmsMap.set(marketName, getMarketFarms)
+        }
       }
-      console.log('%c[Farms]', 'color: #1dc978', farmsMap)
-    //   const farmsData = await Promise.all(
-    //     values.map(async (v) => {
-    //       return {
-    //         marketName: v.marketName,
-    //         marketAddress: v.address,
-    //         farms: await v.client?.farms?.getMarketFarms(),
-    //       }
-    //     }),
-    //   )
-    //   state.farms = farmsData.filter(Boolean)
-      // console.log('%c[Farms]', 'color: #1dc978', state.farms)
+      state.farms = farmsMap
+      console.log('%c[Farms]', 'color: #2ced53', state.farms)
     }
+  }, {
+    immediate: true,
   })
 
-  function getMarketFarms(address: string) {
-    return state.farms.find(f => f?.marketAddress === address || f.marketName === address)?.farms
+  function getMarketFarms(marketName: string) {
+    return state.farms.get(marketName)
   }
 
   return {
@@ -56,9 +50,5 @@ export const useFarmsStore = defineStore('farms', () => {
 
 export type FarmsStoreState = {
   loading: boolean
-  farms: {
-    marketName: string
-    marketAddress: string
-    farms?: FarmState[]
-  }[]
+  farms: Map<string, FarmState[]>
 }

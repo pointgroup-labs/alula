@@ -239,13 +239,12 @@ watch([
           <template #cell(deposit_apy)="data">
             <div
               class="table-cell justify-content-center flex"
-              style="opacity: .8;"
             >
               <j-insentive-apy
                 :apy="data.item.deposit_apy"
-                :farms="market.farms"
                 :pool-data="data.item.raw"
                 farm-type="supply"
+                :market-name="market.marketName"
               />
             </div>
           </template>
@@ -253,12 +252,11 @@ watch([
           <template #cell(borrow_apy)="data">
             <div
               class="table-cell justify-content-center"
-              style="opacity: .8;"
             >
               <j-insentive-apy
                 :apy="data.item.borrow_apy"
-                :farms="market.farms"
                 :pool-data="data.item.raw"
+                :market-name="market.marketName"
                 farm-type="borrow"
                 variant="indigo"
               />
@@ -341,6 +339,7 @@ watch([
         <markets-list-mobile
           v-else
           :items="market.tableItems"
+          :market-name="market.marketName"
           @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
           @on-row-clicked="onRowClicked"
         />
