@@ -3,32 +3,40 @@ import type { PoolData } from '@alula/market-sdk'
 import { toRef } from 'vue'
 
 const props = withDefaults(defineProps<{
-  apy: string | number
+  apy?: string | number
   variant?: 'cyan' | 'indigo' | 'success' | 'danger'
   size?: 'lg' | 'md' | 'sm'
   farmType: 'supply' | 'borrow'
-  poolData: PoolData
-  marketName: string
+  poolData?: PoolData
+  marketName?: string
 }>(), {
   variant: 'cyan',
   size: 'sm',
 })
 
-const isSupplyFarms = computed(() => props.farmType === 'supply')
+const slots = useSlots()
 
 const {
-  apyData,
-  poolFarm,
-  actualRewards,
-  preparedRewards,
+  supplyApyData,
+  borrowApyData,
+  supplyActualRewards,
+  borrowActualRewards,
+
+  supplyPreparedRewards,
+  borrowPreparedRewards,
 } = useFarms({
   marketName: toRef(props, 'marketName'),
   pool: toRef(props, 'poolData'),
-  farmType: toRef(props, 'farmType'),
 })
 
+const isSupplyFarms = computed(() => props.farmType === 'supply')
+
+const actualRewards = computed(() => isSupplyFarms.value ? supplyActualRewards.value : borrowActualRewards.value)
+const preparedRewards = computed(() => isSupplyFarms.value ? supplyPreparedRewards.value : borrowPreparedRewards.value)
+const apyData = computed(() => isSupplyFarms.value ? supplyApyData.value : borrowApyData.value)
+
 const farmsClasses = computed(() => {
-  if (!poolFarm.value) {
+  if (actualRewards.value.length === 0) {
     return []
   }
 
@@ -41,19 +49,21 @@ const farmsClasses = computed(() => {
     :variant="variant"
     :size="size"
     :class="farmsClasses"
+    class="farms-badge"
   >
     <template v-if="actualRewards.length > 0">
       <j-tooltip content-class="farms-info-tip">
-        {{ truncatePercent(apyData.combinedAPY, 2) }}% <i-app-lighting-icon />
+        {{ truncatePercent(Math.max(apyData.combinedAPY, 0), 2) }}% <i-app-lighting-icon />
 
         <template #content>
+          <div class="reward-title">
+            This position earns additional market incentives
+          </div>
+
           <template
             v-for="reward in preparedRewards"
             :key="reward.rewardToken"
           >
-            <div class="reward-title">
-              This position earns additional market incentives
-            </div>
 
             <div class="reward-info">
               <div class="asset-data">
@@ -108,6 +118,9 @@ const farmsClasses = computed(() => {
         </template>
       </j-tooltip>
     </template>
+    <template v-else-if="slots.default">
+      <slot />
+    </template>
     <template v-else>
       {{ apy }}
     </template>
@@ -115,7 +128,7 @@ const farmsClasses = computed(() => {
 </template>
 
 <style lang="scss">
-.j-pill-label {
+.farms-badge {
   &:has([class*='tooltip']) {
     padding: 0;
   }
@@ -124,14 +137,12 @@ const farmsClasses = computed(() => {
     padding: 2px 10px;
   }
 
-  &.farms-badge {
-    &--supply {
-      outline: 1px dashed #22d3ee;
-    }
+  &--supply {
+    outline: 1px dashed #22d3ee;
+  }
 
-    &--borrow {
-      outline: 1px dashed #8a8df4;
-    }
+  &--borrow {
+    outline: 1px dashed #8a8df4;
   }
 }
 
@@ -148,6 +159,7 @@ const farmsClasses = computed(() => {
     align-items: center;
     justify-content: space-between;
     padding-bottom: $spacing-lg;
+    margin-top: $spacing-xl;
     border-bottom: 1px solid $border-secondary;
   }
 

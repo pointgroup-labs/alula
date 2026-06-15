@@ -1,7 +1,7 @@
 import type { PoolData } from '@alula/market-sdk'
 import type { MaybeRefOrGetter } from 'vue'
 import { Buffer } from 'node:buffer'
-import { computed, toValue } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toValue } from 'vue'
 
 const SECONDS_PER_YEAR = 31_556_926
 const SECONDS_PER_WEEK = 604_800
@@ -9,43 +9,89 @@ const SECONDS_PER_WEEK = 604_800
 /* TODO: remove after test and use real price */
 const TEST_AQUA_PRICE = 0.000_377_8
 
-type FarmType = 'supply' | 'borrow'
-
 type UseFarmsParams = {
-  marketName: MaybeRefOrGetter<string>
-  pool: MaybeRefOrGetter<PoolData>
-  farmType: MaybeRefOrGetter<FarmType>
+  marketName: MaybeRefOrGetter<string | undefined | null>
+  pool: MaybeRefOrGetter<PoolData | undefined | null>
 }
 
 export function useFarms({
   marketName,
   pool,
-  farmType,
 }: UseFarmsParams) {
-  const marketsStore = useMarketsStore()
-
+  const priceStore = usePriceStore()
   const { getTokenByAddress } = useTokensStore()
   const { getMarketFarms } = useFarmsStore()
 
   const nowUnix = ref(Date.now() / 1000)
 
-  const isSupplyFarm = computed(() => toValue(farmType) === 'supply')
-
   const poolData = computed(() => toValue(pool))
 
   const marketFarms = computed(() => {
-    return getMarketFarms(toValue(marketName))
+    const name = toValue(marketName)
+
+    if (!name) {
+      return null
+    }
+
+    return getMarketFarms(name)
   })
 
-  const poolFarmId = computed(() => {
-    return isSupplyFarm.value
-      ? poolData.value.pool?.farm_supply
-      : poolData.value.pool?.farm_debt
+  const supplyFarmId = computed(() => {
+    return poolData.value?.pool?.farm_supply
   })
 
-  const poolFarm = computed(() => {
-    const farmId = poolFarmId.value
+  const borrowFarmId = computed(() => {
+    return poolData.value?.pool?.farm_debt
+  })
 
+  const supplyFarm = computed(() => {
+    return findFarmById(supplyFarmId.value)
+  })
+
+  const borrowFarm = computed(() => {
+    return findFarmById(borrowFarmId.value)
+  })
+
+  function getActualRewards(farm: typeof supplyFarm.value) {
+    return farm?.rewards?.filter((reward) => {
+      const points = reward.reward_schedule_curve.points
+
+      const start = Number(points.at(0)?.ts_start) || 0
+      const end = Number(points.at(-1)?.ts_start) || 0
+
+      return nowUnix.value > start && nowUnix.value < end
+    }) ?? []
+  }
+
+  const supplyActualRewards = computed(() => {
+    return getActualRewards(supplyFarm.value)
+  })
+
+  const borrowActualRewards = computed(() => {
+    return getActualRewards(borrowFarm.value)
+  })
+
+  const supplyPreparedRewards = computed(() => {
+    return prepareRewards(supplyActualRewards.value, 'supply')
+  })
+
+  const borrowPreparedRewards = computed(() => {
+    return prepareRewards(borrowActualRewards.value, 'borrow')
+  })
+
+  const supplyApyData = computed(() => {
+    return getApyData(supplyPreparedRewards.value, 'supply')
+  })
+
+  const borrowApyData = computed(() => {
+    return getApyData(borrowPreparedRewards.value, 'borrow')
+  })
+
+  const isHaveFarms = computed(() => {
+    return supplyActualRewards.value.length > 0 || borrowActualRewards.value.length > 0
+  })
+
+  function findFarmById(farmId: any) {
     if (!farmId || !marketFarms.value) {
       return null
     }
@@ -57,23 +103,54 @@ export function useFarms({
     return marketFarms.value.find((farm) => {
       return Buffer.from(farm.farm.id).toString('hex') === farmIdHex
     }) ?? null
-  })
+  }
 
-  const actualRewards = computed(() => {
-    return poolFarm.value?.rewards?.filter((reward) => {
-      const points = reward.reward_schedule_curve.points
-
-      const start = Number(points.at(0)?.ts_start) || 0
-      const end = Number(points.at(-1)?.ts_start) || 0
-
-      return nowUnix.value > start && nowUnix.value < end
-    }) ?? []
-  })
-
-  const preparedRewards = computed(() => {
+  function getApyData(
+    preparedRewards: typeof supplyPreparedRewards.value,
+    type: 'supply' | 'borrow',
+  ) {
     const currentPool = poolData.value
 
-    return actualRewards.value.map((reward) => {
+    if (!currentPool) {
+      return {
+        lendAPY: 0,
+        rewardsAPY: 0,
+        combinedAPY: 0,
+      }
+    }
+
+    const lendApyBps = type === 'supply'
+      ? currentPool.apy.supply_bps
+      : currentPool.apy.borrow_bps
+
+    const lendAPY = lendApyBps / 100
+
+    const rewardsAPY = preparedRewards.reduce((acc, reward) => {
+      return acc + reward.rewardAPY
+    }, 0)
+
+    const combinedAPY = type === 'supply'
+      ? lendAPY + rewardsAPY
+      : lendAPY - rewardsAPY
+
+    return {
+      lendAPY,
+      rewardsAPY,
+      combinedAPY,
+    }
+  }
+
+  function prepareRewards(
+    rewards: typeof supplyActualRewards.value,
+    type: 'supply' | 'borrow',
+  ) {
+    const currentPool = poolData.value
+
+    if (!currentPool) {
+      return []
+    }
+
+    return rewards.map((reward) => {
       const asset = getTokenByAddress(reward.reward_token)
 
       const rewardAssetDecimals = asset?.decimals ?? 7
@@ -85,17 +162,17 @@ export function useFarms({
       const rewardPerSec = rewardPerTimeUnit / 10 ** rewardAssetDecimals
       const rewardPerYear = rewardPerSec * SECONDS_PER_YEAR
 
-      const rewardAssetPrice = getAssetPrice(reward.reward_token)
+      const rewardAssetPrice = getAssetPrice(asset?.symbol === 'XLM' ? 'native' : asset?.symbol ?? '')
       const rewardPerYearUSD = rewardPerYear * rewardAssetPrice
 
       const rewardPerWeek = rewardPerSec * SECONDS_PER_WEEK
       const rewardPerWeekUSD = rewardPerWeek * rewardAssetPrice
 
-      const poolAssetAmount = isSupplyFarm.value
+      const poolAssetAmount = type === 'supply'
         ? Number(bigintToNumber(currentPool.total_supply, currentPool.pool.token_decimals)) || 0
         : Number(bigintToNumber(currentPool.pool.total_borrowed, currentPool.pool.token_decimals)) || 0
 
-      const poolAssetPrice = getAssetPrice(currentPool.pool.pool_address)
+      const poolAssetPrice = getAssetPrice(currentPool.pool.token_symbol)
       const poolAssetAmountUSD = poolAssetAmount * poolAssetPrice
 
       const rewardAPY = poolAssetAmountUSD > 0
@@ -106,56 +183,17 @@ export function useFarms({
         asset,
         rewardToken: reward.reward_token,
         rewardAPY,
+        rewardPerWeek,
         rewardPerWeekUSD,
       }
     })
-  })
-
-  const apyData = computed(() => {
-    const currentPool = poolData.value
-    const lendApyBps = isSupplyFarm.value
-      ? currentPool.apy.supply_bps
-      : currentPool.apy.borrow_bps
-
-    const lendAPY = lendApyBps / 100
-
-    const totalRewardsAPY = preparedRewards.value.reduce((acc, reward) => {
-      return acc + reward.rewardAPY
-    }, 0)
-
-    const combinedAPY = isSupplyFarm.value
-      ? lendAPY + totalRewardsAPY
-      : lendAPY - totalRewardsAPY
-
-    return {
-      lendAPY,
-      combinedAPY,
-    }
-  })
-
-  const assetPriceByAddress = computed(() => {
-    const map = new Map<string, number>()
-
-    for (const marketName in marketsStore.state.markets) {
-      const market = marketsStore.state.markets[marketName]
-      const oraclePriceDecimals = market?.marketState.oracle_price_decimals ?? 14
-
-      for (const pool of market?.marketState?.pools_data ?? []) {
-        map.set(
-          pool.pool.pool_address,
-          Number(bigintToNumber(pool.oracle_asset_price, oraclePriceDecimals)) || 0,
-        )
-      }
-    }
-
-    return map
-  })
-
-  function getAssetPrice(address: string) {
-    return assetPriceByAddress.value.get(address) ?? TEST_AQUA_PRICE
   }
 
-  let interval: any
+  function getAssetPrice(symbol: string) {
+    return priceStore.assetsPrices[symbol] ?? TEST_AQUA_PRICE
+  }
+
+  let interval: ReturnType<typeof setInterval>
 
   onMounted(() => {
     interval = setInterval(() => {
@@ -168,13 +206,24 @@ export function useFarms({
   })
 
   return {
-    poolFarmId,
-    marketFarms,
-    poolFarm,
-    actualRewards,
-    preparedRewards,
+    isHaveFarms,
 
-    apyData,
+    marketFarms,
+
+    supplyFarmId,
+    borrowFarmId,
+
+    supplyFarm,
+    borrowFarm,
+
+    supplyActualRewards,
+    borrowActualRewards,
+
+    supplyPreparedRewards,
+    borrowPreparedRewards,
+
+    supplyApyData,
+    borrowApyData,
 
     getAssetPrice,
   }

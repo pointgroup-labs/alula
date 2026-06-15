@@ -168,7 +168,7 @@ watch([
 
           <template #cell(supplyApy)="data">
             <div class="table-cell justify-content-center">
-              <j-insentive-apy
+              <j-incentive-apy
                 :market-name="vault.market"
                 :pool-data="data.item.depositPoolData"
                 farm-type="supply"
@@ -179,7 +179,7 @@ watch([
 
           <template #cell(borrowApy)="data">
             <div class="table-cell justify-content-center">
-              <j-insentive-apy
+              <j-incentive-apy
                 :market-name="vault.market"
                 :pool-data="data.item.borrowPoolData"
                 farm-type="borrow"

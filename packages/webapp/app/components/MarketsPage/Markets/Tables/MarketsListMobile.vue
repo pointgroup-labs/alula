@@ -58,7 +58,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
             Supply APY
           </div>
           <div class="info-wrapper__value">
-            <j-insentive-apy
+            <j-incentive-apy
               :apy="item.deposit_apy"
               :pool-data="item.raw"
               farm-type="supply"
@@ -71,17 +71,12 @@ function dialogHandler(item: MarketTableItem, action: string) {
             Borrow APY
           </div>
           <div class="info-wrapper__value">
-            <j-pill-label
-              variant="indigo"
-              size="sm"
-            >
-              {{ item.borrow_apy }}
-            </j-pill-label>
-                  <j-insentive-apy
+            <j-incentive-apy
               :apy="item.borrow_apy"
               :pool-data="item.raw"
               farm-type="borrow"
               :market-name="marketName"
+              variant="indigo"
             />
           </div>
         </div>

@@ -240,7 +240,7 @@ watch([
             <div
               class="table-cell justify-content-center flex"
             >
-              <j-insentive-apy
+              <j-incentive-apy
                 :apy="data.item.deposit_apy"
                 :pool-data="data.item.raw"
                 farm-type="supply"
@@ -253,7 +253,7 @@ watch([
             <div
               class="table-cell justify-content-center"
             >
-              <j-insentive-apy
+              <j-incentive-apy
                 :apy="data.item.borrow_apy"
                 :pool-data="data.item.raw"
                 :market-name="market.marketName"
