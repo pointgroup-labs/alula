@@ -6,9 +6,6 @@ import { computed, onMounted, onUnmounted, ref, toValue } from 'vue'
 const SECONDS_PER_YEAR = 31_556_926
 const SECONDS_PER_WEEK = 604_800
 
-/* TODO: remove after test and use real price */
-const TEST_AQUA_PRICE = 0.000_377_8
-
 type UseFarmsParams = {
   marketName: MaybeRefOrGetter<string | undefined | null>
   pool: MaybeRefOrGetter<PoolData | undefined | null>
@@ -18,7 +15,7 @@ export function useFarms({
   marketName,
   pool,
 }: UseFarmsParams) {
-  const priceStore = usePriceStore()
+  const { getAssetPrice } = usePriceStore()
   const { getTokenByAddress } = useTokensStore()
   const { getMarketFarms } = useFarmsStore()
 
@@ -162,7 +159,7 @@ export function useFarms({
       const rewardPerSec = rewardPerTimeUnit / 10 ** rewardAssetDecimals
       const rewardPerYear = rewardPerSec * SECONDS_PER_YEAR
 
-      const rewardAssetPrice = getAssetPrice(asset?.symbol === 'XLM' ? 'native' : asset?.symbol ?? '')
+      const rewardAssetPrice = getAssetPrice(asset?.symbol)
       const rewardPerYearUSD = rewardPerYear * rewardAssetPrice
 
       const rewardPerWeek = rewardPerSec * SECONDS_PER_WEEK
@@ -187,10 +184,6 @@ export function useFarms({
         rewardPerWeekUSD,
       }
     })
-  }
-
-  function getAssetPrice(symbol: string) {
-    return priceStore.assetsPrices[symbol] ?? TEST_AQUA_PRICE
   }
 
   let interval: ReturnType<typeof setInterval>

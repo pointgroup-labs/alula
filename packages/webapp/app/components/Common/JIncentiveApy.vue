@@ -76,7 +76,7 @@ const farmsClasses = computed(() => {
                     {{ reward.asset?.symbol ?? '-' }} <span>Reward</span>
                   </div>
                   <div class="asset-amount">
-                    ${{ formatPrice(reward.rewardPerWeekUSD, 2, 2) }} <span>Weekly</span>
+                    ${{ shortenNumber(reward.rewardPerWeekUSD, 2, 2) }} <span>Weekly</span>
                   </div>
                 </div>
               </div>
@@ -99,8 +99,24 @@ const farmsClasses = computed(() => {
               <div class="apy-info__item__title">
                 Total Combined APY
               </div>
-              <div class="apy-info__item__value">
-                {{ truncatePercent(apyData.combinedAPY, 2) }}%
+              <div
+                class="apy-info__item__value"
+              >
+                {{ truncatePercent(Math.max(apyData.combinedAPY, 0), 2) }}%
+              </div>
+            </div>
+
+            <div
+              v-if="apyData.combinedAPY < 0 && !isSupplyFarms"
+              class="apy-info__item"
+            >
+              <div class="apy-info__item__title">
+                Extra Rewards APY
+              </div>
+              <div
+                class="apy-info__item__value"
+              >
+                +{{ truncatePercent(Math.abs(apyData.combinedAPY), 2) }}%
               </div>
             </div>
           </div>

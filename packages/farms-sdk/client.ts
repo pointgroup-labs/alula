@@ -1,6 +1,6 @@
-import type { RPCcluster } from './types'
+import type { FarmReward, RPCcluster } from './types'
 import { Buffer } from 'node:buffer'
-import { Client, FarmState } from '@alula/farms-sdk'
+import { Client, Delegatee, FarmState } from '@alula/farms-sdk'
 import { BaseClient } from './core/base-client'
 
 export interface FarmsClientConfig {
@@ -21,6 +21,7 @@ export class FarmsClient extends BaseClient {
   public readonly farmsContractAddress: string
   public readonly horizonRpcUrl?: string
   public readonly sorobanRpcUrl?: string
+  public farmIds: Buffer<ArrayBufferLike>[] = []
 
   private constructor(config: FarmsClientConfig) {
     const { opts, publicKey, farmsContractAddress } = config
@@ -61,10 +62,13 @@ export class FarmsClient extends BaseClient {
     })
   }
 
-  async getAllFarms(): Promise<Buffer[]> {
-    const response = await this.farmsSdkClient.get_all_farms()
+  async getFarmIds(): Promise<Buffer[]> {
+    if (this.farmIds.length === 0) {
+      const response = await this.farmsSdkClient.get_all_farms()
+      this.farmIds = response.result ?? []
+    }
 
-    return response.result ?? []
+    return this.farmIds
   }
 
   async getFarm(farmId: Buffer): Promise<FarmState> {
@@ -76,10 +80,29 @@ export class FarmsClient extends BaseClient {
   }
 
   async getMarketFarms(): Promise<FarmState[]> {
-    const farmIds = await this.getAllFarms()
+    const farmIds = await this.getFarmIds()
 
     return Promise.all(
       farmIds.map(farmId => this.getFarm(farmId)),
     )
+  }
+
+  async getUserRewards(publicKey: string): Promise<Array<FarmReward>> {
+    const farmIds = await this.getFarmIds()
+    const delegatee: Delegatee = {
+      owner: publicKey,
+      seed: undefined,
+    }
+    const farms = await Promise.all(
+      farmIds.map(async (farm_id) => {
+        const response = await this.farmsSdkClient.get_pending_rewards({ farm_id, delegatee })
+        return {
+          farm_id: farm_id.toString('hex'),
+          reward: this.unwrapOk(response.result),
+        }
+      }),
+    )
+
+    return farms.filter((farm): farm is FarmReward => Array.isArray(farm.reward))
   }
 }

@@ -222,7 +222,7 @@ watch([
               <j-btn
                 v-if="isUserHaveMultiply(data.item)"
                 size="sm"
-                variant="outline-positive"
+                variant="outlined-positive"
                 :disabled="marketActions.isDisabled(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 :loading="marketActions.isLoading(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 @click.stop="onRowClicked(data.item)"
@@ -232,7 +232,7 @@ watch([
               <j-btn
                 v-else
                 size="sm"
-                variant="outline-positive"
+                variant="outlined-positive"
                 :disabled="marketActions.isDisabled(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 :loading="marketActions.isLoading(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 @click.stop="openDialog(data.item)"

@@ -127,6 +127,7 @@ declare global {
   const templateRef: typeof import('@vueuse/core').templateRef
   const throttledRef: typeof import('@vueuse/core').throttledRef
   const throttledWatch: typeof import('@vueuse/core').throttledWatch
+  const toFarmId: typeof import('../store/farms').toFarmId
   const toRaw: typeof import('vue').toRaw
   const toReactive: typeof import('@vueuse/core').toReactive
   const toRef: typeof import('vue').toRef
@@ -353,6 +354,8 @@ declare global {
   const useTokensStore: typeof import('../store/tokens').useTokensStore
   const useTransition: typeof import('@vueuse/core').useTransition
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams
+  const useUser: typeof import('../composables/farms/use-user-farms').useUser
+  const useUserFarms: typeof import('../composables/farms/use-user-farms').useUserFarms
   const useUserMedia: typeof import('@vueuse/core').useUserMedia
   const useUserStore: typeof import('../store/user').useUserStore
   const useVModel: typeof import('@vueuse/core').useVModel
@@ -399,7 +402,7 @@ declare global {
   export type { SwapTokenOption } from '../composables/swap/use-swap'
   import('../composables/swap/use-swap')
   // @ts-ignore
-  export type { FarmsStoreState } from '../store/farms'
+  export type { FarmsStoreState, StrategyType } from '../store/farms'
   import('../store/farms')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
@@ -537,6 +540,7 @@ declare module 'vue' {
     readonly templateRef: UnwrapRef<typeof import('@vueuse/core')['templateRef']>
     readonly throttledRef: UnwrapRef<typeof import('@vueuse/core')['throttledRef']>
     readonly throttledWatch: UnwrapRef<typeof import('@vueuse/core')['throttledWatch']>
+    readonly toFarmId: UnwrapRef<typeof import('../store/farms')['toFarmId']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toReactive: UnwrapRef<typeof import('@vueuse/core')['toReactive']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
