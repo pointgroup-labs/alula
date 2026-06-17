@@ -1,6 +1,7 @@
 import type { FarmReward, RPCcluster } from './types'
 import { Buffer } from 'node:buffer'
 import { Client, Delegatee, FarmState } from '@alula/farms-sdk'
+import { TransactionHelper } from './core'
 import { BaseClient } from './core/base-client'
 
 export interface FarmsClientConfig {
@@ -16,6 +17,7 @@ export type FarmsClientOptions = {
 }
 
 export class FarmsClient extends BaseClient {
+  private txHelper: TransactionHelper
   protected readonly farmsSdkClient: Client
 
   public readonly farmsContractAddress: string
@@ -44,10 +46,26 @@ export class FarmsClient extends BaseClient {
       contractId: farmsContractAddress,
       networkPassphrase: this.networkPassphrase,
     })
+
+    this.txHelper = new TransactionHelper(opts.rpc, this.sorobanServer)
   }
 
   static async create(config: FarmsClientConfig): Promise<FarmsClient> {
     return new FarmsClient(config)
+  }
+
+  /**
+   * Build claim transaction
+   */
+  async buildClaimTx(publicKey: string, farmId: string, rewardIndex: number) {
+    const delegatee = this.generateDelegatee(publicKey)
+    const farm_id = Buffer.from(farmId, 'hex')
+    const reward_index = rewardIndex
+    return await this.farmsSdkClient.harvest({
+      farm_id,
+      delegatee,
+      reward_index,
+    })
   }
 
   static async fromAddress(
@@ -89,10 +107,7 @@ export class FarmsClient extends BaseClient {
 
   async getUserRewards(publicKey: string): Promise<Array<FarmReward>> {
     const farmIds = await this.getFarmIds()
-    const delegatee: Delegatee = {
-      owner: publicKey,
-      seed: undefined,
-    }
+    const delegatee = this.generateDelegatee(publicKey)
     const farms = await Promise.all(
       farmIds.map(async (farm_id) => {
         const response = await this.farmsSdkClient.get_pending_rewards({ farm_id, delegatee })
@@ -104,5 +119,22 @@ export class FarmsClient extends BaseClient {
     )
 
     return farms.filter((farm): farm is FarmReward => Array.isArray(farm.reward))
+  }
+
+  async claimRewards(publicKey: string, farm_id: string, reward_index: number, kit: any, options = { debug: true }) {
+    const tx = await this.buildClaimTx(publicKey, farm_id, reward_index)
+
+    if (options?.debug) {
+      console.log('%c[Claim Tx]', 'color: #00ff00', tx)
+    }
+
+     return await this.txHelper.signAndSend(tx, publicKey, kit, options)
+  }
+
+  generateDelegatee(publicKey: string): Delegatee {
+    return {
+      owner: publicKey,
+      seed: undefined,
+    }
   }
 }

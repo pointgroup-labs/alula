@@ -179,6 +179,9 @@ declare global {
   const useBrowserLocation: typeof import('@vueuse/core').useBrowserLocation
   const useCached: typeof import('@vueuse/core').useCached
   const useChartFilter: typeof import('../composables/chart-filter').useChartFilter
+  const useClaim: typeof import('../composables/farms/use-claim-rewards').useClaim
+  const useClaimFarmRewards: typeof import('../composables/farms/use-claim-rewards').useClaimFarmRewards
+  const useClaimR: typeof import('../composables/farms/use-claim-rewards').useClaimR
   const useClientStore: typeof import('../store/client').useClientStore
   const useClipboard: typeof import('@vueuse/core').useClipboard
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems

@@ -1,21 +1,29 @@
 import type { FarmsClient, FarmState } from '@alula/farms-sdk'
 import type { FarmReward } from '@alula/farms-sdk/dist/types'
+import type { RewardsTableItem } from '~/types/table'
 
 export const useFarmsStore = defineStore('farms', () => {
   const state = reactive<FarmsStoreState>({
     loading: false,
     loadingRewards: false,
+    claiming: false,
+    claimFarmId: undefined,
     farms: new Map(),
     rewards: new Map(),
   })
 
-  const { publicKey } = useWalletComposable()
+  const { publicKey, balances } = useWalletComposable()
   const { getTokenByAddress } = useTokensStore()
   const { getAssetPrice } = usePriceStore()
   const clientStore = useClientStore()
   const marketsStore = useMarketsStore()
+  const connectionStore = useConnectionStore()
 
   const toast = useToast()
+
+  const { addTrustLine } = useMarketActions()
+
+  const kit = computed(() => connectionStore.kit)
 
   const markets = computed(() => marketsStore.state.markets)
 
@@ -55,7 +63,7 @@ export const useFarmsStore = defineStore('farms', () => {
         const farmId = farmReward.farm_id
         const strategyType = strategyByFarmId?.get(farmId)
 
-        for (const rewardItem of farmReward.reward) {
+        for (const [index, rewardItem] of farmReward.reward.entries()) {
           const [assetAddress, rawAmount] = rewardItem
 
           if (rawAmount <= 0) {
@@ -76,6 +84,8 @@ export const useFarmsStore = defineStore('farms', () => {
             amount,
             amountUsd,
             strategyType,
+            farmId,
+            rewardIndex: index,
           })
         }
       }
@@ -83,6 +93,81 @@ export const useFarmsStore = defineStore('farms', () => {
 
     return result
   })
+
+  async function claim(data: RewardsTableItem) {
+    const market = data.market
+    const farm_id = data.farmId
+    const reward_index = data.rewardIndex
+
+    let trustlineToast
+    let claimToast
+
+    try {
+      state.claiming = true
+      state.claimFarmId = farm_id
+      const client = state.farms.get(market)?.client
+
+      if (!publicKey.value) {
+        return
+      }
+
+      if (!client) {
+        throw new Error('No client. Please, try again or refresh the page')
+      }
+
+      const isTrustline = balances.value?.find((b: any) => b.asset_code.toLowerCase() === data.asset?.symbol?.toLowerCase())
+
+      if (!isTrustline) {
+        trustlineToast = await toast.create({
+          title: 'Add Trustline',
+          body: `You need to add trustline for ${data.asset?.symbol}`,
+          modelValue: 30_000,
+          variant: 'info',
+          noProgress: false,
+        })
+        await addTrustLine(data.asset!.symbol, data.asset!.assetIssuer)
+        toast.create({
+          title: 'Add Trustline Success',
+          body: `You added trustline for ${data.asset?.symbol}. Now you can claim rewards!`,
+          variant: 'success',
+        })
+        return
+      }
+
+      claimToast = await toast.create({
+        title: `Claiming ${data.asset?.symbol}`,
+        body: `Claiming ${formatPrice(data.pending.amount, 5, 5)} ${data.asset?.symbol}...`,
+        variant: 'info',
+        noProgress: false,
+      })
+
+      await client?.claimRewards(
+        publicKey.value,
+        farm_id,
+        reward_index,
+        kit.value,
+      )
+      await getRewards()
+      await toast.create({
+        title: `Claim Success`,
+        body: `You claimed ${formatPrice(data.pending.amount, 5, 5)} ${data.asset?.symbol}`,
+        variant: 'success',
+      })
+    } catch (error: any) {
+      console.error(error)
+      toast.create({
+        title: `Claim Error`,
+        body: toast.parseErrorMessage(error),
+        variant: 'danger',
+        modelValue: 5000,
+      })
+    } finally {
+      trustlineToast?.dismiss()
+      claimToast?.dismiss()
+      state.claiming = false
+      state.claimFarmId = undefined
+    }
+  }
 
   watch(markets, async (m) => {
     if (Object.keys(m).length === 0 || state.farms.size > 0) {
@@ -127,12 +212,12 @@ export const useFarmsStore = defineStore('farms', () => {
       )
 
       console.log('%c[Farms]', 'color: #2ced53', state.farms)
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
 
       toast.create({
         title: 'Farms Client Error',
-        body: String((error as any)?.message || error),
+        body: toast.parseErrorMessage(error),
         variant: 'danger',
         modelValue: 5000,
       })
@@ -143,8 +228,16 @@ export const useFarmsStore = defineStore('farms', () => {
     immediate: true,
   })
 
-  watchDebounced([publicKey, () => state.farms], async ([pubkey, farms]) => {
-    if (farms.size === 0 || !pubkey) {
+  watchDebounced([publicKey, () => state.farms], async () => {
+    await getRewards()
+  }, { debounce: 100 })
+
+  function getMarketFarms(marketName: string) {
+    return state.farms.get(marketName)?.data
+  }
+
+  async function getRewards() {
+    if (state.farms.size === 0 || !publicKey.value) {
       state.rewards = new Map()
       return
     }
@@ -152,8 +245,8 @@ export const useFarmsStore = defineStore('farms', () => {
     try {
       state.loadingRewards = true
       const entries = await Promise.all(
-        [...farms.entries()].map(async ([marketName, farm]) => {
-          const rewards = await farm.client?.getUserRewards(pubkey) ?? []
+        [...state.farms.entries()].map(async ([marketName, farm]) => {
+          const rewards = await farm.client?.getUserRewards(publicKey.value) ?? []
           return [marketName, rewards] as const
         }),
       )
@@ -161,21 +254,17 @@ export const useFarmsStore = defineStore('farms', () => {
       state.rewards = new Map(entries)
 
       console.log('%c[Farms Rewards]', 'color: #2ced53', state.rewards)
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
       toast.create({
         title: `Farms Rewards Error`,
-        body: String((error as any)?.message || error),
+        body: toast.parseErrorMessage(error),
         variant: 'danger',
         modelValue: 5000,
       })
     } finally {
       state.loadingRewards = false
     }
-  }, { debounce: 100 })
-
-  function getMarketFarms(marketName: string) {
-    return state.farms.get(marketName)?.data
   }
 
   return {
@@ -183,6 +272,8 @@ export const useFarmsStore = defineStore('farms', () => {
     preparedRewards,
     farmStrategyByMarket,
 
+    claim,
+    getRewards,
     getMarketFarms,
   }
 })
@@ -198,6 +289,8 @@ export function toFarmId(value?: Uint8Array | number[] | null) {
 export type FarmsStoreState = {
   loading: boolean
   loadingRewards: boolean
+  claiming: boolean
+  claimFarmId?: string
   farms: Map<string, {
     data: FarmState[]
     client?: FarmsClient
@@ -214,4 +307,6 @@ type PreparedReward = {
   amount: number
   amountUsd: number
   strategyType?: StrategyType
+  farmId: string
+  rewardIndex: number
 }

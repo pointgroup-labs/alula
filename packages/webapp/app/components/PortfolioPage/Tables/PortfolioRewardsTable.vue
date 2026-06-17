@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { RewardsTableItem } from '~/types/table'
+
 const { width } = useWindowSize()
 
 const farmsStore = useFarmsStore()
@@ -8,6 +10,8 @@ const totalRewardsUsd = computed(() => preparedRewards.value?.reduce((acc, rewar
 
 const isLoading = computed(() => farmsStore.state.loadingRewards && totalRewardsUsd.value === 0)
 
+const isClaiming = computed(() => farmsStore.state.claiming)
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'market', label: 'Market', align: 'left' },
@@ -15,16 +19,6 @@ const fields = [
   { key: 'pending', label: 'Pending', align: 'right' },
   { key: 'action', label: '', thClass: 'profile-action', tdClass: 'profile-action' },
 ]
-
-type RewardsTableItem = {
-  asset?: TokenItem
-  market: string
-  strategy: StrategyType
-  pending: {
-    amount: number
-    usd: number
-  }
-}
 
 const items: ComputedRef<RewardsTableItem[]> = computed(() => {
   return preparedRewards.value?.map((r) => {
@@ -36,12 +30,19 @@ const items: ComputedRef<RewardsTableItem[]> = computed(() => {
         amount: r.amount,
         usd: r.amountUsd,
       },
+      farmId: r.farmId,
+      rewardIndex: r.rewardIndex,
     }
   }) ?? []
 })
 
-function claim(item: RewardsTableItem) {
-  console.log('claim', item)
+async function claim(data: RewardsTableItem) {
+  await farmsStore.claim(data)
+}
+
+function isDisabled(farmId: string): boolean {
+  const claimId = farmsStore.state.claimFarmId
+  return !!(claimId && claimId !== farmId)
 }
 </script>
 
@@ -122,6 +123,8 @@ function claim(item: RewardsTableItem) {
               <j-btn
                 variant="outlined-positive"
                 size="sm"
+                :loading="isClaiming && !isDisabled(data.item.farmId)"
+                :disabled="isDisabled(data.item.farmId)"
                 @click="claim(data.item)"
               >
                 Claim
@@ -129,6 +132,12 @@ function claim(item: RewardsTableItem) {
             </div>
           </template>
         </BTable>
+
+        <portfolio-rewards-table-mobile
+          v-else
+          :items="items"
+          @dialog-handler="(e) => claim(e.item)"
+        />
       </template>
 
       <div

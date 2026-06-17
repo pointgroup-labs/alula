@@ -8,6 +8,7 @@ type TokenRegistryItem = {
   name: string
   symbol: string
   decimals: number
+  asset_issuer: string
   token_addresses: {
     testnet: string
     mainnet: string
@@ -20,6 +21,7 @@ export type TokenItem = {
   name: string
   symbol: string
   decimals: number
+  assetIssuer: string
   tokenAddresses: {
     testnet: string
     mainnet: string
@@ -46,6 +48,7 @@ function normalizeToken(token: TokenRegistryItem): TokenItem {
     symbol: token.symbol,
     decimals: token.decimals,
     tokenAddresses: token.token_addresses,
+    assetIssuer: token.asset_issuer,
     icon: `${DATA_URL}${token.icon}`,
   }
 }

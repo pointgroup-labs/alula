@@ -1,22 +1,64 @@
-// import { TransactionBuilder } from '@stellar/stellar-sdk'
-// import { parseStellarError } from '../utils/errors'
+import type { RPCcluster } from '../types'
+import { TransactionBuilder } from '@stellar/stellar-sdk'
+import { getNetworkPassphrase, sendSorobanTx } from '../utils'
 
 /**
  * Transaction builder and execution helper
  */
 export class TransactionHelper {
+  private rpc: RPCcluster
   private sorobanServer: any
 
-  constructor(/* rpc: any, sorobanServer: any */) {
-    // this.rpc = rpc
-    // this.sorobanServer = sorobanServer
+  constructor(rpc: RPCcluster, sorobanServer: any) {
+    this.rpc = rpc
+    this.sorobanServer = sorobanServer
   }
 
   /**
    * Sign and send a Soroban transaction
    */
-  async signAndSend(): Promise<any> {
-    return null
+  async signAndSend(tx: any, user: string, kit: any, options?: { debug?: boolean }) {
+    const networkPassphrase = getNetworkPassphrase(this.rpc)
+
+    if (options?.debug) {
+      console.log('%c[Transaction]', 'color: #00ff00', tx)
+    }
+
+    const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+      address: user,
+      networkPassphrase,
+    })
+
+    if (options?.debug) {
+      console.log('[Signed Tx XDR]', signedTxXdr)
+    }
+
+    const txObject = TransactionBuilder.fromXDR(signedTxXdr, networkPassphrase)
+    const sendResponse = await this.sorobanServer.sendTransaction(txObject)
+
+    if (options?.debug) {
+      console.log('[Tx Send Response]', sendResponse)
+    }
+
+    if (sendResponse.status === 'ERROR') {
+      throw new Error(tx.simulation?.error)
+    }
+
+    const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
+      sleepStrategy: (_iter: any) => 1000,
+      attempts: 30,
+    })
+
+    if (result.status === 'FAILED') {
+      const errorMessage = `Transaction failed! Tx Hash: ${result.txHash}`
+      throw new Error(errorMessage)
+    }
+
+    if (options?.debug) {
+      console.log('✅ Transaction submitted!', result)
+    }
+
+    return result
   }
 
   /**
@@ -31,8 +73,7 @@ export class TransactionHelper {
    * Legacy method for backward compatibility
    * @deprecated Use signAndSend instead
    */
-  async sendSorobanTx(/* tx: any, user: string, kit: any */): Promise<any> {
-    // return sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
-    return undefined
+  async sendSorobanTx(tx: any, user: string, kit: any) {
+    return sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
   }
 }
