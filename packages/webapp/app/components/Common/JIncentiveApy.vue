@@ -19,8 +19,6 @@ const slots = useSlots()
 const {
   supplyApyData,
   borrowApyData,
-  supplyActualRewards,
-  borrowActualRewards,
 
   supplyPreparedRewards,
   borrowPreparedRewards,
@@ -31,12 +29,12 @@ const {
 
 const isSupplyFarms = computed(() => props.farmType === 'supply')
 
-const actualRewards = computed(() => isSupplyFarms.value ? supplyActualRewards.value : borrowActualRewards.value)
 const preparedRewards = computed(() => isSupplyFarms.value ? supplyPreparedRewards.value : borrowPreparedRewards.value)
+const availableRewards = computed(() => preparedRewards.value.filter(r => Number(r.available) > 0))
 const apyData = computed(() => isSupplyFarms.value ? supplyApyData.value : borrowApyData.value)
 
 const farmsClasses = computed(() => {
-  if (actualRewards.value.length === 0) {
+  if (availableRewards.value.length === 0) {
     return []
   }
 
@@ -51,7 +49,7 @@ const farmsClasses = computed(() => {
     :class="farmsClasses"
     class="farms-badge"
   >
-    <template v-if="actualRewards.length > 0">
+    <template v-if="availableRewards.length > 0">
       <j-tooltip content-class="farms-info-tip">
         {{ truncatePercent(Math.max(apyData.combinedAPY, 0), 2) }}% <i-app-lighting-icon />
 
@@ -61,7 +59,7 @@ const farmsClasses = computed(() => {
           </div>
 
           <template
-            v-for="reward in preparedRewards"
+            v-for="reward in availableRewards"
             :key="reward.rewardToken"
           >
 

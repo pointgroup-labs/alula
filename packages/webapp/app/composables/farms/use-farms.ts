@@ -85,7 +85,8 @@ export function useFarms({
   })
 
   const isHaveFarms = computed(() => {
-    return supplyActualRewards.value.length > 0 || borrowActualRewards.value.length > 0
+    const farms = [...supplyActualRewards.value, ...borrowActualRewards.value].flat()
+    return farms.some(f => Number(f.rewards_available) > 0)
   })
 
   function findFarmById(farmId: any) {
@@ -182,6 +183,7 @@ export function useFarms({
         rewardAPY,
         rewardPerWeek,
         rewardPerWeekUSD,
+        available: reward.rewards_available,
       }
     })
   }
