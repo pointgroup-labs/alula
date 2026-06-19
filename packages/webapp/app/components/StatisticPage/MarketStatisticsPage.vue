@@ -27,25 +27,35 @@ const isLoading = computed(() => marketsStore.state.loading)
 const isReady = computed(() => {
   return !isLoading.value && marketTableStore.marketWithTableItems.length > 0
 })
+
+const backRoutePath = computed(() => {
+  const backPath = globalThis.history.state.back
+  let isStatistics = false
+  if (backPath.startsWith('/statistics/')) {
+    isStatistics = true
+  }
+  const path = isStatistics ? '/statistics' : globalThis.history.state.back ?? `/statistics`
+  return path
+})
 </script>
 
 <template>
-  <div class="market-statistic-page ">
+  <div class="statistics-page marker-pools-page">
+    <div class="statistics-page-title">
+      <back-btn
+        :to="backRoutePath"
+      />
 
-    <div class="statistic-title">
       <h1>Statistics</h1>
 
-      <div
-        v-if="marketName"
-        class="market-name-pill"
-      >
+      <market-pill v-if="marketName">
         {{ marketName }} Market
-      </div>
+      </market-pill>
     </div>
 
     <div
       v-if="(isLoading && !isHasState) || !isReady"
-      class="statistic-wrapper"
+      class="statistics-wrapper"
     >
       <market-statistics-card-skeleton
         v-for="v in 3"
@@ -55,7 +65,7 @@ const isReady = computed(() => {
     </div>
     <div
       v-else-if="isHasState"
-      class="statistic-wrapper"
+      class="statistics-wrapper"
     >
       <market-statistics-card
         v-for="pool in pools"
@@ -73,62 +83,5 @@ const isReady = computed(() => {
 </template>
 
 <style lang="scss">
-.market-statistic-page {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-
-  .statistic-title {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-
-    h1 {
-      font-size: 32px;
-      margin: 0;
-    }
-
-    .market-name-pill {
-      display: flex;
-      align-items: center;
-      flex-direction: column;
-      gap: 2px;
-      padding: 4px 12px;
-      font-size: $text-xs;
-      color: $text-tertiary;
-      letter-spacing: 0.05em;
-      font-weight: 500;
-      text-transform: capitalize;
-      background-color: color-mix(in oklab, $secondary 60%, transparent);
-      border-radius: $radius-full;
-
-      span {
-        color: $text-primary;
-      }
-    }
-  }
-  .statistic-wrapper {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: $spacing-lg;
-
-    @media (max-width: $breakpoint-sm) {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    @media (max-width: $breakpoint-xs) {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .no-data {
-    padding: 32px;
-    margin: 0 auto;
-    color: #c6ccd9;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 16px;
-  }
-}
+@import url(~/assets/styles/components/statistics-page.scss);
 </style>

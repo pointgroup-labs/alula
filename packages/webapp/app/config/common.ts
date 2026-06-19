@@ -23,6 +23,8 @@ export const EXPLORER_LINK = 'https://stellar.expert/'
 
 export const DOCS_BORROW_RISKS_LINK = 'https://docs.alula.finance/guides/borrow/borrow-related-risks'
 
+export const DOCS_RISK_MANAGMENT_LINK = `${DOCS_URL}/tech-docs/risk-management/oracle`
+
 // terms & privacy
 export const TERMS_OF_SERVICE_DOCS_LINK = 'https://docs.alula.finance/terms-of-service.md'
 export const TERMS_OF_SERVICE_LINK = `${ALULA_URL}/terms`

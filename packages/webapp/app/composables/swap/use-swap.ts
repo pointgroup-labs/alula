@@ -25,7 +25,7 @@ const DEFAULT_SLIPPAGE_PERCENT = 0.5
 // across the app. A flat 2-XLM cushion is conservative for typical accounts
 // (1 XLM base + headroom for trustlines + tx fees) and avoids a Horizon round
 // trip to compute the precise reserve.
-export const XLM_NATIVE_RESERVE = 2
+export const XLM_NATIVE_RESERVE = 3
 // Re-quote cadence while the page is open so prices don't get stale on the
 // user. 15s is a compromise between provider load and freshness; we also pause
 // while the tab is hidden via `useDocumentVisibility`.
@@ -132,6 +132,8 @@ export function useSwap() {
   // `<input-widget>` emits strings; keep the source of truth as a string and
   // expose a numeric view for the rest of the composable / page.
   const amount = ref<string>('')
+  const txFee = ref(0)
+  const isLoadingFee = ref(false)
   const amountNumber = computed(() => {
     const n = Number(amount.value)
     return Number.isFinite(n) && n > 0 ? n : 0
@@ -202,7 +204,7 @@ export function useSwap() {
   // `selectedRoute` can stay a pure getter, and so the pin clears exactly once
   // per quote rather than on every read.
   watch(routes, (next) => {
-    if (pinnedRouteKey.value && !next.some(r => r.key === pinnedRouteKey.value)) {
+    if (next.length > 0 && pinnedRouteKey.value && !next.some(r => r.key === pinnedRouteKey.value)) {
       pinnedRouteKey.value = undefined
     }
   })
@@ -226,6 +228,98 @@ export function useSwap() {
   watch([fromToken, toToken, amount], () => {
     void debouncedQuote()
   }, { deep: false })
+
+  // Transaction-fee simulation is driven from successful quote / manual route
+  // selection events, not from a watcher on `selectedRoute`. Quotes replace the
+  // whole routes array, which makes `selectedRoute` flap even when the logical
+  // route did not change; tying fee simulation to that reactivity caused the
+  // transaction to be rebuilt multiple times for one user action.
+  const simulatedFeeKey = ref<string | undefined>()
+  let feeSimulationRunId = 0
+
+  function resetFeeState() {
+    feeSimulationRunId += 1
+    simulatedFeeKey.value = undefined
+    txFee.value = 0
+    isLoadingFee.value = false
+  }
+
+  async function ensureFeeForRoute(route: SwapRoute | undefined) {
+    const client = swapClient.value
+    const key = publicKey.value
+
+    if (!route || !key || !client) {
+      resetFeeState()
+      return
+    }
+    const feeKey = `${route.key}::${key}`
+    const routeSnap = route
+    if (feeKey === simulatedFeeKey.value) {
+      return
+    }
+
+    const runId = ++feeSimulationRunId
+    simulatedFeeKey.value = feeKey
+    isLoadingFee.value = true
+
+    try {
+      const oblKey = buildObligationKey({ pablicKey: key })
+      const { tx } = await client.swap.buildSwapTx({
+        user: oblKey,
+        fromTokenAddress: routeSnap.path[0]!,
+        toTokenAddress: routeSnap.path.at(-1)!,
+        fromTokenDecimals: routeSnap.fromTokenDecimals,
+        toTokenDecimals: routeSnap.toTokenDecimals,
+        amountIn: 0.01,
+        slippagePercent: Number(slippage.value),
+        swapProviderAddress: routeSnap.providerAddress,
+        path: routeSnap.path,
+      })
+      if (runId !== feeSimulationRunId) {
+        return
+      }
+      txFee.value = client.swap.getTransactionFee(tx)
+    } catch {
+      if (runId !== feeSimulationRunId) {
+        return
+      }
+      simulatedFeeKey.value = undefined
+      txFee.value = 0
+    } finally {
+      if (runId === feeSimulationRunId) {
+        isLoadingFee.value = false
+      }
+    }
+  }
+
+  // Reset fee when the token pair changes (new simulation context needed).
+  watch([fromToken, toToken], () => {
+    resetFeeState()
+  })
+  // Reset when wallet disconnects.
+  watch(publicKey, (key) => {
+    if (!key) {
+      resetFeeState()
+    }
+  })
+
+
+  // When txFee arrives (or refreshes), auto-clamp the input if the current
+  // amount would leave the wallet short. This is the "clicked max before fee
+  // loaded" case: user sees 498 XLM in the box (balance 500 − reserve 2) but
+  // txFee = 2.5 means only 495.5 is actually spendable. We clamp silently so
+  // the next quote and the submit both use a safe value.
+  // Only applies when fromToken is native XLM — for other tokens the fee is
+  // denominated in XLM and doesn't come out of the swap amount.
+  watch(txFee, (newFee) => {
+    if (!fromToken.value?.isNative || amountNumber.value <= 0) {
+      return
+    }
+    const maxSpendable = fromBalance.value - XLM_NATIVE_RESERVE - newFee
+    if (maxSpendable > 0 && amountNumber.value > maxSpendable) {
+      amount.value = maxSpendable.toFixed(7)
+    }
+  })
 
   // Background staleness guard: AMM reserves drift, so a quote that's been
   // sitting on screen for a while can revert at submit time. We re-quote on a
@@ -265,6 +359,9 @@ export function useSwap() {
 
     const amountSnap = amountNumber.value
     if (!swapClient.value || !fromToken.value || !toToken.value || amountSnap <= 0) {
+      if (!silent) {
+        resetFeeState()
+      }
       devLog('%c[Swap routes skipped]', 'color: #888', {
         hasClient: !!swapClient.value,
         from: fromToken.value?.symbol,
@@ -276,6 +373,7 @@ export function useSwap() {
     }
     if (fromToken.value.tokenAddress === toToken.value.tokenAddress) {
       if (!silent) {
+        resetFeeState()
         routesRequest.error.value = 'Pick two different tokens'
       }
       return
@@ -310,6 +408,7 @@ export function useSwap() {
           // (or their next keystroke) will recover.
           if (result.length === 0) {
             if (!silent) {
+              resetFeeState()
               routesRequest.error.value = 'No routes found for this pair'
               routes.value = result
             }
@@ -319,8 +418,12 @@ export function useSwap() {
           // Keep pin in sync with multiply's stored provider so the rest of the
           // app sees a coherent "current provider", even though the route picker
           // owns the choice on this page.
-          if (selectedRoute.value) {
-            swapProviderAddress.value = selectedRoute.value.providerAddress
+          const route = selectedRoute.value
+          if (route) {
+            swapProviderAddress.value = route.providerAddress
+            void ensureFeeForRoute(route)
+          } else if (!silent) {
+            resetFeeState()
           }
         },
         (e) => {
@@ -342,6 +445,9 @@ export function useSwap() {
     pinnedRouteKey.value = key
     if (selectedRoute.value) {
       swapProviderAddress.value = selectedRoute.value.providerAddress
+      void ensureFeeForRoute(selectedRoute.value)
+    } else {
+      resetFeeState()
     }
   }
 
@@ -469,6 +575,8 @@ export function useSwap() {
     loading: computed(() => routesRequest.loading.value && !silentRefreshActive.value),
     error: routesRequest.error,
     submitting,
+    txFee,
+    isLoadingFee,
     isReady: computed(() => !!swapClient.value && tokens.value.length >= 2),
     flip,
     quote,

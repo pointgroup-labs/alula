@@ -207,7 +207,7 @@ onMounted(() => {
     align-items: center !important;
     gap: 6px;
     padding: 10px $spacing-3xl !important;
-    border-radius: $radius-8 !important;
+    border-radius: $radius-md !important;
     border: 1px solid rgba(34, 211, 238, 0.25) !important;
     color: #22d3ee !important;
     background: rgba(34, 211, 238, 0.06) !important;

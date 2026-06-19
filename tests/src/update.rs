@@ -138,11 +138,7 @@ fn test_queue_in_disable_borrowing_pool_set() {
         ),
         Err(Ok(MCError::OperationForbiddenOnPool))
     );
-    assert!(
-        contract_client
-            .try_deposit(&ObligationKey::new(creditor.clone()), &usdc_pool_address, &1, &None)
-            .is_ok()
-    );
+    contract_client.deposit(&ObligationKey::new(creditor.clone()), &usdc_pool_address, &10, &None);
 
     let new_pool_config =
         PoolConfig { status: PoolStatus::new_all_disabled(), ..Default::default() };

@@ -96,6 +96,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
 
       preparedTableData.push({
         marketName,
+        marketAddress: data?.address,
         assets,
         marketSize,
         tableItems,
@@ -180,6 +181,7 @@ export const useMarketTableStore = defineStore('market-table', () => {
 
 export type MarketWithTableItems = {
   marketName: string
+  marketAddress: string
   assets: TableAsset['asset'][]
   tableItems: MarketTableItem[]
   marketSize: {

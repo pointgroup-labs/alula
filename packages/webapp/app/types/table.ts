@@ -5,6 +5,7 @@ export type TableAsset = {
     name: string
     symbol: string
     icon: string
+    decimals?: number
   }
 }
 
@@ -144,3 +145,15 @@ export type SuppliedCardTableItem = {
   depositedPercent: string | number
   market?: string
 } & TableAsset
+
+export type RewardsTableItem = {
+  asset?: TokenItem
+  market: string
+  strategy: StrategyType
+  pending: {
+    amount: number
+    usd: number
+  }
+  farmId: string
+  rewardIndex: number
+}

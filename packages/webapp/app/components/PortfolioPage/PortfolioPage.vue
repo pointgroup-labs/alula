@@ -1,16 +1,42 @@
 <script lang="ts" setup>
+const tabs = [
+  {
+    label: 'Positions',
+    value: 'positions',
+  },
+  {
+    label: 'Rewards',
+    value: 'rewards',
+  },
+]
+const activeTab = ref(tabs[0])
 </script>
 
 <template>
   <main class="portfolio-page container">
     <portfolio-info />
 
-    <div class="portfolio-cards">
-      <portfolio-supply-table />
-      <portfolio-borrow-table />
-    </div>
+    <j-line-tab
+      v-model="activeTab"
+      :tabs="tabs"
+      style="margin-bottom: -12px;"
+    >
+      <template #tab="{ tab }">
+        <span
+          class="tab-label"
+        >
+          {{ tab.label }}
+        </span>
 
-    <features-toggle feature="multiply">
+      </template>
+    </j-line-tab>
+
+    <template v-if="activeTab?.value === 'positions'">
+      <div class="portfolio-cards">
+        <portfolio-supply-table />
+        <portfolio-borrow-table />
+      </div>
+
       <div
         class="portfolio-multiply__cards card"
       >
@@ -19,36 +45,14 @@
         </div>
         <portfolio-multiply-table only-multiplied />
       </div>
-    </features-toggle>
+    </template>
+
+    <template v-if="activeTab?.value === 'rewards'">
+      <portfolio-rewards-table />
+    </template>
   </main>
 </template>
 
 <style lang="scss">
-.portfolio-page {
-  .portfolio-cards {
-    display: flex;
-    flex-direction: row;
-    gap: 16px;
-    background-color: transparent;
-    border: none;
-
-    @media (max-width: $breakpoint-sm) {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .table-wrapper {
-      height: 100%;
-      min-height: 97px;
-      max-height: 500px;
-    }
-  }
-
-  .portfolio-multiply__cards {
-    width: 100%;
-    margin: 0 auto;
-    padding: 0;
-  }
-}
+@import url(~/assets/styles/components/portfolio.scss);
 </style>

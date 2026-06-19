@@ -6,7 +6,10 @@ use soroban_sdk::{
 
 use crate::{
     computations::compute_median,
-    constants::BPS_FACTOR,
+    constants::{
+        BPS_FACTOR, MAX_ORACLES_LEN, MAX_PERIODIC_ORACLES_PRICE_MAX_AGE, MIN_ORACLES_LEN,
+        MIN_PERIODIC_ORACLES_PRICE_MAX_AGE,
+    },
     error::AOCError,
     events,
     storage::{self, OracleConfig, OracleConfigInput},
@@ -40,35 +43,31 @@ impl AggregatedOracleContract {
     /// * `admin` - contract's administrator
     /// * `base_asset` - asset that will be the result of the `base()` endpoint call
     /// * `decimals` - number of decimals in the aggregated price
-    /// * `max_age` - max allowed age(in seconds) of oracle's price that's being aggregated
+    /// * `periodic_oracles_price_max_age` - max allowed age(in seconds) of oracle's price that's being aggregated from the `periodically
+    /// updated` oracles
     /// * `oracles` - list of information about oracles that are being aggregated
     pub fn __constructor(
         e: Env,
         admin: Address,
         base_asset: Asset,
         decimals: u32,
-        max_age: u64,
+        periodic_oracles_price_max_age: u64,
         oracles: Vec<OracleConfigInput>,
     ) {
-        const MIN_MAX_AGE: u64 = 360;
-        const MAX_MAX_AGE: u64 = 3_600;
-
-        if !(MIN_MAX_AGE..=MAX_MAX_AGE).contains(&max_age) {
+        if !(MIN_PERIODIC_ORACLES_PRICE_MAX_AGE..=MAX_PERIODIC_ORACLES_PRICE_MAX_AGE)
+            .contains(&periodic_oracles_price_max_age)
+        {
             panic_with_error!(e, AOCError::InvalidMaxAge);
         }
-
-        const MIN_ORACLES_LEN: u32 = 1;
-        const MAX_ORACLES_LEN: u32 = 10;
-
         if !(MIN_ORACLES_LEN..=MAX_ORACLES_LEN).contains(&oracles.len()) {
             panic_with_error!(e, AOCError::InvalidOraclesAmount);
         }
 
         storage::set_admin(&e, &admin);
         storage::set_decimals(&e, decimals);
-        storage::set_max_age(&e, max_age);
         storage::set_base_asset(&e, base_asset);
-        register_oracles(&e, oracles, max_age);
+        storage::set_periodic_oracles_price_max_age(&e, periodic_oracles_price_max_age);
+        register_oracles(&e, oracles);
 
         storage::extend_instance(&e);
     }
@@ -160,22 +159,19 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
 // ---- Helpers ----
 
 /// Retrieves oracles' info and registers it in the contract's instance storage
-fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_age: u64) {
+fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>) {
     let mut oracles_to_register = Vec::<OracleConfig>::new(e);
 
     for input_config in input_oracles_configs {
-        let OracleConfigInput { address, is_stellar_data_based } = input_config;
+        let OracleConfigInput { address, is_stellar_data_based, is_price_update_periodic } =
+            input_config;
 
         let oracle_client = PriceFeedClient::new(e, &address);
 
         let decimals = oracle_client.decimals();
-        let resolution = oracle_client.resolution();
 
-        if (resolution as u64) > max_age {
-            panic_with_error!(e, AOCError::InvalidOracleConfig);
-        }
-
-        let oracle_config = OracleConfig { address, decimals, resolution, is_stellar_data_based };
+        let oracle_config =
+            OracleConfig { address, decimals, is_stellar_data_based, is_price_update_periodic };
 
         oracles_to_register.push_back(oracle_config);
     }
@@ -204,26 +200,22 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
     let current_timestamp = e.ledger().timestamp();
 
-    // Compute median price and get the oldest timestamp from source oracles
     let res_lastprice = compute_median(e, token_address)?;
 
     if let Some(previous_median_lastprice) =
         storage::get_previous_median_lastprice(e, token_address)
     {
-        let PriceData { price: cached_price, timestamp: cached_timestamp } =
-            previous_median_lastprice;
+        let PriceData { price: previous_median_price, timestamp: previous_median_timestamp } =
+            previous_median_lastprice.clone();
         let asset_data =
             storage::get_asset(e, token_address).expect("Asset must exist at this point");
 
-        let time_diff = current_timestamp
-            .checked_sub(cached_timestamp)
-            .expect("The current timestamp cannot be smaller than the cached one");
+        let time_diff = current_timestamp.saturating_sub(previous_median_timestamp);
 
         if time_diff <= asset_data.max_dev_consecutive_diff_secs {
-            // Check price deviation
-            let abs_price_diff = res_lastprice.price.checked_sub(cached_price)?.abs();
+            let abs_price_diff = res_lastprice.price.checked_sub(previous_median_price)?.abs();
 
-            let div_bps = abs_price_diff.fixed_div_ceil(cached_price, BPS_FACTOR)?;
+            let div_bps = abs_price_diff.fixed_div_ceil(previous_median_price, BPS_FACTOR)?;
             if div_bps > asset_data.max_dev_bps as i128 {
                 events::PriceDeviationExceedsMax {
                     asset_data,

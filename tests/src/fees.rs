@@ -1105,7 +1105,7 @@ fn test_accumulate_take_rate_fees() {
 
     let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
     let expected_accumulated_reserve_fees_diff =
-        pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
+        pool_total_borrowed_diff.fixed_mul_floor(take_rate as i128, BPS_FACTOR).unwrap();
 
     assert!(pool_total_borrowed_diff > 0);
     assert_eq!(fees_diff, expected_accumulated_reserve_fees_diff);

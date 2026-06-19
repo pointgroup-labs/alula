@@ -2,6 +2,7 @@ mod bad_debt;
 mod batch_flash_swap;
 mod borrow;
 mod deposit;
+mod farms;
 mod fees;
 mod fuzz;
 mod initialize;
@@ -15,6 +16,9 @@ mod repay;
 mod storage_extension;
 mod update;
 mod withdraw;
+
+mod is_deployed_by_manager;
+mod per_market_upgrade;
 
 use std::ops::{Add, Sub};
 

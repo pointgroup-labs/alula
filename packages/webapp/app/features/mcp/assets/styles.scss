@@ -1,0 +1,337 @@
+.mcp-chat {
+  position: fixed;
+  right: 0;
+  bottom: 12vh;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 10;
+
+  @media (max-width: $breakpoint-xs) {
+    right: $spacing-md;
+    bottom: $spacing-xl;
+  }
+
+  h1 {
+    line-height: 1.6rem;
+    font-size: 22px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 13px;
+  }
+
+  .mcp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-height: 76px;
+    height: auto;
+    overflow: hidden;
+    background-color: $navi-400;
+    outline-color: $navi-300;
+
+    transition: max-width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateX(200px);
+    animation: transformBtn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    border-radius: 12px 0 0 12px !important;
+    padding: 16px 8px;
+
+    &:hover {
+      background-color: $navi-500;
+      outline-color: $navi-400;
+    }
+
+    .btn-content {
+      flex-direction: column;
+    }
+
+    &.mcp-btn--expanded {
+      max-height: 200px;
+
+      .mcp-btn-text {
+        position: relative;
+        animation: clipPath 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 0.3s;
+        color: #fff;
+      }
+    }
+
+    .mcp-btn-logo {
+      width: 30px;
+      height: 30px;
+    }
+
+    .mcp-btn-text {
+      position: absolute;
+      color: #000;
+      font-weight: 600;
+      white-spacing: nowrap;
+      clip-path: inset(100% 0 0 0);
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+  }
+
+  .close-icon {
+    min-width: 16px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  &__launcher {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 11;
+  }
+
+  &__panel {
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 520px;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid $border-secondary;
+    border-radius: $spacing-lg;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    position: relative;
+    z-index: 12;
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-lg;
+    background: $navi-900;
+    border-bottom: 1px solid $border-secondary;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $navi-50;
+  }
+
+  &__subtitle {
+    font-size: 12px;
+    color: $navi-100;
+  }
+
+  &__close {
+    padding-left: $spacing-md;
+    padding-right: $spacing-md;
+  }
+
+  &__messages {
+    flex: 1;
+    padding: 0 $spacing-lg $spacing-lg;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: $navi-800;
+
+    &:has(.mcp-select-validator) {
+      .mcp-helpers {
+        top: 39px;
+        margin-top: -12px;
+      }
+    }
+
+    &:not(:has(.mcp-helpers)) {
+      padding-top: 12px;
+    }
+  }
+
+  &__message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 85%;
+
+    &__actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .reload-icon {
+      width: 12px;
+      height: 12px;
+      cursor: pointer;
+
+      path {
+        stroke: $navi-100;
+      }
+    }
+
+    &.is-user {
+      align-self: flex-end;
+      text-align: right;
+
+      .mcp-chat__bubble {
+        background: rgb(103, 234, 254);
+        color: #000;
+      }
+    }
+
+    &.is-support {
+      align-self: flex-start;
+
+      .mcp-chat__bubble {
+        background: $navi-50;
+        color: $navi-900;
+      }
+    }
+  }
+
+  &__bubble {
+    padding: 10px $spacing-md;
+    border-radius: $spacing-md;
+    font-size: 14px;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+    word-break: normal;
+
+    ul {
+      padding-left: 20px;
+
+      li {
+        font-size: 13px;
+      }
+    }
+
+    pre {
+      margin: $spacing-xs 0;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 6px;
+      overflow-x: auto;
+      white-spacing: pre-wrap;
+      word-wrap: break-word;
+
+      code {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+      }
+    }
+
+    code {
+      font-family: 'Courier New', Courier, monospacing;
+      font-size: 13px;
+      padding: 2px 6px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 3px;
+    }
+  }
+
+  &__time {
+    font-size: 11px;
+    color: $navi-100;
+  }
+
+  &__typing {
+    font-size: 12px;
+    color: $navi-500;
+  }
+
+  &__input {
+    padding: $spacing-md $spacing-lg $spacing-lg;
+    border-top: 1px solid $border-secondary;
+    background: $navi-800;
+    display: flex;
+    gap: $spacing-xs;
+    align-items: flex-end;
+
+    .mcp-chat__field {
+      flex: 1;
+      font-size: 14px;
+      line-height: 16px;
+      font-family: $font-family-base;
+      max-height: 74px;
+      background-color: $navi-600;
+      border-color: $border-secondary;
+      color: $text-primary;
+
+      &:focus {
+        box-shadow: none;
+      }
+
+      &::placeholder {
+        color: $navi-300;
+      }
+    }
+
+    .btn {
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transform: translateY(-1px);
+    }
+  }
+
+  .popover-target {
+    background-color: transparent !important;
+  }
+
+  // Glass effect
+  .mcp-chat__panel--glass {
+    background: radial-gradient(circle at bottom right, rgba($navi-900, 0.18) 0%, rgba($navi-900, 0) 42%);
+    backdrop-filter: blur(24px) saturate(180%);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        135deg,
+        rgba($navi-700, 0.42) 0%,
+        rgba($navi-700, 0.06) 38%,
+        rgba($navi-700, 0.24) 100%
+      );
+      opacity: 0.95;
+    }
+
+    .mcp-chat__header {
+      background-color: rgba($navi-900, 0.4);
+    }
+
+    .mcp-chat__messages,
+    .mcp-chat__input {
+      background-color: rgba($navi-900, 0.18);
+    }
+  }
+}
+
+@keyframes clipPath {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes transformBtn {
+  from {
+    transform: translateX(200px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

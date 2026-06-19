@@ -20,8 +20,8 @@ SOROSWAP_BASE_URL     := https://github.com/soroswap/core/releases/download
 SOROSWAP_ROUTER_URL   := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_router_soroswap-router_pkg0.0.1_cli21.0.0/soroswap-router_v0.0.1.wasm
 SOROSWAP_PAIR_URL     := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_pair_soroswap-pair_pkg0.0.1_cli21.0.0/soroswap-pair_v0.0.1.wasm
 
-AQUA_BASE_URL         := https://github.com/AquaToken/soroban-amm/releases/download
-AQUA_POOL_URL         := $(AQUA_BASE_URL)/v2.0.2_soroban-liquidity-pool-contract_pkg2.0.1_cli25.1.0/soroban-liquidity-pool-contract_v2.0.1.wasm
+# AQUA_BASE_URL         := https://github.com/AquaToken/soroban-amm/releases/download
+# AQUA_POOL_URL         := $(AQUA_BASE_URL)/v2.0.2_soroban-liquidity-pool-contract_pkg2.0.1_cli25.1.0/soroban-liquidity-pool-contract_v2.0.1.wasm
 
 # Network
 NETWORK               := testnet
@@ -106,7 +106,7 @@ build/prepare:
 	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DEPLOY_OPTIMIZED_DIR) $(DOWNLOADS_DIR)
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-router.wasm,$(SOROSWAP_ROUTER_URL))
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-pair.wasm,$(SOROSWAP_PAIR_URL))
-	$(call download_wasm,$(DOWNLOADS_DIR)/aqua-pool.wasm,$(AQUA_POOL_URL))
+# 	$(call download_wasm,$(DOWNLOADS_DIR)/aqua-pool.wasm,$(AQUA_POOL_URL))
 
 build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))
@@ -118,6 +118,7 @@ build: build/prepare ## Build all contracts
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
 	$(call build_contract,market_manager,$(WASM_DIR))
+	$(call build_contract,farms,$(WASM_DIR))
 	$(call build_contract,flash_loan_taker_mock,$(MOCKS_DIR))
 	$(call success,"Build complete")
 
@@ -130,6 +131,7 @@ build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
 	$(call build_contract,market,$(DEPLOY_DIR),--features deploy)
 	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
+	$(call build_contract,farms,$(DEPLOY_DIR),--features deploy)
 	$(call success,"Deploy build complete")
 
 build/optimize: build/deploy ## Build + optimize for production
@@ -141,6 +143,7 @@ build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
 	$(call optimize_contract,market_manager)
+	$(call optimize_contract,farms)
 	$(call success,"Optimization complete")
 	@printf "\n$(C)Sizes:$(N)\n"
 	@find $(DEPLOY_OPTIMIZED_DIR) -name "*.wasm" -exec sh -c 'printf "  %-40s %s\n" "$$(basename {})" "$$(ls -lh {} | awk "{print \$$5}")"' \;
@@ -224,6 +227,9 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/aqua_swap_provider.optimized.wasm" \
 		--output-dir ./packages/sdk/aqua_swap_provider --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/farms.optimized.wasm" \
+		--output-dir ./packages/sdk/farms --network "$(NETWORK)"
 	$(call success,"SDK generated")
 
 # ══════════════════════════════════════════════════════════════════════════════
