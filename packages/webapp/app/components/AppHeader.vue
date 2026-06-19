@@ -3,11 +3,8 @@ import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
 import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
 import statisticsTabIcon from '~/assets/img/icons/statistics-icon.svg?raw'
-import { useFeatureToggle } from '~/features/features-toggle'
 
 const { width } = useWindowSize()
-
-const { isEnabled } = useFeatureToggle()
 
 const route = useRoute()
 
@@ -24,20 +21,17 @@ const tabs = computed(() => {
       icon: multiplyTabIcon,
     },
     {
+      label: 'Swap',
+      route: '/swap',
+      icon: multiplyTabIcon,
+    },
+    {
       label: 'Portfolio',
       route: '/portfolio',
       icon: accountTabIcon,
       shortLabel: 'Portfolio',
     },
   ]
-
-  if (isEnabled('swap')) {
-    navTabs.splice(2, 0, {
-      label: 'Swap',
-      route: '/swap',
-      icon: multiplyTabIcon,
-    })
-  }
 
   if (width.value < 1024) {
     navTabs.push(

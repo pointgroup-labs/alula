@@ -221,7 +221,6 @@ export default defineNuxtConfig({
       APP_ENV: process.env.NUXT_PUBLIC_APP_ENV,
       featureToggle: {
         network: isDev,
-        swap: isDev,
         mcp: isDev,
       },
     },
