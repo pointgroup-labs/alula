@@ -13,19 +13,19 @@
     "moduleResolution": "Bundler",
     "paths": {
       "@alula/market-sdk": [
-        "../sdk/market/dist/src/index.d.ts"
+        "../sdk/market/dist/index.d.ts"
       ],
       "@alula/market-manager-sdk": [
-        "../sdk/market_manager/dist/src/index.d.ts"
+        "../sdk/market_manager/dist/index.d.ts"
       ],
       "@alula/farms": [
         "../sdk/farms/dist/index.d.ts"
       ],
       "aqua_swap_provider": [
-        "../sdk/aqua_swap_provider/dist/src/index.d.ts"
+        "../sdk/aqua_swap_provider/dist/index.d.ts"
       ],
       "soroswap_swap_provider": [
-        "../sdk/soroswap_swap_provider/dist/src/index.d.ts"
+        "../sdk/soroswap_swap_provider/dist/index.d.ts"
       ],
       "~/*": [
         "./app/*"
