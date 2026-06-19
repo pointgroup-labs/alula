@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "ignoreDeprecations": "5.0",
     "paths": {
-      "@alula/farms-sdk": ["../sdk/farms/dist/index.d.ts"]
+      "@alula/farms": ["../sdk/farms/dist/index.d.ts"]
     },
     "strict": true,
     "strictNullChecks": false,

@@ -18,6 +18,9 @@
       "@alula/market-manager-sdk": [
         "../sdk/market_manager/dist/src/index.d.ts"
       ],
+      "@alula/farms": [
+        "../sdk/farms/dist/index.d.ts"
+      ],
       "aqua_swap_provider": [
         "../sdk/aqua_swap_provider/dist/src/index.d.ts"
       ],
