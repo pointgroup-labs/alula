@@ -307,6 +307,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       v-else
       class="no-data"
     >
+      <i-app-multiply-icon style="width: 30px; height: 30px;" />
       No multiplied assets
     </div>
   </div>

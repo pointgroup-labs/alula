@@ -52,15 +52,15 @@ export type AlulaClientOptions = {
  * ```
  */
 export class AlulaClient {
-  public readonly rpc: RPCcluster
   public readonly market: MarketService
   public readonly obligation: ObligationService
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
   public readonly multiply: MultiplyService
+  public readonly marketManager: MarketManagerService
+  public readonly rpc: RPCcluster
   public readonly swap: SwapService
   public readonly wallet: WalletService
-  public readonly marketManager: MarketManagerService
   public readonly horizonRpcUrl?: string
   public readonly sorobanRpcUrl?: string
 

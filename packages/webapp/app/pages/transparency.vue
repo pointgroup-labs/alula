@@ -8,7 +8,7 @@ import redstoneLogo from '~/assets/img/providers/redstone-logo.ico'
 import reflectorLogo from '~/assets/img/providers/reflector-logo.svg'
 import soroswapLogo from '~/assets/img/providers/soroswap-logo.jpg'
 import { AUDITORS } from '~/config/audits'
-import { ALULA_URL, DOCS_URL, GITHUB_URL } from '~/config/common'
+import { ALULA_URL, DOCS_RISK_MANAGMENT_LINK, DOCS_URL, GITHUB_URL } from '~/config/common'
 import {
   bigintToNumber,
   formatPrice,
@@ -253,7 +253,7 @@ const oracleIntegrations: OracleIntegration[] = [
   {
     name: 'Aggregated Oracle',
     role: 'Aggregation layer · median + circuit breaker',
-    url: DOCS_URL,
+    url: DOCS_RISK_MANAGMENT_LINK,
   },
 ]
 

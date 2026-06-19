@@ -1,3 +1,4 @@
+/* eslint-disable e18e/prefer-object-has-own */
 import { MCError } from '@alula/market-sdk'
 
 const errorMap: Record<string, string> = {

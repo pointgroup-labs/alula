@@ -23,7 +23,7 @@ export const useRecentActivityStore = defineStore('recent-activity', () => {
 
       const data = await resp.json()
       state.records = data._embedded.records
-      console.log('%c[Recent Activity]', 'color: #FFB726', state.records)
+      console.log('%c[Recent Activity]', 'color: #22d3ee', state.records)
     } catch (error) {
       console.error('Failed to load operations', error)
       state.records = []
@@ -43,7 +43,7 @@ export const useRecentActivityStore = defineStore('recent-activity', () => {
 
       const data = await resp.json()
       state.records = [data._embedded.records[0], ...state.records]
-      console.log('%c[Update Recent Activity]', 'color: #FFB726', data._embedded.records[0])
+      console.log('%c[Update Recent Activity]', 'color: #22d3ee', data._embedded.records[0])
     } catch (error) {
       console.error('Failed to load operations', error)
       state.records = []

@@ -87,6 +87,10 @@ impl<'a> RequestTransfers<'a> {
         }
     }
 
+    pub fn empty(e: &'a Env, user: Address) -> Self {
+        Self { e, user, user_transfers: Map::new(e), market_transfers: Map::new(e), referrer: None, referrer_fee_transfers: Map::new(e), flash_borrow_request: None }
+    }
+
     pub fn new_with_user_transfers(
         e: &'a Env,
         user: Address,
