@@ -83,7 +83,7 @@ importers:
 
   packages/farms-sdk:
     dependencies:
-      '@alula/farms-sdk':
+      '@alula/farms':
         specifier: link:../sdk/farms
         version: link:../sdk/farms
       '@creit.tech/stellar-wallets-kit':

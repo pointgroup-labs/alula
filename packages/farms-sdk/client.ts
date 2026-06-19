@@ -1,6 +1,6 @@
 import type { FarmReward, RPCcluster } from './types'
 import { Buffer } from 'node:buffer'
-import { Client, Delegatee, FarmState } from '@alula/farms-sdk'
+import { Client, Delegatee, FarmState } from '@alula/farms'
 import { TransactionHelper } from './core'
 import { BaseClient } from './core/base-client'
 
@@ -128,7 +128,7 @@ export class FarmsClient extends BaseClient {
       console.log('%c[Claim Tx]', 'color: #00ff00', tx)
     }
 
-     return await this.txHelper.signAndSend(tx, publicKey, kit, options)
+    return await this.txHelper.signAndSend(tx, publicKey, kit, options)
   }
 
   generateDelegatee(publicKey: string): Delegatee {

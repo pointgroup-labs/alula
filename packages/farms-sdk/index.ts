@@ -12,4 +12,4 @@ export * from './core'
 // Utilities
 export * from './utils'
 
-export * from '@alula/farms-sdk'
+export * from '@alula/farms'
