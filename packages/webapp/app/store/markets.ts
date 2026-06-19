@@ -4,7 +4,8 @@ import { defineStore } from 'pinia'
 
 export const MAIN_MARKET_NAME = 'main'
 
-const MARKET_ADDRESSES = ['CCSH53YGXKFTT3TWTTWI6JLR2OQDX56Y3TU57PWM5L3NWUTKM3WXCREW']
+const TESTNET_MARKET_ADDRESSES = ['CCSH53YGXKFTT3TWTTWI6JLR2OQDX56Y3TU57PWM5L3NWUTKM3WXCREW']
+const MAINNET_MARKET_ADDRESSES = ['CAE77Q5ZIGNSOLQFZ7PJOIDAW65H2VYG7XIKM5OVO5QIXSMLQGCPWBHD']
 
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
@@ -44,6 +45,8 @@ export const useMarketsStore = defineStore('markets', () => {
 
   const poolActiveAddress = ref<string>()
 
+  const marketsByRpc = computed(() => rpcStore.network === 'public' ? MAINNET_MARKET_ADDRESSES : TESTNET_MARKET_ADDRESSES)
+
   async function updatePool(pool_address: string, market: string, client: AlulaClient, withLogs = true) {
     const poolData = await loadPoolData(pool_address, client)
     const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
@@ -61,7 +64,7 @@ export const useMarketsStore = defineStore('markets', () => {
   }
 
   async function getMarketsList() {
-    state.marketsList = MARKET_ADDRESSES
+    state.marketsList = marketsByRpc.value
     console.log('%c[Markets Addresses]', 'color: #FFB726', state.marketsList)
   }
 

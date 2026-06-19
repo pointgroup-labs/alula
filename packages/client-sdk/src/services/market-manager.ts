@@ -1,6 +1,6 @@
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-manager-sdk'
-import { CONTRACT_ID, MARKET_CONTRACT_ID } from '../constants'
+import { CONTRACT_ID } from '../constants'
 import { BaseClient } from '../core/base-client'
 
 /**
@@ -22,7 +22,7 @@ export class MarketManagerService extends BaseClient {
   constructor(config: MarketManagerServiceConfig) {
     super(config)
 
-    const contractId = CONTRACT_ID[config.rpc] ?? MARKET_CONTRACT_ID
+    const contractId = CONTRACT_ID[config.rpc]
 
     this.client = new Client({
       publicKey: config.publicKey,
