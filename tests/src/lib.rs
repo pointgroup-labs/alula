@@ -19,6 +19,7 @@ mod withdraw;
 
 mod is_deployed_by_manager;
 mod per_market_upgrade;
+mod resource_limits;
 
 use std::ops::{Add, Sub};
 

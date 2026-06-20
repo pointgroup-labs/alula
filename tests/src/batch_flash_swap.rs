@@ -15,6 +15,10 @@ use soroban_sdk::{
     vec as svec,
 };
 
+use soroban_sdk::{
+    testutils::Ledger,
+};
+
 use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 #[contract]
@@ -183,6 +187,9 @@ fn test_liquidation_via_flash_borrow_and_swap() {
         1_00000000000000, // BTC
         1_00000000000000, // USDC
     ]);
+
+    e.ledger().with_mut(|li| li.timestamp += 1_u64); // invalidate oracle cache
+
 
     // Liquidate half the debt via the close factor (default 50%)
     let repay_amount = borrow_amount / 2;
