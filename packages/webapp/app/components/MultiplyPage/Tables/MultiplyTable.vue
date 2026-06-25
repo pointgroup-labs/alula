@@ -167,14 +167,25 @@ watch([
           </template>
 
           <template #cell(supplyApy)="data">
-            <div class="table-cell justify-content-center text-cyan">
-              {{ truncatePercent(supplyApyPercent(data.item), 2) }}%
+            <div class="table-cell justify-content-center">
+              <j-incentive-apy
+                :market-name="vault.market"
+                :pool-data="data.item.depositPoolData"
+                farm-type="supply"
+                :apy="`${truncatePercent(supplyApyPercent(data.item), 2)}%`"
+              />
             </div>
           </template>
 
           <template #cell(borrowApy)="data">
-            <div class="table-cell justify-content-center text-indigo">
-              {{ truncatePercent(borrowApyPercent(data.item), 2) }}%
+            <div class="table-cell justify-content-center">
+              <j-incentive-apy
+                :market-name="vault.market"
+                :pool-data="data.item.borrowPoolData"
+                farm-type="borrow"
+                :apy="`${truncatePercent(borrowApyPercent(data.item), 2)}%`"
+                variant="indigo"
+              />
             </div>
           </template>
 
@@ -211,7 +222,7 @@ watch([
               <j-btn
                 v-if="isUserHaveMultiply(data.item)"
                 size="sm"
-                variant="outline-positive"
+                variant="outlined-positive"
                 :disabled="marketActions.isDisabled(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 :loading="marketActions.isLoading(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 @click.stop="onRowClicked(data.item)"
@@ -221,7 +232,7 @@ watch([
               <j-btn
                 v-else
                 size="sm"
-                variant="outline-positive"
+                variant="outlined-positive"
                 :disabled="marketActions.isDisabled(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 :loading="marketActions.isLoading(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 @click.stop="openDialog(data.item)"

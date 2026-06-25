@@ -88,7 +88,13 @@ const detailCardsData = computed(() => {
             Rates adjust dynamically based on pool utilization.
           </info-tooltip>
         </span>
-        <span class="supply">{{ detailCardsData.depositApy }}</span>
+        <j-incentive-apy
+          :market-name="selectedMarketName"
+          :pool-data="selectedPool?.raw"
+          farm-type="supply"
+        >
+          {{ detailCardsData.depositApy }}
+        </j-incentive-apy>
       </div>
 
       <div class="separator-vert" />
@@ -101,8 +107,21 @@ const detailCardsData = computed(() => {
             Rates increase as pool utilization grows
           </info-tooltip>
         </span>
-        <span class="borrow">{{ detailCardsData.borrowAPY }}</span>
+        <j-incentive-apy
+          :market-name="selectedMarketName"
+          :pool-data="selectedPool?.raw"
+          farm-type="borrow"
+          variant="indigo"
+        >
+          {{ detailCardsData.borrowAPY }}
+        </j-incentive-apy>
       </div>
     </div>
   </div>
 </template>
+
+<style lang="scss">
+.farms-badge {
+  background-color: transparent;
+}
+</style>

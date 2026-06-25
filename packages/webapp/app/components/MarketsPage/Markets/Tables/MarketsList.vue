@@ -239,28 +239,27 @@ watch([
           <template #cell(deposit_apy)="data">
             <div
               class="table-cell justify-content-center flex"
-              style="opacity: .8;"
             >
-              <j-pill-label
-                variant="cyan"
-                size="sm"
-              >
-                {{ data.item.deposit_apy }}
-              </j-pill-label>
+              <j-incentive-apy
+                :apy="data.item.deposit_apy"
+                :pool-data="data.item.raw"
+                farm-type="supply"
+                :market-name="market.marketName"
+              />
             </div>
           </template>
 
           <template #cell(borrow_apy)="data">
             <div
               class="table-cell justify-content-center"
-              style="opacity: .8;"
             >
-              <j-pill-label
+              <j-incentive-apy
+                :apy="data.item.borrow_apy"
+                :pool-data="data.item.raw"
+                :market-name="market.marketName"
+                farm-type="borrow"
                 variant="indigo"
-                size="sm"
-              >
-                {{ data.item.borrow_apy }}
-              </j-pill-label>
+              />
             </div>
           </template>
 
@@ -340,6 +339,7 @@ watch([
         <markets-list-mobile
           v-else
           :items="market.tableItems"
+          :market-name="market.marketName"
           @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
           @on-row-clicked="onRowClicked"
         />

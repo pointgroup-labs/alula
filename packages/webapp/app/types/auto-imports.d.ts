@@ -127,6 +127,7 @@ declare global {
   const templateRef: typeof import('@vueuse/core').templateRef
   const throttledRef: typeof import('@vueuse/core').throttledRef
   const throttledWatch: typeof import('@vueuse/core').throttledWatch
+  const toFarmId: typeof import('../store/farms').toFarmId
   const toRaw: typeof import('vue').toRaw
   const toReactive: typeof import('@vueuse/core').toReactive
   const toRef: typeof import('vue').toRef
@@ -178,6 +179,9 @@ declare global {
   const useBrowserLocation: typeof import('@vueuse/core').useBrowserLocation
   const useCached: typeof import('@vueuse/core').useCached
   const useChartFilter: typeof import('../composables/chart-filter').useChartFilter
+  const useClaim: typeof import('../composables/farms/use-claim-rewards').useClaim
+  const useClaimFarmRewards: typeof import('../composables/farms/use-claim-rewards').useClaimFarmRewards
+  const useClaimR: typeof import('../composables/farms/use-claim-rewards').useClaimR
   const useClientStore: typeof import('../store/client').useClientStore
   const useClipboard: typeof import('@vueuse/core').useClipboard
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
@@ -216,6 +220,9 @@ declare global {
   const useEventSource: typeof import('@vueuse/core').useEventSource
   const useExplorerLink: typeof import('../composables/explorer-link').useExplorerLink
   const useEyeDropper: typeof import('@vueuse/core').useEyeDropper
+  const useFarms: typeof import('../composables/farms/use-farms').useFarms
+  const useFarmsS: typeof import('../store/farms').useFarmsS
+  const useFarmsStore: typeof import('../store/farms').useFarmsStore
   const useFavicon: typeof import('@vueuse/core').useFavicon
   const useFetch: typeof import('@vueuse/core').useFetch
   const useFileDialog: typeof import('@vueuse/core').useFileDialog
@@ -350,6 +357,8 @@ declare global {
   const useTokensStore: typeof import('../store/tokens').useTokensStore
   const useTransition: typeof import('@vueuse/core').useTransition
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams
+  const useUser: typeof import('../composables/farms/use-user-farms').useUser
+  const useUserFarms: typeof import('../composables/farms/use-user-farms').useUserFarms
   const useUserMedia: typeof import('@vueuse/core').useUserMedia
   const useUserStore: typeof import('../store/user').useUserStore
   const useVModel: typeof import('@vueuse/core').useVModel
@@ -395,6 +404,9 @@ declare global {
   // @ts-ignore
   export type { SwapTokenOption } from '../composables/swap/use-swap'
   import('../composables/swap/use-swap')
+  // @ts-ignore
+  export type { FarmsStoreState, StrategyType } from '../store/farms'
+  import('../store/farms')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
@@ -531,6 +543,7 @@ declare module 'vue' {
     readonly templateRef: UnwrapRef<typeof import('@vueuse/core')['templateRef']>
     readonly throttledRef: UnwrapRef<typeof import('@vueuse/core')['throttledRef']>
     readonly throttledWatch: UnwrapRef<typeof import('@vueuse/core')['throttledWatch']>
+    readonly toFarmId: UnwrapRef<typeof import('../store/farms')['toFarmId']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toReactive: UnwrapRef<typeof import('@vueuse/core')['toReactive']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
@@ -612,6 +625,8 @@ declare module 'vue' {
     readonly useEventSource: UnwrapRef<typeof import('@vueuse/core')['useEventSource']>
     readonly useExplorerLink: UnwrapRef<typeof import('../composables/explorer-link')['useExplorerLink']>
     readonly useEyeDropper: UnwrapRef<typeof import('@vueuse/core')['useEyeDropper']>
+    readonly useFarms: UnwrapRef<typeof import('../composables/farms/use-farms')['useFarms']>
+    readonly useFarmsStore: UnwrapRef<typeof import('../store/farms')['useFarmsStore']>
     readonly useFavicon: UnwrapRef<typeof import('@vueuse/core')['useFavicon']>
     readonly useFetch: UnwrapRef<typeof import('@vueuse/core')['useFetch']>
     readonly useFileDialog: UnwrapRef<typeof import('@vueuse/core')['useFileDialog']>

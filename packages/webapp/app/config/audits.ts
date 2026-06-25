@@ -31,9 +31,9 @@ export const HALBORN_AUDITOR: Auditor = {
 export const HIGHLAND_SECURITY_AUDITOR: Auditor = {
   status: 'completed',
   name: 'Highland Security',
-  link: 'https://www.highlandsecurity.io/_files/ugd/f9aae5_8c7461957c0c4ed196c56a920930201a.pdf',
   logo: highlandLogo,
-  auditedAt: '2026-04-06',
+  link: 'https://www.highlandsecurity.io/_files/ugd/f9aae5_900d5aa97522474d9a20474286250be1.pdf',
+  auditedAt: '2026-04-12',
 }
 
 export const AUDITORS: Auditor[] = [

@@ -118,6 +118,19 @@ export class MarketService extends BaseClient {
   }
 
   /**
+   * Retrieves the address of the farms contract
+   *
+   * @return A Promise of type string containing the address of the farms contract
+   */
+  async getFarmsContractAddress(): Promise<string | null> {
+    const result = await this.client.get_farms_contract()
+    if (result.result === null) {
+      return null
+    }
+    return result.result
+  }
+
+  /**
    * Retrieves a multiply pair configuration by its deposit and borrow pool addresses
    *
    * @param depositPoolAddress - deposit pool address
