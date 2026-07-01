@@ -928,6 +928,10 @@ pub fn make_oracle_prices_negative(e: &Env, oracle_client: &MockPriceOracleClien
     oracle_client.set_price_stable(&soroban_sdk::vec![e, -1, -1, -1,]);
 }
 
+pub fn make_oracle_prices_uniform(e: &Env, oracle_client: &MockPriceOracleClient, price: i128) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![e, price, price, price]);
+}
+
 pub struct TestAssetSetup<'a> {
     pub token_client: TokenClient<'a>,
     pub token_address: Address,

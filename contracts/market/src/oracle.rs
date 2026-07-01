@@ -25,9 +25,10 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
     let current_timestamp = e.ledger().timestamp();
 
     if let Some((price, cached_timestamp)) = storage::get_cached_price(e, token_address)
-        && cached_timestamp == current_timestamp {
-            return Ok(price);
-        }
+        && cached_timestamp == current_timestamp
+    {
+        return Ok(price);
+    }
 
     let oracle = storage::get_oracle(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle);
