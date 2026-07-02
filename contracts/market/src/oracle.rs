@@ -22,6 +22,14 @@ use crate::{
 // * `Ok(i128)` - The latest price of the asset if available and valid.
 // * `Err(MCError)` - An error if the price is not available, stale
 pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
+    let current_timestamp = e.ledger().timestamp();
+
+    if let Some((price, cached_timestamp)) = storage::get_cached_price(e, token_address)
+        && cached_timestamp == current_timestamp
+    {
+        return Ok(price);
+    }
+
     let oracle = storage::get_oracle(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle);
 
@@ -39,6 +47,8 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
     if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
         return Err(MCError::OracleStalePrice);
     }
+
+    storage::set_cached_price(e, token_address, price_data.price, current_timestamp);
 
     Ok(price_data.price)
 }

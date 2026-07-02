@@ -67,7 +67,7 @@ pub fn get_farms(e: &Env) -> Vec<BytesN<32>> {
 pub fn add_farm_to_registry(e: &Env, farm_id: &BytesN<32>) {
     let mut farms = get_farms(e);
     farms.push_back(farm_id.clone());
-    
+
     set_persistent(e, &DataKey::Farms, &farms);
 }
 

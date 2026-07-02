@@ -10,7 +10,7 @@ use market::{
 };
 use soroban_sdk::{
     Address, Env, Vec, contract, contractimpl,
-    testutils::Address as _,
+    testutils::{Address as _, Ledger},
     token::{StellarAssetClient, TokenClient},
     vec as svec,
 };
@@ -183,6 +183,8 @@ fn test_liquidation_via_flash_borrow_and_swap() {
         1_00000000000000, // BTC
         1_00000000000000, // USDC
     ]);
+
+    e.ledger().with_mut(|li| li.timestamp += 1_u64); // invalidate oracle cache
 
     // Liquidate half the debt via the close factor (default 50%)
     let repay_amount = borrow_amount / 2;

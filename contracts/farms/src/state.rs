@@ -616,7 +616,7 @@ impl DelegateeState {
         let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
         let new_unclaimed = current_unclaimed.checked_add(amount).map_over_or_underflow()?;
         self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
-        
+
         Ok(())
     }
 

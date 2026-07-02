@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use market::error::MCError;
+use soroban_sdk::testutils::Ledger;
 
 use crate::{TestMarketFixture, make_oracle_prices_negative, make_oracle_prices_zero};
 
@@ -29,6 +30,7 @@ fn test_zero_oracle_price_is_not_accepted() {
     assert!(price.is_positive());
 
     make_oracle_prices_zero(&e, &oracle_client);
+    e.ledger().with_mut(|li| li.timestamp += 1_u64); // invalidate oracle cache
 
     assert_eq!(
         contract_client.try_get_pool_asset_oracle_price(&usdc_pool_address),
@@ -45,6 +47,7 @@ fn test_negative_oracle_price_is_not_accepted() {
     assert!(price.is_positive());
 
     make_oracle_prices_negative(&e, &oracle_client);
+    e.ledger().with_mut(|li| li.timestamp += 1_u64); // invalidate oracle cache
 
     assert_eq!(
         contract_client.try_get_pool_asset_oracle_price(&usdc_pool_address),
