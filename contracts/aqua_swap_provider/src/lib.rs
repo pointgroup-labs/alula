@@ -43,7 +43,6 @@ pub struct AquaSwapProviderContract;
 
 #[contractimpl]
 impl AquaSwapProviderContract {
-    /// Constructor now accepts an Admin address to secure future pool additions
     pub fn __constructor(e: Env, admin: Address, pools: Map<(Address, Address), Address>) {
         e.storage().instance().set(&DataKey::Admin, &admin);
 
@@ -70,20 +69,16 @@ impl AquaSwapProviderContract {
         }
     }
 
-    /// Admin-only method to extend the contract with new liquidity pools
     pub fn add_asset_pool(e: Env, mut token_a: Address, mut token_b: Address, pool_addr: Address) {
         extend_instance(&e);
 
-        // 1. Verify authorization
         let stored_admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         stored_admin.require_auth();
 
-        // 2. Validate tokens
         if token_a == token_b {
             panic_with_error!(&e, ASPError::IdenticalTokens);
         }
 
-        // 3. Canonicalize token pair
         if token_a > token_b {
             let temp = token_a.clone();
             token_a = token_b;
@@ -92,12 +87,10 @@ impl AquaSwapProviderContract {
 
         let key = DataKey::Pool(token_a, token_b);
 
-        // 4. Ensure pool doesn't already exist to prevent overwriting
         if e.storage().instance().has(&key) {
             panic_with_error!(&e, ASPError::DuplicatePool);
         }
 
-        // 5. Store the new pool
         e.storage().instance().set(&key, &pool_addr);
     }
 }
