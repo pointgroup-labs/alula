@@ -2,7 +2,7 @@
 #![allow(clippy::too_many_arguments)]
 use proxy_swap_interface::ProxySwap;
 use soroban_sdk::{
-    Address, Env, Vec, contract, contracterror, contractimpl, contracttype, panic_with_error,
+    Address, Env, Map, Vec, contract, contracterror, contractimpl, contracttype, panic_with_error,
     token::TokenClient,
 };
 
@@ -26,11 +26,16 @@ pub enum ASPError {
     NegativeAmount = 4,
     TokenNotFoundInPool = 5,
     AmountTooLarge = 6,
+    PoolNotFound = 7,
+    DuplicatePool = 8,
+    IdenticalTokens = 9,
+    Unauthorized = 10,
 }
 
 #[contracttype]
-enum DataKey {
-    Pool,
+pub enum DataKey {
+    Admin,
+    Pool(Address, Address), 
 }
 
 #[contract]
@@ -38,8 +43,67 @@ pub struct AquaSwapProviderContract;
 
 #[contractimpl]
 impl AquaSwapProviderContract {
-    pub fn __constructor(e: Env, pool: Address) {
-        e.storage().instance().set(&DataKey::Pool, &pool);
+    /// Constructor now accepts an Admin address to secure future pool additions
+    pub fn __constructor(e: Env, admin: Address, pools: Map<(Address, Address), Address>) {
+        e.storage().instance().set(&DataKey::Admin, &admin);
+
+        for (pair, pool_addr) in pools.iter() {
+            let (mut token_a, mut token_b) = pair;
+
+            if token_a == token_b {
+                panic_with_error!(&e, ASPError::IdenticalTokens);
+            }
+
+            if token_a > token_b {
+                let temp = token_a.clone();
+                token_a = token_b;
+                token_b = temp;
+            }
+
+            let key = DataKey::Pool(token_a, token_b);
+            
+            if e.storage().instance().has(&key) {
+                panic_with_error!(&e, ASPError::DuplicatePool);
+            }
+
+            e.storage().instance().set(&key, &pool_addr);
+        }
+    }
+
+    /// Admin-only method to extend the contract with new liquidity pools
+    pub fn add_asset_pool(
+        e: Env,
+        mut token_a: Address,
+        mut token_b: Address,
+        pool_addr: Address,
+    ) {
+        extend_instance(&e);
+        
+        // 1. Verify authorization
+        let stored_admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        stored_admin.require_auth();
+
+        // 2. Validate tokens
+        if token_a == token_b {
+            panic_with_error!(&e, ASPError::IdenticalTokens);
+        }
+
+        // 3. Canonicalize token pair
+        if token_a > token_b {
+            let temp = token_a.clone();
+            token_a = token_b;
+            token_b = temp;
+        }
+
+        let key = DataKey::Pool(token_a, token_b);
+        
+        // 4. Ensure pool doesn't already exist to prevent overwriting
+        if e.storage().instance().has(&key) {
+            panic_with_error!(&e, ASPError::DuplicatePool);
+        }
+
+        // 5. Store the new pool
+        e.storage().instance().set(&key, &pool_addr);
     }
 }
 
@@ -56,13 +120,17 @@ impl ProxySwap for AquaSwapProviderContract {
         user.require_auth();
         validate_path(&e, &path);
 
-        let pool_client = pool::Client::new(&e, &get_pool(&e));
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
+        let pool_addr = get_pool(&e, token_in.clone(), token_out.clone());
+        let pool_client = pool::Client::new(&e, &pool_addr);
+        
         let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
 
         let in_amount_u128 = convert_to_u128(&e, amount_in);
         let min_out_u128 = convert_to_u128(&e, min_amount_out);
 
-        let token_out = path.last().unwrap();
         let balance_before = TokenClient::new(&e, &token_out).balance(&user);
 
         pool_client.swap(&user, &in_idx, &out_idx, &in_amount_u128, &min_out_u128);
@@ -90,13 +158,16 @@ impl ProxySwap for AquaSwapProviderContract {
         user.require_auth();
         validate_path(&e, &path);
 
-        let pool_client = pool::Client::new(&e, &get_pool(&e));
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
+        let pool_addr = get_pool(&e, token_in.clone(), token_out.clone());
+        let pool_client = pool::Client::new(&e, &pool_addr);
 
         let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
         let max_in_u128 = convert_to_u128(&e, max_amount_in);
         let out_amount_u128 = convert_to_u128(&e, amount_out);
 
-        let token_in = path.first().unwrap();
         let balance_before = TokenClient::new(&e, &token_in).balance(&user);
 
         pool_client.swap_strict_receive(&user, &in_idx, &out_idx, &out_amount_u128, &max_in_u128);
@@ -117,7 +188,11 @@ impl ProxySwap for AquaSwapProviderContract {
         extend_instance(&e);
         validate_path(&e, &path);
 
-        let pool_client = pool::Client::new(&e, &get_pool(&e));
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
+        let pool_addr = get_pool(&e, token_in, token_out);
+        let pool_client = pool::Client::new(&e, &pool_addr);
 
         let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
         let in_amount_u128 = convert_to_u128(&e, amount_in);
@@ -131,7 +206,11 @@ impl ProxySwap for AquaSwapProviderContract {
         extend_instance(&e);
         validate_path(&e, &path);
 
-        let pool_client = pool::Client::new(&e, &get_pool(&e));
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
+        let pool_addr = get_pool(&e, token_in, token_out);
+        let pool_client = pool::Client::new(&e, &pool_addr);
 
         let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
 
@@ -143,8 +222,17 @@ impl ProxySwap for AquaSwapProviderContract {
     }
 }
 
-fn get_pool(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::Pool).expect("Pool must be set")
+fn get_pool(e: &Env, mut token_a: Address, mut token_b: Address) -> Address {
+    if token_a > token_b {
+        let temp = token_a.clone();
+        token_a = token_b;
+        token_b = temp;
+    }
+
+    let key = DataKey::Pool(token_a, token_b);
+    e.storage().instance().get(&key).unwrap_or_else(|| {
+        panic_with_error!(e, ASPError::PoolNotFound);
+    })
 }
 
 fn extend_instance(e: &Env) {
@@ -157,8 +245,6 @@ fn validate_path(e: &Env, path: &Vec<Address>) {
     }
 }
 
-/// Get the token indices for a pair in the pool
-/// The pool stores tokens in a specific order, we need to find the indices
 fn get_token_indices(e: &Env, pool_client: &pool::Client, path: &Vec<Address>) -> (u32, u32) {
     let token_in = path.first().unwrap();
     let token_out = path.last().unwrap();
