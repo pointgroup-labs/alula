@@ -35,7 +35,7 @@ pub enum ASPError {
 #[contracttype]
 pub enum DataKey {
     Admin,
-    Pool(Address, Address), 
+    Pool(Address, Address),
 }
 
 #[contract]
@@ -61,7 +61,7 @@ impl AquaSwapProviderContract {
             }
 
             let key = DataKey::Pool(token_a, token_b);
-            
+
             if e.storage().instance().has(&key) {
                 panic_with_error!(&e, ASPError::DuplicatePool);
             }
@@ -71,14 +71,9 @@ impl AquaSwapProviderContract {
     }
 
     /// Admin-only method to extend the contract with new liquidity pools
-    pub fn add_asset_pool(
-        e: Env,
-        mut token_a: Address,
-        mut token_b: Address,
-        pool_addr: Address,
-    ) {
+    pub fn add_asset_pool(e: Env, mut token_a: Address, mut token_b: Address, pool_addr: Address) {
         extend_instance(&e);
-        
+
         // 1. Verify authorization
         let stored_admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         stored_admin.require_auth();
@@ -96,7 +91,7 @@ impl AquaSwapProviderContract {
         }
 
         let key = DataKey::Pool(token_a, token_b);
-        
+
         // 4. Ensure pool doesn't already exist to prevent overwriting
         if e.storage().instance().has(&key) {
             panic_with_error!(&e, ASPError::DuplicatePool);
@@ -125,7 +120,7 @@ impl ProxySwap for AquaSwapProviderContract {
 
         let pool_addr = get_pool(&e, token_in.clone(), token_out.clone());
         let pool_client = pool::Client::new(&e, &pool_addr);
-        
+
         let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
 
         let in_amount_u128 = convert_to_u128(&e, amount_in);
