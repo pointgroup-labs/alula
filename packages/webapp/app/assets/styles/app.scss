@@ -250,7 +250,6 @@ body:has(stellar-wallets-modal) {
 .stellar-wallets-kit {
   --swk-foreground-strong: #fff !important;
   font-family: $font-family-base !important;
-  z-index: 99999 !important;
 
   & > div {
     background-color: rgba(0, 0, 0, 0.1) !important;
