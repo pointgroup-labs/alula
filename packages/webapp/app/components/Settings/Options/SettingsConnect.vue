@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { capitalize } from 'vue'
 
+defineEmits(['closeSidebar'])
+
 const { publicKey } = useWalletComposable()
 const connection = useConnectionStore()
 
@@ -43,7 +45,10 @@ function disconnect() {
         {{ walletName }}
       </div>
     </div>
-    <connect-wallet v-else />
+    <connect-wallet
+      v-else
+      @click="$emit('closeSidebar')"
+    />
   </div>
 </template>
 
