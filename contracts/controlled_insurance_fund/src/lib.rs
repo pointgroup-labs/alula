@@ -1,6 +1,8 @@
 #![no_std]
 use insurance_fund_interface::{CoverageStatus, InsuranceFund, IssueRequestResult};
-use soroban_sdk::{Address, Env, contract, contractevent, contractimpl, panic_with_error, token};
+use soroban_sdk::{
+    Address, BytesN, Env, contract, contractevent, contractimpl, panic_with_error, token,
+};
 use storage::Request;
 
 use crate::error::ContractError;
@@ -12,23 +14,27 @@ pub struct ControlledInsuranceFundContract;
 impl ControlledInsuranceFundContract {
     /// Constructs an account-controlled insurance fund contract
     pub fn __constructor(e: Env, admin: Address) {
-        storage::set_admin(&e, admin);
+        storage::set_admin(&e, &admin);
         storage::init_requests_counter(&e);
     }
 
     /// Sets an insured market contract address in the storage
-    pub fn set_market(e: Env, market: Address) {
-        // TODO: This must be a one-time lock or something like that
+    pub fn set_market(e: Env, market: Address) -> Result<(), ContractError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
+        if storage::is_market_set(&e) {
+            return Err(ContractError::MarketIsAlreadySet);
+        }
         storage::set_market(&e, market);
+
+        Ok(())
     }
 
     /// # Returns
     /// Request with given `request_id` if exists
     pub fn get_request(e: &Env, request_id: u64) -> Option<Request> {
-        storage::extend_instance_storage(e);
+        storage::extend_instance(e);
 
         storage::get_request(e, request_id)
     }
@@ -39,6 +45,7 @@ impl ControlledInsuranceFundContract {
     /// If the fund does not have enough *free* liquidity for available for withdraw
     pub fn withdraw(e: Env, token: Address, to: Address, amount: i128) {
         require_admin(&e);
+        storage::extend_instance(&e);
 
         let token_client = token::Client::new(&e, &token);
         let current_balance = token_client.balance(&e.current_contract_address());
@@ -58,12 +65,16 @@ impl ControlledInsuranceFundContract {
     /// If the fund does not have enough *free* liquidity to cover this request
     pub fn mark_ready(e: Env, request_id: u64, covered_amount: i128) {
         require_admin(&e);
+        storage::extend_instance(&e);
 
         let Some(mut request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);
         };
         if !matches!(request.status, CoverageStatus::Pending) {
             panic_with_error!(&e, ContractError::RequestIsReady);
+        }
+        if covered_amount < 0 {
+            panic_with_error!(&e, ContractError::InvalidAmount);
         }
 
         let real_covered_amount = i128::min(covered_amount, request.amount);
@@ -96,9 +107,41 @@ impl ControlledInsuranceFundContract {
     /// enough to proceed safely and update its status accordingly. Owned market admins can always overwrite
     /// this behavior
     pub fn update_market_status(e: Env, new_status: u32) {
+        require_admin(&e);
+        storage::extend_instance(&e);
+
         let market = storage::get_market(&e);
         let market_client = market::MarketPartialClient::new(&e, &market);
         market_client.fund_update_market_status(&new_status);
+    }
+
+    /// Proposes a new fund's admin
+    pub fn propose_new_admin(e: Env, proposed_admin: Address) -> Result<(), ContractError> {
+        require_admin(&e);
+        storage::extend_instance(&e);
+
+        storage::set_proposed_admin(&e, proposed_admin);
+
+        Ok(())
+    }
+
+    // Accepts the proposal to become a new admin
+    pub fn accept_proposed_admin(e: Env) -> Result<(), ContractError> {
+        storage::extend_instance(&e);
+
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(ContractError::ProposedAdminIsNotSet)?;
+        proposed_admin.require_auth();
+
+        storage::set_admin(&e, &proposed_admin);
+        storage::remove_proposed_admin(&e);
+
+        Ok(())
+    }
+
+    pub fn upgrade(e: Env, wasm_hash: BytesN<32>) {
+        require_admin(&e);
+        e.deployer().update_current_contract_wasm(wasm_hash);
     }
 }
 
@@ -106,12 +149,16 @@ impl ControlledInsuranceFundContract {
 impl InsuranceFund for ControlledInsuranceFundContract {
     fn add_reserves(e: Env, _token: Address, _amount: i128) {
         require_market(&e); // NB: Only validation for this token-balance driven implementation
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
     }
 
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
         require_market(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
+
+        if amount <= 0 {
+            panic_with_error!(&e, ContractError::InvalidAmount);
+        }
 
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);
@@ -120,7 +167,7 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     }
 
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let request = storage::get_request(&e, request_id)?;
 
         Some(request.status)
@@ -129,8 +176,7 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     fn claim_coverage(e: Env, request_id: u64) -> i128 {
         let market = storage::get_market(&e);
         market.require_auth();
-        storage::extend_instance_storage(&e);
-
+        storage::extend_instance(&e);
         let Some(request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);
         };
@@ -158,6 +204,21 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         storage::remove_request(&e, request_id);
 
         coverage_amount
+    }
+
+    fn cancel(e: Env, request_id: u64) {
+        let market = storage::get_market(&e);
+        market.require_auth();
+        storage::extend_instance(&e);
+
+        let Some(request) = storage::get_request(&e, request_id) else {
+            panic_with_error!(&e, ContractError::RequestDoesNotExist);
+        };
+        if !matches!(request.status, CoverageStatus::Pending) {
+            panic_with_error!(&e, ContractError::RequestIsReady);
+        }
+
+        storage::remove_request(&e, request_id);
     }
 }
 

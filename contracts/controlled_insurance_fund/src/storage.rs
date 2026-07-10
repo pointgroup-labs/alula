@@ -18,6 +18,7 @@ pub enum DataKey {
     Admin,
     Market,
     Request(u64),
+    ProposedAdmin,
     RequestsCounter,
     LockedAmount(Address),
 }
@@ -37,6 +38,10 @@ impl Request {
 
 // -- Market --
 
+pub fn is_market_set(e: &Env) -> bool {
+    e.storage().instance().has(&DataKey::Market)
+}
+
 pub fn set_market(e: &Env, market: Address) {
     e.storage().instance().set(&DataKey::Market, &market);
 }
@@ -47,12 +52,26 @@ pub fn get_market(e: &Env) -> Address {
 
 // -- Admin --
 
-pub fn set_admin(e: &Env, admin: Address) {
-    e.storage().instance().set(&DataKey::Admin, &admin);
+pub fn set_admin(e: &Env, admin: &Address) {
+    e.storage().instance().set(&DataKey::Admin, admin);
 }
 
 pub fn get_admin(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Admin).expect("Admin must be set")
+}
+
+// -- ProposedAdmin --
+
+pub fn set_proposed_admin(e: &Env, admin: Address) {
+    e.storage().instance().set(&DataKey::ProposedAdmin, &admin);
+}
+
+pub fn get_proposed_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::ProposedAdmin)
+}
+
+pub fn remove_proposed_admin(e: &Env) {
+    e.storage().instance().remove(&DataKey::ProposedAdmin);
 }
 
 // -- RequestsCounter --
@@ -142,6 +161,6 @@ pub fn set_locked_amount(e: &Env, token: &Address, amount: i128) {
 
 // ---- TTL Bumpers ----
 
-pub fn extend_instance_storage(e: &Env) {
+pub fn extend_instance(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }

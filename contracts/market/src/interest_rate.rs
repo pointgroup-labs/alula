@@ -1,14 +1,9 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Env, Vec, contracttype, vec as svec};
+use soroban_sdk::{Env, I256, contracttype};
 
 use crate::{
-    accrual::Accrual,
-    constants::*,
-    error::MCError,
-    events,
-    interest_rate_model::InterestRate,
-    math_utils::MathUtils,
-    pool::{Pool, PoolBootstrapPeriod},
+    accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
+    math_utils::MathUtils, pool::Pool,
 };
 
 // Compound interest rates represented in basis points
@@ -47,19 +42,32 @@ impl Pool {
             .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?
-            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .fixed_mul_ceil(self.interest_rate_modifier_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
         let accrual_multiplier: i128 =
-            self.config.accrual_model.compute_multiplier(current_borrow_apr, seconds_passed)?;
+            self.config.accrual_model.compute_multiplier(e, current_borrow_apr, seconds_passed)?;
 
-        let new_total_borrowed = self
-            .total_borrowed
-            .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
-            .map_over_or_underflow()?;
+        let new_total_borrowed = {
+            // Use I256 to avoid overflow when total_borrowed * accrual_multiplier exceeds
+            // i128::MAX before the division by SCALED_FIXED_POINT_DENOMINATOR.
+            let a = I256::from_i128(e, self.total_borrowed);
+            let b = I256::from_i128(e, accrual_multiplier);
+            let denom = I256::from_i128(e, SCALED_FIXED_POINT_DENOMINATOR);
+            let product = a.mul(&b);
+            let remainder = product.rem_euclid(&denom);
+            let zero = I256::from_i32(e, 0);
+            let result_i256 = if remainder == zero {
+                product.div(&denom)
+            } else {
+                product.div(&denom).add(&I256::from_i32(e, 1))
+            };
+
+            result_i256.to_i128().map_over_or_underflow()?
+        };
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
         let take_rate_accrual_part = accrued
-            .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
+            .fixed_mul_floor(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let new_take_rate_fees_sum =
@@ -77,19 +85,18 @@ impl Pool {
 
         self.last_accrual_timestamp = current_timestamp;
 
-        // TODO: Verify that all allowed params imply an expected/reasonable behavior
-        let utilization_diff = utilization_ratio_bps
-            .checked_sub(self.target_utilization_ratio_bps)
+        let utilization_diff_bps = utilization_ratio_bps
+            .checked_sub(self.config.target_utilization_ratio_bps)
             .map_over_or_underflow()?;
         let utilization_error =
-            (seconds_passed as i128).checked_mul(utilization_diff).map_over_or_underflow()?;
-        let new_interest_rate_modifier = if utilization_diff >= 0 {
+            (seconds_passed as i128).checked_mul(utilization_diff_bps).map_over_or_underflow()?;
+        let new_interest_rate_modifier_bps = if utilization_diff_bps >= 0 {
             // Positive diff - modifier decreases
             let rate_diff = utilization_error
-                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
+                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
-            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier - rate_diff)
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier_bps.saturating_sub(rate_diff))
         } else {
             // Negative diff - modifier increases
             let rate_diff = utilization_error
@@ -97,64 +104,25 @@ impl Pool {
                 .map_over_or_underflow()?
                 .checked_neg()
                 .map_over_or_underflow()?;
-            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier + rate_diff)
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier_bps.saturating_add(rate_diff))
         };
 
-        self.interest_rate_modifier = new_interest_rate_modifier;
-
-        // -- Accrue supply APR bootstraps(candidate to be removed) --
-
-        let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
-        let mut outdated_periods: Vec<(u64, u64)> = svec![e];
-
-        for ((start_period, end_period), mut pool_bootstrap_period) in self.bootstrap_periods.iter()
-        {
-            if end_period <= current_timestamp {
-                let new_total_available = self
-                    .total_available
-                    .checked_add(pool_bootstrap_period.remaining_amount)
-                    .map_over_or_underflow()?;
-
-                self.total_available = new_total_available;
-                outdated_periods.push_back((start_period, end_period));
-            } else if current_timestamp > start_period && current_timestamp < end_period {
-                let remaining_time_period = end_period - current_timestamp; // safe
-                let remaining_time_ratio = remaining_time_period
-                    .fixed_div_ceil(end_period - start_period, BPS_FACTOR as u64)
-                    .map_over_or_underflow()?; // safe
-
-                let new_remaining_amount = pool_bootstrap_period
-                    .total_amount
-                    .fixed_mul_floor(remaining_time_ratio as i128, BPS_FACTOR)
-                    .map_over_or_underflow()?;
-                let diff = pool_bootstrap_period.remaining_amount - new_remaining_amount; // safe
-
-                let new_total_available =
-                    self.total_available.checked_add(diff).map_over_or_underflow()?;
-                self.total_available = new_total_available;
-
-                pool_bootstrap_period.remaining_amount = new_remaining_amount;
-                updated_periods.push_back(((start_period, end_period), pool_bootstrap_period));
-            }
-        }
-
-        for outdated_period in outdated_periods {
-            self.bootstrap_periods.remove(outdated_period);
-        }
-        for (period, updated_period) in updated_periods {
-            self.bootstrap_periods.set(period, updated_period);
-        }
+        self.interest_rate_modifier_bps = new_interest_rate_modifier_bps;
 
         Ok(())
     }
 
     // Get current annual percentage yields (APY) for borrowing and supplying
     // based on the pool's utilization ratio, interest rate model, and accrual model
-    pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
+    pub fn get_apy(&self, e: &Env) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        let borrow_apr =
-            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
+        let borrow_apr = self
+            .config
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps)?
+            .fixed_mul_ceil(self.interest_rate_modifier_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
         let supply_apr = borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?
@@ -162,9 +130,9 @@ impl Pool {
             .map_over_or_underflow()?; // safe
 
         let borrow_apy_multiplier =
-            self.config.accrual_model.compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
+            self.config.accrual_model.compute_multiplier(e, borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier =
-            self.config.accrual_model.compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
+            self.config.accrual_model.compute_multiplier(e, supply_apr, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;
@@ -181,10 +149,7 @@ impl Pool {
         if total == 0 {
             Ok(0)
         } else {
-            self.total_borrowed
-                // TODO: Investigate why using `floor` here breaks fuzzing tests
-                .fixed_div_ceil(total, BPS_FACTOR)
-                .map_over_or_underflow()
+            self.total_borrowed.fixed_div_ceil(total, BPS_FACTOR).map_over_or_underflow()
         }
     }
 }

@@ -1,0 +1,310 @@
+@import 'fonts';
+@import 'variables';
+@import 'colors';
+@import 'components';
+
+html.is-windows {
+  --scrollbar-bg: transparent;
+  --scrollbar-bg-hover: rgba(62, 75, 100, 0.1);
+  --scrollbar-thumb: rgba(62, 75, 100, 0.5);
+  --scrollbar-thumb-hover: rgba(62, 75, 100, 0.9);
+}
+
+html.is-windows ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.is-windows ::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+}
+
+html.is-windows ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+html.is-windows ::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+html,
+body {
+  margin: 0;
+  font-family: $font-family-base;
+  background-color: $navi-950;
+  color: $text-primary;
+}
+
+body {
+  opacity: 0;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  // background:
+  //   radial-gradient(800px circle at 50% 22%, rgba(34, 211, 238, 0.05), transparent 70%),
+  //   radial-gradient(600px circle at 50% 78%, rgba(245, 158, 11, 0.045), transparent 70%), #0a0e17;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+p {
+  margin: 0;
+}
+
+#__nuxt {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+#nprogress {
+  .bar {
+    background: $cyan !important;
+  }
+  .spinner-icon {
+    border-top-color: $cyan !important;
+    border-left-color: $cyan !important;
+  }
+}
+
+main {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column;
+  gap: 24px;
+  padding: $spacing-3xl 0;
+  z-index: 1;
+}
+
+h2 {
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0;
+}
+
+.body--no-scroll {
+  overflow: hidden;
+}
+
+.page-container {
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.container {
+  width: 100%;
+  max-width: 1224px;
+  margin: 0 auto;
+  padding-left: $spacing-lg;
+  padding-right: $spacing-lg;
+  display: flex;
+}
+
+.card {
+  padding: $spacing-3xl;
+  border-radius: $radius-2xl;
+  background-color: $bg-card;
+  border: 1px solid $border-primary;
+  box-shadow: none;
+}
+
+.text-num {
+  font-family: $font-JetBrainsMono !important;
+}
+
+.separator {
+  width: 100%;
+  height: 1px;
+  background-color: $surface-neutral-08;
+  display: flex;
+}
+
+.separator-vert {
+  width: 1px;
+  background-color: $surface-neutral-08;
+  display: flex;
+}
+
+.hide-xs {
+  @media (max-width: $breakpoint-xs) {
+    display: none !important;
+  }
+}
+
+.modal.fade {
+  transition: opacity 0.1s ease-out !important;
+
+  .modal-dialog {
+    transition: transform 0.1s ease-out !important;
+  }
+}
+
+// Vendor override: `<BPopover>` (and friends) wraps content in a Vue
+// `<Transition name="fade">` but sets `enterActiveClass: ""` /
+// `leaveActiveClass: ""`, so the auto-generated `.fade-enter-active`
+// class never lands on the element. The actual driver is bootstrap's
+// static `.popover.fade { transition: opacity 0.15s linear }` rule.
+// We pin it to the project motion token so future bootstrap upgrades
+// can't drift past the budget. (Hover popovers opt out via :no-fade.)
+.popover.fade {
+  transition: opacity $transition-base linear !important;
+}
+
+.dialog-default {
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 20px;
+
+    img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+  }
+
+  &__body {
+    padding: $spacing-xl $spacing-3xl $spacing-3xl;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__action {
+    display: flex;
+    justify-content: space-between;
+    gap: 32px;
+
+    .action-info {
+      white-space: nowrap;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      span:first-child {
+        color: $navi-200;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 16px;
+      }
+
+      span:last-child {
+        font-size: 20px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 20px;
+      }
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+}
+
+.table-wrapper {
+  height: 100%;
+  position: relative;
+
+  @media (max-width: $breakpoint-sm) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.5);
+    width: 100%;
+    height: 100%;
+  }
+}
+
+body:has(stellar-wallets-modal) {
+  #teleports {
+    position: relative;
+    z-index: 10 !important;
+  }
+}
+
+.stellar-wallets-kit {
+  --swk-foreground-strong: #fff !important;
+  font-family: $font-family-base !important;
+
+  & > div {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+  section {
+    position: relative !important;
+    background-color: rgba(21, 28, 43, 0.7) !important;
+    border: 1px solid $navi-400 !important;
+  }
+  .glass {
+    background-color: rgba(12, 17, 28, 0.9) !important;
+
+    &:has(header) {
+      border-bottom: 1px solid $navi-400 !important;
+    }
+    &:has(footer) {
+      border-top: 1px solid $navi-400 !important;
+    }
+  }
+
+  header {
+    svg {
+      color: #fff !important;
+    }
+  }
+
+  p {
+    color: #fff !important;
+  }
+
+  ul {
+    div {
+      color: #fff !important;
+      font-weight: 500 !important;
+    }
+  }
+
+  li {
+    background: #22d3ee0f !important;
+    border: 1px solid rgba(34, 211, 238, 0.25) !important;
+
+    &:hover {
+      background: #22d3ee1f !important;
+      border-color: #22d3ee73 !important;
+      box-shadow: 0 0 20px #22d3ee1a !important;
+
+      p {
+        color: #22d3ee !important;
+        font-weight: 600 !important;
+      }
+    }
+
+    p {
+      color: #fff !important;
+    }
+  }
+}

@@ -1,0 +1,111 @@
+.table-mobile-card {
+  padding: $spacing-xl;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: 16px;
+  background: transparent;
+  color: $text-primary;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $surface-neutral-20;
+    padding: $spacing-xl $spacing-xl $spacing-3xl;
+  }
+
+  .mobile-card-top {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .card-asset {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        border-radius: 50%;
+      }
+
+      &__info {
+        display: flex;
+        flex-direction: column;
+
+        &__name {
+          font-size: 16px;
+          font-weight: 500;
+          line-height: 20px;
+          text-align: left;
+          font-style: normal;
+        }
+
+        &__symbol {
+          color: $text-secondary;
+          font-size: $text-xs;
+          font-style: normal;
+          font-weight: 500;
+          line-height: 12px;
+          text-align: left;
+        }
+      }
+    }
+
+    .card-top-info {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  .mobile-card-body {
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    padding: 0;
+  }
+
+  .mobile-card-footer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .btn {
+      width: 100%;
+    }
+  }
+
+  .info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &__title {
+      color: $text-tertiary;
+      font-size: $text-xs;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 12px;
+    }
+
+    &__value {
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 16px;
+      font-family: $font-JetBrainsMono;
+    }
+  }
+
+  .with-pill {
+    gap: 5px;
+
+    .info-wrapper__title {
+      color: $text-tertiary;
+    }
+  }
+}

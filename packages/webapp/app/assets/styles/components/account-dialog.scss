@@ -1,0 +1,63 @@
+.account-dialog {
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 20px;
+
+    img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+  }
+
+  &__body {
+    padding-top: $spacing-xl;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .account-info-table {
+    display: flex;
+    flex-direction: column;
+
+    &__item {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      justify-content: space-between;
+      font-size: $text-xs;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 12px;
+
+      &:nth-child(even) {
+        background-color: $fg-secondary;
+      }
+
+      span {
+        padding: $spacing-sm $spacing-xl;
+
+        &:nth-child(2) {
+          text-align: right;
+        }
+      }
+    }
+  }
+
+  .account-dialog-action {
+    display: flex;
+    justify-content: space-between;
+    gap: 32px;
+
+    .btn {
+      width: 192px;
+      margin-left: auto;
+    }
+  }
+}

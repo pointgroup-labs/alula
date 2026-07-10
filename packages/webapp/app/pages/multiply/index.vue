@@ -1,0 +1,3 @@
+<template>
+  <multiply-page />
+</template>

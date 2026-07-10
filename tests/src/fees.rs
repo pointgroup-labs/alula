@@ -3,7 +3,7 @@
 use market::{
     constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, SECONDS_IN_YEAR},
     error::MCError,
-    obligation::{OperationFees, compute_operation_fees},
+    obligation::{ObligationKey, OperationFees, compute_operation_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };
 use soroban_fixed_point_math::FixedPoint;
@@ -16,7 +16,7 @@ use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_j_tokens_as_tokens, get_pool_fee_config, get_pool_operation_fees_sum,
-    get_pool_take_rate_fees_sum, get_pool_total_borrowed,
+    get_pool_take_rate_fees_sum, get_pool_total_borrowed, get_pool_utilization_ratio_bps,
 };
 
 // -- Default Fees(only for borrow and flash loan(the latter tested in 'flash_loan_taker_mock')) --
@@ -36,9 +36,14 @@ fn test_borrow_fee() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
@@ -51,7 +56,12 @@ fn test_borrow_fee() {
     let pool_balance_before = usdc_token_client.balance(&contract_id);
     let borrower_balance_before = usdc_token_client.balance(borrower);
 
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let pool_balance_after = usdc_token_client.balance(&contract_id);
     let borrower_balance_after = usdc_token_client.balance(borrower);
@@ -114,7 +124,12 @@ fn test_deposit_fee() {
     let creditor_balance_before = gold_token_client.balance(creditor);
     let operation_fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
     let creditor_balance_after = gold_token_client.balance(creditor);
@@ -179,7 +194,7 @@ fn test_add_collateral_fee() {
     let operation_fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
     contract_client.add_collateral(
-        collateral_adder,
+        &ObligationKey::new(collateral_adder.clone()),
         &gold_pool_address,
         &DEFAULT_COLLATERAL_AMOUNT,
         &None,
@@ -241,7 +256,7 @@ fn test_remove_collateral_fee() {
     let collateral_adder = &users[0];
 
     contract_client.add_collateral(
-        collateral_adder,
+        &ObligationKey::new(collateral_adder.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_COLLATERAL_AMOUNT),
         &None,
@@ -255,7 +270,7 @@ fn test_remove_collateral_fee() {
     let fees_sum_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
     contract_client.remove_collateral(
-        collateral_adder,
+        &ObligationKey::new(collateral_adder.clone()),
         &gold_pool_address,
         &DEFAULT_COLLATERAL_AMOUNT,
         &None,
@@ -296,10 +311,6 @@ fn test_remove_collateral_fee() {
     assert_eq!(collateral_adder_collateral_diff, expected_collateral_adder_collateral_diff);
 }
 
-// TODO: Add cap checks
-// TODO: Add a test that verifies the constant `market` and `host` fees availability regardless of
-// `total_available` on pool(contrary to `reserve` fees)
-
 #[test]
 fn test_withdraw_fee() {
     const WITHDRAW_FEE_BPS: u32 = 500; // 5%
@@ -319,7 +330,12 @@ fn test_withdraw_fee() {
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let creditor = &users[0];
 
-    contract_client.deposit(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     let pool_balance_before = gold_token_client.balance(&contract_id);
     let creditor_balance_before = gold_token_client.balance(creditor);
@@ -328,7 +344,12 @@ fn test_withdraw_fee() {
             .unwrap();
     let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
     let creditor_balance_after = gold_token_client.balance(creditor);
@@ -366,8 +387,134 @@ fn test_withdraw_fee() {
 }
 
 #[test]
-fn test_withdraw_scarcity_fee() {
+fn test_withdraw_scarcity_fee_half() {
+    let borrow_amount: i128 = DEFAULT_DEPOSIT_AMOUNT
+        .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
+        .unwrap();
+    let withdraw_amount = DEFAULT_DEPOSIT_AMOUNT.checked_sub(borrow_amount).unwrap() / 2; // NB: half
+
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        gold_pool_address,
+        users,
+        gold_token_client,
+        usdc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    // - Borrow up to utilization ratio cap -
+
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &borrow_amount,
+        &None,
+    );
+
+    // - Withdraw half of the rest and check the fees -
+
+    let pool_balance_before = gold_token_client.balance(&contract_id);
+    let creditor_balance_before = gold_token_client.balance(creditor);
+    let creditor_deposit_before =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
+            .unwrap();
+    let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+
+    let simulated_withdraw_result = contract_client.simulate_withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
+
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
+
+    let pool_balance_after = gold_token_client.balance(&contract_id);
+    let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_deposit_after =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
+            .unwrap();
+    let fees_after = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+
+    let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    let creditor_deposit_diff =
+        creditor_deposit_before.checked_sub(creditor_deposit_after).unwrap();
+
+    let fees_diff = fees_after.checked_sub(fees_before).unwrap();
+
+    let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
+
+    let withdraw_scarcity_fee_bps = {
+        let pool_utilization_ratio_bps =
+            get_pool_utilization_ratio_bps(&contract_client, &gold_pool_address);
+        assert!(pool_utilization_ratio_bps < BPS_FACTOR);
+
+        let bps_diff = pool_utilization_ratio_bps - DEFAULT_UTILIZATION_RATIO_LIMIT_BPS; // safe
+        let max_bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
+
+        bps_diff
+            .fixed_mul_ceil(pool_fee_config.withdraw_max_scarcity_fee_bps as i128, max_bps_diff)
+            .unwrap()
+    } as u32;
+
+    // NB: Withdrawal scarcity fee is calculated on the post-withdrawal utilization ratio.
+    // Utilization ratio = (total_borrowed/total_supply).
+    // Decreasing `total_supply` by X leads to a smaller fraction compared to increasing `total_borrowed` by X
+    assert!(withdraw_scarcity_fee_bps < pool_fee_config.withdraw_max_scarcity_fee_bps / 2);
+    assert!(withdraw_scarcity_fee_bps > pool_fee_config.withdraw_max_scarcity_fee_bps / 3);
+
+    let OperationFees { fee_sum, .. } = compute_operation_fees(
+        withdraw_amount,
+        pool_fee_config.withdraw_fee_bps + withdraw_scarcity_fee_bps,
+        &None,
+        &pool_fee_config,
+    )
+    .unwrap();
+
+    let expected_creditor_balance_diff = withdraw_amount.checked_sub(fee_sum).unwrap();
+    let expected_pool_balance_diff = expected_creditor_balance_diff;
+    let expected_fee_diff = fee_sum;
+    let expected_creditor_deposit_diff = withdraw_amount;
+
+    assert_eq!(creditor_balance_diff, expected_creditor_balance_diff);
+    assert_eq!(pool_balance_diff, expected_pool_balance_diff);
+    assert_eq!(fees_diff, expected_fee_diff);
+
+    assert_eq!(creditor_deposit_diff, expected_creditor_deposit_diff);
+    assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
+}
+
+#[test]
+fn test_withdraw_scarcity_fee_full() {
     const WITHDRAW_FEE_BPS: u32 = 500; // 5%
+    let borrow_amount: i128 = DEFAULT_DEPOSIT_AMOUNT
+        .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
+        .unwrap();
+    let withdraw_amount = DEFAULT_DEPOSIT_AMOUNT.checked_sub(borrow_amount).unwrap(); // NB: rest
 
     let pool_config = PoolConfig {
         fee_config: PoolFeeConfig {
@@ -390,22 +537,26 @@ fn test_withdraw_scarcity_fee() {
     let creditor = &users[0];
     let borrower = &users[1];
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
     // - Borrow up to utilization ratio cap -
-
-    let borrow_amount: i128 = DEFAULT_DEPOSIT_AMOUNT
-        .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
-        .unwrap();
-    let withdraw_amount = DEFAULT_DEPOSIT_AMOUNT.checked_sub(borrow_amount).unwrap();
-
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &borrow_amount,
+        &None,
+    );
 
     // - Withdraw rest and check the fees -
 
@@ -416,10 +567,19 @@ fn test_withdraw_scarcity_fee() {
             .unwrap();
     let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
-    let simulated_withdraw_result =
-        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
+    let simulated_withdraw_result = contract_client.simulate_withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
 
-    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
     let creditor_balance_after = gold_token_client.balance(creditor);
@@ -439,12 +599,19 @@ fn test_withdraw_scarcity_fee() {
     let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
 
     let withdraw_scarcity_fee_bps = {
-        let bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
+        let pool_utilization_ratio_bps =
+            get_pool_utilization_ratio_bps(&contract_client, &gold_pool_address);
+        assert_eq!(pool_utilization_ratio_bps, BPS_FACTOR);
+
+        let bps_diff = pool_utilization_ratio_bps - DEFAULT_UTILIZATION_RATIO_LIMIT_BPS; // safe
+        let max_bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
 
         bps_diff
-            .fixed_mul_ceil(pool_fee_config.withdraw_scarcity_fee_sc_bps as i128, BPS_FACTOR)
+            .fixed_mul_ceil(pool_fee_config.withdraw_max_scarcity_fee_bps as i128, max_bps_diff)
             .unwrap()
     } as u32;
+
+    assert_eq!(withdraw_scarcity_fee_bps, pool_fee_config.withdraw_max_scarcity_fee_bps);
 
     let OperationFees { fee_sum, .. } = compute_operation_fees(
         withdraw_amount,
@@ -476,8 +643,18 @@ fn test_withdraw_scarcity_fee_no_borrow() {
     let creditor_balance_before = gold_token_client.balance(creditor);
     let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let fees_after = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
@@ -514,16 +691,40 @@ fn test_simulate_withdraw_scarcity_fee() {
         DEFAULT_DEPOSIT_AMOUNT.fixed_mul_floor(remaining_utilization_bps, BPS_FACTOR).unwrap(),
     );
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(10 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &borrow_amount,
+        &None,
+    );
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    let simulated_withdraw_result =
-        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
+    let simulated_withdraw_result = contract_client.simulate_withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
     let fees_sum_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let creditor_balance_diff =
@@ -534,59 +735,6 @@ fn test_simulate_withdraw_scarcity_fee() {
 
     assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
     assert_eq!(market_fees_diff, simulated_withdraw_result.operation_fees.fee_sum);
-}
-
-#[test]
-fn test_simulate_withdraw_earn_scarcity_fee() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        gold_token_client,
-        ..
-    } = TestMarketFixture::new();
-    let creditor = &users[0];
-    let borrower = &users[1];
-
-    let utilization_ratio_limit_bps = contract_client
-        .get_pool(&gold_pool_address)
-        .config
-        .health_config
-        .utilization_ratio_limit_bps;
-    let remaining_utilization_bps = BPS_FACTOR.checked_sub(utilization_ratio_limit_bps).unwrap();
-
-    let (borrow_amount, withdraw_amount) = (
-        DEFAULT_DEPOSIT_AMOUNT
-            .fixed_mul_floor((utilization_ratio_limit_bps).min(BPS_FACTOR), BPS_FACTOR)
-            .unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT.fixed_mul_floor(remaining_utilization_bps, BPS_FACTOR).unwrap(),
-    );
-
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
-
-    let creditor_balance_before = gold_token_client.balance(creditor);
-    let simulated_withdraw_result = contract_client.simulate_earn_withdraw(
-        creditor,
-        &gold_pool_address,
-        &withdraw_amount,
-        &None,
-    );
-    let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
-
-    contract_client.withdraw_earn(creditor, &gold_pool_address, &withdraw_amount, &None);
-
-    let creditor_balance_after = gold_token_client.balance(creditor);
-    let creditor_balance_diff =
-        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-    let fees_after = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
-
-    let fees_diff = fees_after.checked_sub(fees_before).unwrap();
-
-    assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
-    assert_eq!(fees_diff, simulated_withdraw_result.operation_fees.fee_sum);
 }
 
 #[test]
@@ -610,15 +758,25 @@ fn test_repay_fee() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(4 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(4 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(3 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     let pool_balance_before = usdc_token_client.balance(&contract_id);
     let borrower_balance_before = usdc_token_client.balance(borrower);
@@ -627,7 +785,12 @@ fn test_repay_fee() {
             .unwrap();
     let fees_before = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-    contract_client.repay(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.repay(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let pool_balance_after = usdc_token_client.balance(&contract_id);
     let borrower_balance_after = usdc_token_client.balance(borrower);
@@ -698,14 +861,29 @@ fn test_distribute_all_pools_fees() {
     assert_eq!(usdc_pool_operation_fees, 0);
 
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(10 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(debtor.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(debtor.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     let gold_pool_operation_fees =
         get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
@@ -718,21 +896,27 @@ fn test_distribute_all_pools_fees() {
     let gold_market_balance_before = gold_token_client.balance(&contract_id);
     let usdc_market_balance_before = usdc_token_client.balance(&contract_id);
 
+    let gold_pool_operation_fees_before =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees_before =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+
     contract_client.distribute_all_pools_fees();
 
     let gold_market_balance_after = gold_token_client.balance(&contract_id);
     let usdc_market_balance_after = usdc_token_client.balance(&contract_id);
 
+    // No beneficiaries are set, so the operation fees stay on the market's balance
     assert_eq!(gold_market_balance_after, gold_market_balance_before);
     assert_eq!(usdc_market_balance_after, usdc_market_balance_before);
 
-    let gold_pool_operation_fees =
+    let gold_pool_operation_fees_after =
         get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
-    let usdc_pool_operation_fees =
+    let usdc_pool_operation_fees_after =
         get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-    assert_eq!(gold_pool_operation_fees, 0);
-    assert_eq!(usdc_pool_operation_fees, 0);
+    assert_eq!(gold_pool_operation_fees_before, gold_pool_operation_fees_after);
+    assert_eq!(usdc_pool_operation_fees_before, usdc_pool_operation_fees_after);
 
     assert_eq!(
         contract_client.try_set_operation_fees_beneficiaries(
@@ -756,14 +940,29 @@ fn test_distribute_all_pools_fees() {
     // -- Repeat all operations --
 
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(10 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(debtor.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(debtor.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     // -- Verify that fees are distributed --
 
@@ -835,14 +1034,24 @@ fn test_take_rate_fees_are_empty_prior_accrual() {
 
     let take_rate_fee_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let take_rate_fees_after = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
@@ -858,14 +1067,24 @@ fn test_accumulate_take_rate_fees() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
     let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
@@ -886,7 +1105,7 @@ fn test_accumulate_take_rate_fees() {
 
     let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
     let expected_accumulated_reserve_fees_diff =
-        pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
+        pool_total_borrowed_diff.fixed_mul_floor(take_rate as i128, BPS_FACTOR).unwrap();
 
     assert!(pool_total_borrowed_diff > 0);
     assert_eq!(fees_diff, expected_accumulated_reserve_fees_diff);
@@ -911,14 +1130,24 @@ fn test_distribute_take_rate_fees() {
     let beneficiary_1 = Address::generate(&e);
     let beneficiary_2 = Address::generate(&e);
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     // -- Accrue debt on the pool --
 
@@ -935,9 +1164,9 @@ fn test_distribute_take_rate_fees() {
     let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
     let balance_after = usdc_token_client.balance(&contract_id);
 
+    // No beneficiaries - no fees to distribute
     assert_eq!(balance_before, balance_after);
-    assert_ne!(fees_before, fees_after);
-    assert_eq!(fees_after, 0);
+    assert_eq!(fees_before, fees_after);
 
     assert_eq!(
         contract_client.try_set_take_rate_fees_beneficiaries(
@@ -951,6 +1180,21 @@ fn test_distribute_take_rate_fees() {
         &usdc_pool_address,
         &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
     );
+
+    // -- Distributie existing fees --
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_before = usdc_token_client.balance(&contract_id);
+
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_after = usdc_token_client.balance(&contract_id);
+
+    // No beneficiaries - no fees to distribute
+    assert!(balance_after < balance_before);
+    assert!(fees_before > fees_after);
+    assert_eq!(fees_after, 0);
 
     // -- Accrue debt on the pool --
 
@@ -985,4 +1229,324 @@ fn test_distribute_take_rate_fees() {
     assert_eq!(fees_after, 0);
 }
 
-// TODO: Add test for `distribute_pool_fees`
+#[test]
+fn test_distribute_pool_fees_transfers_tokens_but_keeps_total_available_unchanged() {
+    // Set borrow_fee_bps to 0 to avoid operation fees interfering with this test
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: 0, ..Default::default() },
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    // Provide collateral and liquidity so interest can accrue and take rate fees can accumulate
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    // Configure take rate fee beneficiaries so the distribution actually transfers tokens out
+    let beneficiary_1 = Address::generate(&e);
+    let beneficiary_2 = Address::generate(&e);
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
+    );
+
+    // Accrue interest to accumulate take rate fees
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    assert!(fees_before > 0);
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+    let total_available_before = pool_before.total_available;
+
+    let market_balance_before = usdc_token_client.balance(&contract_id);
+
+    // Anyone can call this entry point, it will distribute the accumulated take rate fees
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+    let total_available_after = pool_after.total_available;
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    assert_eq!(fees_after, 0);
+
+    let market_balance_after = usdc_token_client.balance(&contract_id);
+    let market_balance_diff = market_balance_before.checked_sub(market_balance_after).unwrap();
+
+    // Confirm real token transfer happened
+    assert_approx_eq_abs(market_balance_diff, fees_before, 1);
+
+    // Confirm pool accounting reflects the token outflow
+    assert_eq!(total_available_after, total_available_before.checked_sub(fees_before).unwrap());
+}
+
+// Tests for fee constraints
+
+#[test]
+fn test_fee_max_constraint_repay() {
+    const HIGH_REPAY_FEE_BPS: u32 = 1_500; // 15% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { repay_fee_bps: HIGH_REPAY_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_max_constraint_withdraw() {
+    const HIGH_WITHDRAW_FEE_BPS: u32 = 1_200; // 12% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { withdraw_fee_bps: HIGH_WITHDRAW_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_max_constraint_remove_collateral() {
+    const HIGH_REMOVE_COLLATERAL_FEE_BPS: u32 = 1_100; // 11% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            remove_collateral_fee_bps: HIGH_REMOVE_COLLATERAL_FEE_BPS,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_bump_constraint() {
+    // Create initial config with low fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1%
+            withdraw_fee_bps: 200,         // 2%
+            remove_collateral_fee_bps: 50, // 0.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Try to update with a fee increase that exceeds 3% bump limit
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 500,            // 5% - increase of 4% exceeds 3% limit
+            withdraw_fee_bps: 200,         // 2% - no change
+            remove_collateral_fee_bps: 50, // 0.5% - no change
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 3% bump limit
+    assert!(new_config.validate(Some(current_config.clone())).is_err());
+}
+
+#[test]
+fn test_fee_bump_constraint_allowed() {
+    // Create initial config with low fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1%
+            withdraw_fee_bps: 200,         // 2%
+            remove_collateral_fee_bps: 50, // 0.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Try to update with a fee increase within 3% bump limit
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 350,             // 3.5% - increase of 2.5% within 3% limit
+            withdraw_fee_bps: 450,          // 4.5% - increase of 2.5% within 3% limit
+            remove_collateral_fee_bps: 300, // 3% - increase of 2.5% within 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation
+    assert!(new_config.validate(Some(current_config.clone())).is_ok());
+}
+
+#[test]
+fn test_fee_at_max_limit_allowed() {
+    // Test that fees exactly at the 10% limit are allowed
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 1_000,             // 10% - exactly at limit
+            withdraw_fee_bps: 1_000,          // 10% - exactly at limit
+            remove_collateral_fee_bps: 1_000, // 10% - exactly at limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation
+    assert!(pool_config.validate(None).is_ok());
+}
+
+#[test]
+fn test_fee_decrease_allowed() {
+    // Create initial config with higher fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 800,             // 8%
+            withdraw_fee_bps: 900,          // 9%
+            remove_collateral_fee_bps: 700, // 7%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Decrease fees - this should always be allowed regardless of decrease amount
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1% - decrease of 7%
+            withdraw_fee_bps: 200,         // 2% - decrease of 7%
+            remove_collateral_fee_bps: 50, // 0.5% - decrease of 6.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation (decreases are always allowed)
+    assert!(new_config.validate(Some(current_config.clone())).is_ok());
+}
+
+// ---- Fee constraint integration tests (queue/apply pool config flow) ----
+
+#[test]
+fn test_queue_pool_set_with_high_fee_rejected() {
+    let TestMarketFixture { contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    let high_fee_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 1_500, // 15% - exceeds 10% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail due to exceeding fee limits
+    let result = contract_client.try_queue_in_pool_set(&usdc_pool_address, &high_fee_config);
+
+    assert_eq!(result, Err(Ok(MCError::InvalidLoanPoolConfig)));
+}
+
+#[test]
+fn test_queue_pool_update_with_large_fee_bump_rejected() {
+    let TestMarketFixture { e, contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    // First, apply a pool with low fees
+    let initial_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100, // 1%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_set(&usdc_pool_address, &initial_config);
+
+    // Fast forward time to allow pool config to be applied
+    e.ledger().with_mut(|li| {
+        li.timestamp += 24 * 60 * 60 + 1; // 24 hours + 1 second
+    });
+
+    contract_client.apply_pool_set(&usdc_pool_address);
+
+    // Now try to update with a fee that bumps more than 3%
+    let high_bump_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 500, // 5% - increase of 4% exceeds 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail due to exceeding fee bump limit
+    let result = contract_client.try_queue_in_pool_set(&usdc_pool_address, &high_bump_config);
+
+    assert_eq!(result, Err(Ok(MCError::InvalidLoanPoolConfig)));
+}
+
+#[test]
+fn test_queue_pool_update_with_allowed_fee_bump_succeeds() {
+    let TestMarketFixture { e, contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    // First, apply a pool with low fees
+    let initial_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,    // 1%
+            withdraw_fee_bps: 200, // 2%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_set(&usdc_pool_address, &initial_config);
+
+    // Fast forward time to allow pool config to be applied
+    e.ledger().with_mut(|li| {
+        li.timestamp += 24 * 60 * 60 + 1; // 24 hours + 1 second
+    });
+
+    contract_client.apply_pool_set(&usdc_pool_address);
+
+    // Now try to update with a fee bump within the 3% limit
+    let allowed_bump_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 350,    // 3.5% - increase of 2.5% within 3% limit
+            withdraw_fee_bps: 450, // 4.5% - increase of 2.5% within 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should succeed
+    contract_client.queue_in_pool_set(&usdc_pool_address, &allowed_bump_config);
+}

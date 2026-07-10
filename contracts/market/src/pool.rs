@@ -1,4 +1,4 @@
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
 use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 
 use crate::{
@@ -13,8 +13,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    oracle::{self, get_asset_price},
-    storage::{self, PoolUpdate},
+    oracle, storage,
 };
 
 #[contracttype]
@@ -26,6 +25,8 @@ pub struct Pool {
     pub token_address: Address,
     // The token symbol of the associated asset
     pub token_symbol: String,
+    // Number of decimals used for fixed-point representation of the asset amount
+    pub token_decimals: u32,
     // The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     // The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
@@ -45,8 +46,6 @@ pub struct Pool {
     pub config: PoolConfig,
     // The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    // Remaining supply bootstrap amounts that are distributed evenly among specified periods
-    pub bootstrap_periods: Map<(u64, u64), PoolBootstrapPeriod>,
     // Borrow annual percentage rate in basis points
     pub borrow_apr_bps: i128,
     // Supply annual percentage rate in basis points
@@ -55,14 +54,16 @@ pub struct Pool {
     pub operation_fees_sum: i128,
     //  Maintained sum of the accumulated per take rate beneficiaries' fees
     pub take_rate_fees_sum: i128,
-    // Target utilization ratio in basis points
-    pub target_utilization_ratio_bps: i128,
     // Interest rate modifier in basis points
-    pub interest_rate_modifier: i128,
+    pub interest_rate_modifier_bps: i128,
     // Farm ID for supply incentives (j-token staking)
     pub farm_supply: Option<BytesN<32>>,
     // Farm ID for debt incentives (d-token staking)
     pub farm_debt: Option<BytesN<32>>,
+    // Timestamp deadline after which the bad debt lock expires (0 = no lock)
+    pub bad_debt_lock_d: u64,
+    // Number of unresolved insurance fund coverage requests referencing this pool
+    pub bad_debt_request_count: u32,
 }
 
 macro_rules! generate_adjust_method {
@@ -89,24 +90,23 @@ impl Pool {
 
     fn adjust_accumulated_fees_with_computed_per_operation(
         &mut self,
+        e: &Env,
         fees: &OperationFees,
     ) -> Result<(), MCError> {
-        let referrer_fees = fees.referrer_fee.unwrap_or(0);
-        let net_protocol_fees = fees.fee_sum - referrer_fees;
+        if fees.fee_sum < fees.referrer_fee {
+            events::referrer_fee_exceeds_operation_fees_sum(
+                e,
+                self.pool_address.clone(),
+                fees.fee_sum,
+                fees.referrer_fee,
+            );
+
+            return Err(MCError::InternalError);
+        }
+        let net_protocol_fees = fees.fee_sum - fees.referrer_fee; // safe
 
         self.operation_fees_sum =
             self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
-
-        Ok(())
-    }
-
-    // Bootstraps the pool by distributing additional rewards to suppliers
-    pub fn bootstrap(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
-        if self.bootstrap_periods.get(period).is_some() {
-            return Err(MCError::InvalidBootstrapPeriod);
-        }
-
-        self.bootstrap_periods.set(period, PoolBootstrapPeriod::new(amount));
 
         Ok(())
     }
@@ -116,7 +116,10 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&deposit_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &deposit_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -132,7 +135,10 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&withdraw_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &withdraw_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -146,7 +152,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&borrow_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -160,6 +166,7 @@ impl Pool {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &add_collateral_result.operation_fees,
         )?;
 
@@ -178,7 +185,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&repay_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -195,6 +202,7 @@ impl Pool {
         )?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &remove_collateral_result.operation_fees,
         )?;
 
@@ -207,6 +215,7 @@ impl Pool {
         e: &Env,
         liquidation_result: &LiquidationResult,
     ) -> Result<(), MCError> {
+        self.adjust_total_available(e, liquidation_result.debt_repaid)?;
         self.adjust_total_borrowed(
             e,
             liquidation_result.debt_repaid.checked_neg().map_over_or_underflow()?,
@@ -365,9 +374,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_ceil(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_ceil(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -392,9 +404,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_floor(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -412,7 +427,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             // This must hold when issuing new shares:
             // ----
@@ -448,7 +463,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             total_shares_amount
                 .fixed_div_floor(total_tokens_amount, tokens_amount)
@@ -461,7 +476,7 @@ impl Pool {
     // ---- `require_` circuits ----
 
     pub fn require_total_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -492,32 +507,16 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_flash_loan_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_flash_loan_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
     pub fn require_add_collateral_enabled(&self) -> Result<(), MCError> {
         if !self.config.status.is_add_collateral_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_remove_collateral_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_remove_collateral_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_withdraw_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_withdraw_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_repay_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_repay_enabled() {
             return Err(MCError::OperationForbiddenOnPool);
         }
 
@@ -530,7 +529,7 @@ impl Pool {
         removed_available_amount: i128,
     ) -> Result<(), MCError> {
         let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_borrow(self, e)?;
+            Self::compute_available_utilization_ratio_capped_borrow(self, e)?;
 
         if removed_available_amount > max_available_amount_to_remove {
             return Err(MCError::PoolUtilizationRatioCapExceeded);
@@ -547,10 +546,18 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_bad_debt_unlocked(&self, e: &Env) -> Result<(), MCError> {
+        if self.bad_debt_request_count == 0 && e.ledger().timestamp() >= self.bad_debt_lock_d {
+            return Ok(());
+        }
+
+        Err(MCError::PoolBadDebtLocked)
+    }
+
     // ---- MISC ----
 
     pub fn get_pool_data(self, e: &Env) -> Result<PoolData, MCError> {
-        let apy = self.get_apy()?;
+        let apy = self.get_apy(e)?;
         let j_token_rate_floor_bps = self.get_j_token_rate_floor()?;
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
         let total_supply = self.total_supply()?;
@@ -594,7 +601,10 @@ impl Pool {
 
     // Computes the maximum available amount for borrowing that doesn't exceed the utilization
     // ratio limit on a pool
-    pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_available_utilization_ratio_capped_borrow(
+        &self,
+        e: &Env,
+    ) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
@@ -617,10 +627,6 @@ impl Pool {
         total_supply
             .fixed_mul_floor(available_percentage_to_borrow_bps, BPS_FACTOR)
             .map_over_or_underflow()
-    }
-
-    pub fn operation_fees_sum(&self) -> i128 {
-        self.operation_fees_sum
     }
 
     pub fn total_available(&self) -> Result<i128, MCError> {
@@ -653,56 +659,8 @@ impl Pool {
         storage::get_all_pools(e)
     }
 
-    fn exists(e: &Env, address: &Address) -> bool {
+    pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
-    }
-
-    // Queues in pool's config update
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
-        storage::queue_in_pool_config_update(e, &self.pool_address, config)
-    }
-
-    // Removes pool's config update from the queue
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
-        storage::remove_pool_config_update(e, &self.pool_address)
-    }
-
-    // Applies the pool's config update from the queue if it exists and is matured
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn apply_pool_config_update(&mut self, e: &Env) -> Result<(), MCError> {
-        let update_pool_config_period =
-            storage::get_update_in_queue_period(e).expect("Must be present for an owned pool");
-        let pool_config_update = self.get_pool_config_update(e)?;
-        let current_time = e.ledger().timestamp();
-
-        if current_time
-            < pool_config_update
-                .queued_in_timestamp
-                .checked_add(update_pool_config_period)
-                .map_over_or_underflow()?
-        {
-            return Err(MCError::PoolConfigUpdateIsNotYetApplicable);
-        }
-
-        self.config = pool_config_update.new_config;
-        self.set(e);
-        storage::remove_pool_config_update(e, &self.pool_address)?;
-
-        Ok(())
-    }
-
-    // Gets the pool's config update from the queue if it exists
-    pub fn get_pool_config_update(&self, e: &Env) -> Result<PoolUpdate, MCError> {
-        storage::get_pool_config_update(e, &self.pool_address)
-            .ok_or(MCError::PoolDoesNotHaveQueuedInConfigUpdate)
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
@@ -710,19 +668,13 @@ impl Pool {
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
 
-        self.get_assets_value(e, collateral_sum)
+        oracle::get_asset_value_floor(e, collateral_sum, &self.token_address, self.token_decimals)
     }
 
     pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
         let debt = self.total_debt()?;
 
-        self.get_assets_value(e, debt)
-    }
-
-    fn get_assets_value(&self, e: &Env, amount: i128) -> Result<i128, MCError> {
-        let price = get_asset_price(e, &self.token_address)?;
-
-        price.checked_mul(amount).map_over_or_underflow()
+        oracle::get_asset_value_ceil(e, debt, &self.token_address, self.token_decimals)
     }
 
     // Refreshes the pool with the contract's storage data
@@ -762,9 +714,9 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
-    // Additional scalar (in basis points) used for the additional withdrawal fee when the utilization ratio
-    // exceeds `utilization_ratio_limit_bps`
-    pub withdraw_scarcity_fee_sc_bps: u32,
+    // Maximum value of a fee in basis points (accumulating linearly from `0`) in case the utilization ratio
+    // on the pool exceeds the `utilization_ratio_limit_bps` after the withdrawal
+    pub withdraw_max_scarcity_fee_bps: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
@@ -788,7 +740,7 @@ impl Default for PoolFeeConfig {
 
             deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
             withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
-            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
+            withdraw_max_scarcity_fee_bps: DEFAULT_MAX_WITHDRAW_SCARCITY_FEE_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
@@ -802,39 +754,64 @@ impl Default for PoolFeeConfig {
 }
 
 impl PoolFeeConfig {
-    fn validate(&self) -> Result<(), &str> {
+    /// Validates the fee configuration.
+    ///
+    /// When `current_config` is `Some`, also enforces that constrained fees
+    /// (repay, withdraw, remove_collateral) cannot increase by more than
+    /// `MAX_FEE_INCREASE_BUMP_BPS` in a single update
+    fn validate(&self, current_config: Option<PoolFeeConfig>) -> Result<(), &str> {
         let &Self {
             borrow_fee_bps,
             flash_loan_fee_bps,
             deposit_fee_bps,
             withdraw_fee_bps,
+            withdraw_max_scarcity_fee_bps,
             add_collateral_fee_bps,
             remove_collateral_fee_bps,
             repay_fee_bps,
             take_rate_bps,
             take_rate_beneficiaries,
             operation_fee_beneficiaries,
-            ..
+            referrers,
         } = &self;
 
-        let individual_fees = [
-            borrow_fee_bps,
-            flash_loan_fee_bps,
-            deposit_fee_bps,
-            withdraw_fee_bps,
-            add_collateral_fee_bps,
-            remove_collateral_fee_bps,
-            repay_fee_bps,
-        ];
-
-        for &fee in individual_fees {
-            if fee as i128 > BPS_FACTOR {
-                return Err("Individual fees must not exceed 100%");
+        let non_constrained_fees =
+            [borrow_fee_bps, flash_loan_fee_bps, deposit_fee_bps, add_collateral_fee_bps];
+        for &fee in non_constrained_fees {
+            if fee as i128 >= BPS_FACTOR {
+                return Err("Non constrained fees must be less than 100%");
             }
         }
 
-        if *take_rate_bps as i128 > BPS_FACTOR {
-            return Err("Take Rate must not exceed 100%");
+        let constrained_fee_checks = [
+            (repay_fee_bps, current_config.as_ref().map(|c| c.repay_fee_bps)),
+            (withdraw_fee_bps, current_config.as_ref().map(|c| c.withdraw_fee_bps)),
+            (
+                remove_collateral_fee_bps,
+                current_config.as_ref().map(|c| c.remove_collateral_fee_bps),
+            ),
+        ];
+        for (&new_fee, current_fee_opt) in constrained_fee_checks {
+            if new_fee > MAX_CONSTRAINED_FEE_BPS {
+                return Err("Constrained fees exceed the maximum allowed amount");
+            }
+
+            if let Some(current_fee) = current_fee_opt
+                && new_fee > current_fee
+                && new_fee - current_fee > MAX_FEE_INCREASE_BUMP_BPS
+            {
+                return Err("Fee increase cannot exceed the maximum allowed bump");
+            }
+        }
+
+        if *withdraw_max_scarcity_fee_bps as i128 >= BPS_FACTOR // NB: to prevent overflow
+            || (*withdraw_max_scarcity_fee_bps + *withdraw_fee_bps) as i128 >= BPS_FACTOR
+        {
+            return Err("Max scarcity fee, summed with the withdrawal fee, must be less than 100%");
+        }
+
+        if *take_rate_bps as i128 >= BPS_FACTOR {
+            return Err("Take Rate must be less than 100%");
         }
 
         if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
@@ -873,6 +850,24 @@ impl PoolFeeConfig {
             }
         }
 
+        if let Some(referrers) = referrers {
+            if referrers.is_empty() {
+                return Err("Provided Referrers fees are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in referrers.iter() {
+                share_sum = match share_sum.checked_add(share_bps) {
+                    Some(sum) => sum,
+                    None => return Err("Referrer fee shares overflow"),
+                };
+            }
+
+            if share_sum as i128 > BPS_FACTOR {
+                return Err("Referrers fees exceed 100%");
+            }
+        }
+
         Ok(())
     }
 }
@@ -902,25 +897,17 @@ impl PoolStatus {
         (self.flags & POOL_STATUS_BORROW_ENABLED) > 0
     }
 
-    pub fn is_withdraw_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_WITHDRAW_ENABLED) > 0
-    }
-
-    pub fn is_repay_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_REPAY_ENABLED) > 0
+    pub fn is_flash_loan_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_FLASH_LOAN_ENABLED) > 0
     }
 
     pub fn is_add_collateral_enabled(&self) -> bool {
         (self.flags & POOL_STATUS_ADD_COLLATERAL_ENABLED) > 0
     }
-
-    pub fn is_remove_collateral_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_REMOVE_COLLATERAL_ENABLED) > 0
-    }
 }
 
 #[contracttype]
-#[derive(Default, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
     pub status: PoolStatus,
     pub fee_config: PoolFeeConfig,
@@ -928,15 +915,43 @@ pub struct PoolConfig {
     pub accrual_model: AccrualModel,
     pub interest_rate_model: InterestRateModel,
     pub ir_reactivity_constant: u32,
+    // Target utilization ratio in basis points; used by the interest rate controller to adjust
+    // the modifier toward the desired utilization level
+    pub target_utilization_ratio_bps: i128,
+}
+
+impl Default for PoolConfig {
+    fn default() -> Self {
+        Self {
+            ir_reactivity_constant: 0,
+            status: PoolStatus::default(),
+            fee_config: PoolFeeConfig::default(),
+            health_config: PoolHealthConfig::default(),
+            accrual_model: AccrualModel::default(),
+            interest_rate_model: InterestRateModel::default(),
+            target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
+        }
+    }
 }
 
 impl PoolConfig {
-    pub fn validate(&self) -> Result<(), MCError> {
-        let PoolConfig { health_config, fee_config, ir_reactivity_constant, .. } = self;
+    /// Validates the pool configuration.
+    ///
+    /// When `current_config` is `Some`, also enforces fee-bump constraints
+    /// against the currently active config (used when updating a pool).
+    pub fn validate(&self, current_config: Option<PoolConfig>) -> Result<(), MCError> {
+        let PoolConfig {
+            health_config,
+            fee_config,
+            ir_reactivity_constant,
+            target_utilization_ratio_bps,
+            ..
+        } = self;
 
         if health_config.validate().is_err()
-            || fee_config.validate().is_err()
+            || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
+            || !is_valid_bps_percent(*target_utilization_ratio_bps)
         {
             return Err(MCError::InvalidLoanPoolConfig);
         }
@@ -966,7 +981,7 @@ pub struct PoolHealthConfig {
     // basis points with respect to a total obligation's collateral value. LTV greater than
     // that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
-    // The factor used to calculate the current borrow limit by multiplying the collateral value
+    // The factor used to calculate the current borrow limit by multiplying the borrow value
     // by it before subtracting this value from the obligation's max borrow limit. Volatile
     // assets' pools are expected to have this value set way above 100%
     pub liability_factor_bps: i128,
@@ -974,9 +989,6 @@ pub struct PoolHealthConfig {
     pub liquidation_close_factor_bps: i128,
     // Maximum additional value in the received tokens that can be given to liquidators when purchasing collateral
     pub max_liquidation_incentive_bps: i128,
-    // LTV calculated for unparameterized obligation positions(i.e., no openLTV/liability factors scaling) that marks
-    // position as insolvent. Used as a means to avoid unprofitable health-improving liquidations
-    pub insolvency_ltv_bps: i128,
 }
 
 impl Default for PoolHealthConfig {
@@ -988,10 +1000,9 @@ impl Default for PoolHealthConfig {
             close_ltv_bps: DEFAULT_CLOSE_LTV_BPS,
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
-            max_liquidation_incentive_bps: DEFAULT_LIQUIDATION_INCENTIVE_BPS,
+            max_liquidation_incentive_bps: DEFAULT_MAX_LIQUIDATION_INCENTIVE_BPS,
             withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
             withdraw_scarcity_cooldown_s: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
-            insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
         }
     }
 }
@@ -1008,7 +1019,6 @@ impl PoolHealthConfig {
             max_liquidation_incentive_bps,
             withdraw_scarcity_limit_bps,
             withdraw_scarcity_cooldown_s,
-            insolvency_ltv_bps,
         } = self;
 
         if supply_limit.is_negative() {
@@ -1031,6 +1041,10 @@ impl PoolHealthConfig {
             return Err("Open LTV mustn't be bigger than close LTV");
         }
 
+        if close_ltv_bps != 0 && open_ltv_bps == close_ltv_bps {
+            return Err("Non-zero open LTV must be smaller than close LTV");
+        }
+
         if !(BPS_FACTOR..=(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
             return Err("Invalid liability factor");
         }
@@ -1039,7 +1053,9 @@ impl PoolHealthConfig {
             return Err("Liquidation close factor must be between 0% and 100%");
         }
 
-        if !is_valid_bps_percent(max_liquidation_incentive_bps) {
+        if !(MIN_MAX_LIQUIDATION_INCENTIVE_BPS..=MAX_MAX_LIQUIDATION_INCENTIVE_BPS)
+            .contains(&max_liquidation_incentive_bps)
+        {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 
@@ -1051,26 +1067,7 @@ impl PoolHealthConfig {
             return Err("Withdrawal scarcity cooldown seconds exceed limit");
         }
 
-        if !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps) {
-            return Err("Insolvency LTV bps must be within 95% to 100%");
-        }
-
         Ok(())
-    }
-}
-
-#[contracttype]
-#[derive(Debug, Clone)]
-pub struct PoolBootstrapPeriod {
-    // Total provided bootstrap amount
-    pub total_amount: i128,
-    // Remaining bootstrap amount
-    pub remaining_amount: i128,
-}
-
-impl PoolBootstrapPeriod {
-    pub fn new(total_amount: i128) -> Self {
-        Self { total_amount, remaining_amount: total_amount }
     }
 }
 

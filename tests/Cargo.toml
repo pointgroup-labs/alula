@@ -17,9 +17,15 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 [dependencies.controlled_insurance_fund]
 path = "../contracts/controlled_insurance_fund"
 
+[dependencies.farms]
+path = "../contracts/farms"
+
 [dependencies.market]
 path = "../contracts/market"
 features = ["testutils"]
 
 [dependencies.market_manager]
 path = "../contracts/market_manager"
+
+[dependencies.proxy-swap-interface]
+workspace = true

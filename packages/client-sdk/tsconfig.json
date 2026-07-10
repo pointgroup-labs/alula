@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "rootDir": "src",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "ignoreDeprecations": "5.0",
+    "paths": {
+      "@alula/market-sdk": ["../sdk/market/dist/index.d.ts"],
+      "@alula/market-manager-sdk": ["../sdk/market_manager/dist/index.d.ts"],
+      "aqua_swap_provider": ["../sdk/aqua_swap_provider/dist/index.d.ts"],
+      "soroswap_swap_provider": ["../sdk/soroswap_swap_provider/dist/index.d.ts"]
+    },
+    "strict": true,
+    "strictNullChecks": false,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
