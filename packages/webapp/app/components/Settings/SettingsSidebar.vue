@@ -32,7 +32,7 @@ function close() {
       class="settings-sidebar__hero"
       aria-label="Account"
     >
-      <settings-connect />
+      <settings-connect @close-sidebar="close" />
     </section>
 
     <section
