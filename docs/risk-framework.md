@@ -52,19 +52,11 @@ Every collateral candidate passes four control vectors before listing.
 1. **Legal & operational due diligence.** Issuer/management reputation, transparency of the collateral structure, financial-sector track record (critical for RWAs); KYC/KYB diligence on issuers and counterparties 🗓️; ability to isolate risk via isolated risk modules.
 2. **Technical & systems security.** Completed independent audits with no unresolved critical findings; admin-access controls — time-lock for code upgrades and multisig emergency switches (pause/freeze).
 3. **Economic parameters & market resilience.** Liquidity depth on integrated DEXes to bound liquidation price impact; tokenomics (FDV vs real market cap, vesting, whale-concentration risk); volatility stress on Health Factor, with strict conservative LTV caps for new tokens.
-4. **Pricing & liquidation.** Integration only with SEP-40 price feeds — median-of-sources aggregation with a consecutive-deviation circuit breaker; for RWAs, a transparent, time-bound redemption path to fiat 🗓️.
+4. **Pricing & liquidation.** Integration only with SEP-40 price feeds ✅ — median-of-sources aggregation with a consecutive-deviation circuit breaker ✅; for RWAs, a transparent, time-bound redemption path to fiat 🗓️.
 
-## Asset tiers 🔨
+## Per-asset operation controls 🔨
 
-Assets are graded into usage tiers, so a wide range of tokens can be supported safely without fragmenting liquidity:
-
-| Tier                | Can be collateral | Can be borrowed | Typical use             |
-| ------------------- | ----------------- | --------------- | ----------------------- |
-| General             | Yes               | Yes             | Most liquid assets      |
-| Isolated collateral | Yes (isolated)    | No              | New/volatile collateral |
-| Isolated debt       | No                | Yes (isolated)  | Long-tail debt assets   |
-
-[I'm not sure this is a reasonable description. Let's maybe just write that market's admin can pause deposits/borrows or plain collateral addition on any asset]
+A market's admin sets which core operations each asset permits — **deposit, borrow, add-collateral, and flash-loan** — each independently gated by per-pool status flags. This is the listing-time lever for risk containment: a new or volatile asset can be made collateral-only (borrowing off), borrow-only (deposits and plain-collateral additions off), or isolated and capped, so it is supported without exposing the rest of the market. (For halting an operation reactively during an incident, see §8.)
 
 ---
 
@@ -162,11 +154,3 @@ A public live risk dashboard is planned: current deposits/borrows, utilization a
 ---
 
 > **Disclaimer.** This document is for information only and is not financial, investment, or legal advice. Supplying and borrowing involve smart-contract and market risk, including liquidation and potential loss of funds. Parameters and statuses described here may change; always verify against the live protocol.
-
----
-
-## Appendix — design lineage (internal reference)
-
-Alula's risk design draws selectively on prior lending architectures: isolated markets and caps (Aave V3), Target-Health-Factor liquidation and risk-premium thinking (Aave V4), single-borrow-asset isolation and two-step absorb/auction liquidation (Compound V3), daily debt caps and auto-deleverage (Kamino), and the isolated-pool + first-loss backstop pattern (Blend). _Move the full comparative analysis to internal research — it does not belong in the public document._
-
-[not sure if this is reliable]
