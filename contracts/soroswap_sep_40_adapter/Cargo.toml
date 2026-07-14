@@ -2,6 +2,7 @@
 name = "soroswap_sep_40_adapter"
 version = "0.0.1"
 edition = { workspace = true }
+license = { workspace = true }
 description = "A Soroban smart contract that aggregates data from multiple SEP-40 oracles."
 publish = false
 
