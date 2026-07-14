@@ -115,6 +115,7 @@ pub enum DataKey {
     FarmsContract,
     QueuedPoolSet(Address),
     Pool(Address),
+    CachedPrice(Address),
     InsuranceFund,
     InsolvencyLtvBps,
     EarnObligationSeed,
@@ -151,6 +152,15 @@ pub fn set_oracle(e: &Env, oracle: &Address) {
 }
 pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - Cahced(in this ledger) price -
+pub fn get_cached_price(e: &Env, asset: &Address) -> Option<(i128, u64)> {
+    e.storage().temporary().get(&DataKey::CachedPrice(asset.clone()))
+}
+
+pub fn set_cached_price(e: &Env, asset: &Address, price: i128, current_timestamp: u64) {
+    e.storage().temporary().set(&DataKey::CachedPrice(asset.clone()), &(price, current_timestamp))
 }
 
 // - InsuranceFund -

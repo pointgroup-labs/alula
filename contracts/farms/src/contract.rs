@@ -235,7 +235,7 @@ pub struct FarmsContract;
 impl Farms for FarmsContract {
     fn __constructor(e: Env, admin: Address) -> Result<(), FCError> {
         GlobalConfig::new(admin).set(&e);
-        
+
         Ok(())
     }
 
