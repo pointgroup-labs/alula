@@ -12,8 +12,8 @@ use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
     assert_approx_eq_rel, get_deposit_position, get_obligation_collateral, get_obligation_d_tokens,
     get_obligation_j_tokens_as_tokens, get_obligation_originally_deposited,
-    get_pool_operation_fees_sum, get_pool_total_available, get_pool_total_borrowed,
-    get_pool_total_collateral, get_pool_total_supply,
+    get_pool_operation_fees_sum, get_pool_total_available, get_pool_total_available_adjusted,
+    get_pool_total_borrowed, get_pool_total_collateral, get_pool_total_supply,
 };
 
 #[test]
@@ -754,8 +754,10 @@ fn test_withdraw_scarcity_over_limit() {
 
     // - Try to withdraw remaining liquidity -
 
+    let remaining_liquidity =
+        get_pool_total_available_adjusted(&contract_client, &gold_pool_address).unwrap();
     let allowed_withdrawal =
-        DEFAULT_DEPOSIT_AMOUNT.fixed_mul_ceil(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
+        remaining_liquidity.fixed_mul_ceil(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
 
     assert_eq!(
         contract_client.try_withdraw(
@@ -809,6 +811,93 @@ fn test_withdraw_scarcity_over_limit() {
                 &None
             )
             .is_ok()
+    );
+}
+
+#[test]
+fn test_withdraw_crosses_scarcity_limit() {
+    const WITHDRAW_SCARCITY_LIMIT_BPS: i128 = 500; // 5%
+    const WITHDRAW_SCARCITY_COOLDOWN_SECONDS: u64 = 10;
+
+    let mut pool_config = PoolConfig::default();
+    pool_config.health_config.withdraw_scarcity_limit_bps = WITHDRAW_SCARCITY_LIMIT_BPS;
+    pool_config.health_config.withdraw_scarcity_cooldown_s = WITHDRAW_SCARCITY_COOLDOWN_SECONDS;
+
+    let TestMarketFixture { contract_client, gold_pool_address, users, usdc_pool_address, .. } =
+        TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    // - Borrow up to 50% utilization ratio (Starts healthy) -
+    let borrow_amount = DEFAULT_DEPOSIT_AMOUNT / 2;
+
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &borrow_amount,
+        &None,
+    );
+
+    // - Compute the max withdrawal that smoothly crosses into the scarcity zone -
+    // Safe part (amount needed to reach exactly the limit)
+    let safe_supply =
+        borrow_amount.fixed_div_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR).unwrap();
+    let safe_withdrawal = DEFAULT_DEPOSIT_AMOUNT - safe_supply;
+
+    // Scarcity allowance part (5% of the remaining unborrowed liquidity at threshold)
+    let supply_after_safe = DEFAULT_DEPOSIT_AMOUNT - safe_withdrawal;
+    let available_liquidity_at_threshold = supply_after_safe - borrow_amount;
+    let scarcity_allowance = available_liquidity_at_threshold
+        .fixed_mul_floor(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR)
+        .unwrap();
+
+    let max_allowed_withdrawal = safe_withdrawal + scarcity_allowance;
+
+    // - Try to withdraw more than the combined limit -
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &(max_allowed_withdrawal + 1),
+            &None
+        ),
+        Err(Ok(MCError::WithdrawScarcityOverLimit))
+    );
+
+    // - Withdraw exactly the allowed combined limit -
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(creditor.clone()),
+                &gold_pool_address,
+                &max_allowed_withdrawal,
+                &None,
+            )
+            .is_ok()
+    );
+
+    // - Ensure cooldown is applied because the scarcity allowance was dipped into -
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::ScarcityCooldownPeriod))
     );
 }
 

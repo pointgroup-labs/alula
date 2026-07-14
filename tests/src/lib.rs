@@ -862,6 +862,16 @@ pub fn get_pool_total_available(contract_client: &MarketClient, pool_address: &A
     pool.total_available
 }
 
+pub fn get_pool_total_available_adjusted(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let total_available_adjusted = pool.total_available()?;
+
+    Ok(total_available_adjusted)
+}
+
 pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
