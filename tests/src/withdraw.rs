@@ -901,6 +901,127 @@ fn test_withdraw_crosses_scarcity_limit() {
     );
 }
 
+/// Reproduces an observed testnet pool state and verifies that the exact
+/// amount reported by the `withdraw_scaricty_limit.py` simulator is actually
+/// withdrawable on-chain (and that a single unit more is rejected).
+///
+/// Testnet state being reproduced (from the simulator's DEBUG dump):
+///   supply    = 94_440_526_454
+///   borrowed  = 83_534_950_390
+///   util_limit = 8500 bps (85%), scarcity_limit = 5000 bps (50%)
+///   current utilization = 8846 bps (88.46%) -> already ABOVE the limit
+///   simulator's max allowed withdrawal = 5_452_788_032
+#[test]
+fn test_withdraw_scarcity_matches_simulator() {
+    const UTILIZATION_RATIO_LIMIT_BPS: i128 = 8500; // 85%
+    const WITHDRAW_SCARCITY_LIMIT_BPS: i128 = 5000; // 50%
+
+    // Target (post-setup) pool state, taken verbatim from the testnet dump.
+    const TARGET_SUPPLY: i128 = 94_440_526_454;
+    const TARGET_BORROWED: i128 = 83_534_950_390;
+    // The value the simulator says is the maximum allowed withdrawal.
+    const SIMULATOR_MAX_WITHDRAWAL: i128 = 5_452_788_032;
+
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+            withdraw_scarcity_limit_bps: WITHDRAW_SCARCITY_LIMIT_BPS,
+            withdraw_scarcity_cooldown_s: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let TestMarketFixture { contract_client, gold_pool_address, users, usdc_pool_address, .. } =
+        TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    // Initial supply so that borrowing `TARGET_BORROWED` yields a healthy 80%
+    // utilization (below the 85% cap, so the borrow is accepted).
+    let initial_deposit = TARGET_BORROWED.fixed_div_ceil(8000, BPS_FACTOR).unwrap();
+
+    contract_client.deposit(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &initial_deposit,
+        &None,
+    );
+
+    // Over-collateralize generously so the borrow is never LTV-constrained.
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(2 * initial_deposit),
+        &None,
+    );
+
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &TARGET_BORROWED,
+        &None,
+    );
+
+    // - Shrink supply down to the target via an intermediate scarcity withdrawal -
+    // This drives utilization from 80% up to the target 88.46% (> limit).
+    let intermediate_withdrawal = initial_deposit - TARGET_SUPPLY;
+    contract_client.withdraw(
+        &ObligationKey::new(creditor.clone()),
+        &gold_pool_address,
+        &intermediate_withdrawal,
+        &None,
+    );
+
+    // - Verify we reproduced the exact testnet state -
+    assert_eq!(
+        get_pool_total_supply(&contract_client, &gold_pool_address).unwrap(),
+        TARGET_SUPPLY,
+        "reproduced total_supply must match testnet"
+    );
+    assert_eq!(
+        get_pool_total_borrowed(&contract_client, &gold_pool_address),
+        TARGET_BORROWED,
+        "reproduced total_borrowed must match testnet"
+    );
+
+    // - Recompute the allowance exactly as the contract/simulator does -
+    // Utilization is already above the limit, so the "safe" (up-to-limit)
+    // portion is zero and the whole allowance is the scarcity drip.
+    let available_liquidity = TARGET_SUPPLY - TARGET_BORROWED;
+    let max_allowed_withdrawal =
+        available_liquidity.fixed_mul_floor(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
+
+    // The on-chain math, the local computation, and the simulator all agree.
+    assert_eq!(
+        max_allowed_withdrawal, SIMULATOR_MAX_WITHDRAWAL,
+        "recomputed allowance must equal the simulator's reported value"
+    );
+
+    // - One unit beyond the simulator's value must be rejected -
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(creditor.clone()),
+            &gold_pool_address,
+            &(SIMULATOR_MAX_WITHDRAWAL + 1),
+            &None
+        ),
+        Err(Ok(MCError::WithdrawScarcityOverLimit))
+    );
+
+    // - Exactly the simulator's value is actually withdrawable -
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(creditor.clone()),
+                &gold_pool_address,
+                &SIMULATOR_MAX_WITHDRAWAL,
+                &None,
+            )
+            .is_ok()
+    );
+}
+
 #[test]
 fn test_simulate_withdraw_accrues_interest() {
     let TestMarketFixture {
