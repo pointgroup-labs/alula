@@ -1,887 +1,257 @@
-# Market Contract API
-
-Complete API reference for the Alula Market smart contract.
-
-## User Operations
-
-### Deposits & Withdrawals
-
-#### `deposit`
-
-Supply assets to a lending pool and receive j-tokens (supply shares).
-
-```rust
-fn deposit(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
-| Parameter      | Type      | Description                    |
-| -------------- | --------- | ------------------------------ |
-| `user`         | `Address` | User making the deposit        |
-| `pool_address` | `Address` | Target pool address            |
-| `amount`       | `i128`    | Amount to deposit (7 decimals) |
-
----
-
-#### `deposit_earn`
-
-Deposit into an isolated "Earn" obligation — deposit-only, no borrowing allowed.
-
-```rust
-fn deposit_earn(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-#### `withdraw`
-
-Redeem j-tokens for underlying assets. Amount is capped to maintain healthy LTV.
-
-```rust
-fn withdraw(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
-| Parameter | Type   | Description                                                               |
-| --------- | ------ | ------------------------------------------------------------------------- |
-| `amount`  | `i128` | Desired withdrawal amount. Use `i128::MAX` to withdraw maximum available. |
-
----
-
-#### `withdraw_earn`
-
-Withdraw from an Earn obligation.
-
-```rust
-fn withdraw_earn(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-#### `simulate_withdraw`
-
-Simulate a withdrawal to preview fees and actual amount. Read-only, no state changes.
-
-```rust
-fn simulate_withdraw(user: Address, pool_address: Address, amount: i128) -> Result<WithdrawResult, MCError>
-```
-
----
-
-#### `simulate_earn_withdraw`
-
-Simulate withdrawal from Earn obligation.
-
-```rust
-fn simulate_earn_withdraw(user: Address, pool_address: Address, amount: i128) -> Result<WithdrawResult, MCError>
-```
-
----
-
-### Collateral Management
-
-#### `add_collateral`
-
-Lock assets as collateral. Collateral doesn't earn interest but is always available for healthy withdrawals.
-
-```rust
-fn add_collateral(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-#### `remove_collateral`
-
-Unlock and withdraw collateral. Amount is capped to maintain healthy LTV.
-
-```rust
-fn remove_collateral(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-### Borrowing
-
-#### `borrow`
-
-Borrow assets against your collateral.
-
-```rust
-fn borrow(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-#### `repay`
-
-Repay borrowed assets. Use `i128::MAX` to repay entire debt.
-
-```rust
-fn repay(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-### Liquidation
-
-#### `liquidate`
-
-Liquidate an unhealthy position (liquidation health factor < 1.0). Liquidator repays debt and receives collateral at a discount.
-
-```rust
-fn liquidate(
-    liquidator: Address,
-    borrower: Address,
-    borrower_obligation_seed: Option<BytesN<32>>,
-    borrow_pool_address: Address,
-    collateral_pool_address: Address,
-    repay_amount: i128,
-    demanded_collateral_amount: i128,
-) -> Result<(), MCError>
-```
-
-| Parameter                    | Type                 | Description                        |
-| ---------------------------- | -------------------- | ---------------------------------- |
-| `liquidator`                 | `Address`            | Address performing liquidation     |
-| `borrower`                   | `Address`            | Address being liquidated           |
-| `borrower_obligation_seed`   | `Option<BytesN<32>>` | Seed for Multiply Pair obligations |
-| `borrow_pool_address`        | `Address`            | Pool of debt being repaid          |
-| `collateral_pool_address`    | `Address`            | Pool of collateral being seized    |
-| `repay_amount`               | `i128`               | Amount of debt to repay            |
-| `demanded_collateral_amount` | `i128`               | Minimum collateral expected        |
-
----
-
-### Flash Loans
-
-#### `flash_loan`
-
-Borrow without collateral — must repay within the same transaction. Follows the ERC-3156 flash loan standard.
-
-```rust
-fn flash_loan(
-    contract: Address,
-    caller: Address,
-    pool_address: Address,
-    amount: i128,
-) -> Result<(), MCError>
-```
-
-| Parameter      | Type      | Description                               |
-| -------------- | --------- | ----------------------------------------- |
-| `contract`     | `Address` | Contract implementing `FlashLoanReceiver` |
-| `caller`       | `Address` | Original caller (for auth)                |
-| `pool_address` | `Address` | Pool to borrow from                       |
-| `amount`       | `i128`    | Amount to borrow                          |
-
----
-
-### Leveraged Positions
-
-#### `deposit_with_leverage`
-
-Create a leveraged position using flash loans and swaps.
-
-```rust
-fn deposit_with_leverage(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-    deposit_as_margin: bool,
-    amount: i128,
-    leverage_multiplier: u32,
-) -> Result<(), MCError>
-```
-
-| Parameter             | Type   | Description                                                    |
-| --------------------- | ------ | -------------------------------------------------------------- |
-| `deposit_as_margin`   | `bool` | If true, margin is in deposit asset; otherwise in borrow asset |
-| `leverage_multiplier` | `u32`  | Multiplier × 100 (e.g., 300 = 3x, 550 = 5.5x)                  |
-
----
-
-#### `withdraw_from_leveraged`
-
-Close or reduce a leveraged position.
-
-```rust
-fn withdraw_from_leveraged(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-    amount: i128,
-) -> Result<(), MCError>
-```
-
----
-
-### Batch Operations
-
-#### `submit_requests_batch`
-
-Submit multiple operations in a single transaction.
-
-```rust
-fn submit_requests_batch(user: Address, requests: Vec<Request>) -> Result<(), MCError>
-```
-
----
-
-## Query Functions
-
-### Obligations
-
-#### `get_user_obligation`
-
-Get user's standard obligation (deposits, collateral, borrows).
-
-```rust
-fn get_user_obligation(user: Address) -> Result<Obligation, MCError>
-```
-
----
-
-#### `get_earn_user_obligation`
-
-Get user's Earn obligation (deposit-only).
-
-```rust
-fn get_earn_user_obligation(user: Address) -> Result<Obligation, MCError>
-```
-
----
-
-#### `get_multiply_pair_obligation`
-
-Get user's obligation for a specific leveraged pair.
-
-```rust
-fn get_multiply_pair_obligation(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<Obligation, MCError>
-```
-
----
-
-### Pools
-
-#### `get_pool`
-
-Get pool state and configuration.
-
-```rust
-fn get_pool(pool_address: Address) -> Result<Pool, MCError>
-```
-
----
-
-#### `get_pool_data`
-
-Get pool data with computed APYs. For simulations only.
-
-```rust
-fn get_pool_data(pool_address: Address) -> Result<PoolData, MCError>
-```
-
----
-
-#### `get_all_pools`
-
-Get all pool addresses.
-
-```rust
-fn get_all_pools() -> Vec<Address>
-```
-
----
-
-#### `get_pool_asset_oracle_price`
-
-Get current oracle price for a pool's asset.
-
-```rust
-fn get_pool_asset_oracle_price(pool_address: Address) -> Result<i128, MCError>
-```
-
----
-
-### Multiply Pairs
-
-#### `get_multiply_pair`
-
-Get a specific multiply pair configuration.
-
-```rust
-fn get_multiply_pair(
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<MultiplyPair, MCError>
-```
-
----
-
-#### `get_all_multiply_pairs`
-
-Get all registered multiply pairs.
-
-```rust
-fn get_all_multiply_pairs() -> Vec<MultiplyPair>
-```
-
----
-
-### Market
-
-#### `get_global_state`
-
-Get market's global configuration.
-
-```rust
-fn get_global_state() -> GlobalState
-```
-
----
-
-#### `get_market_data`
-
-Get comprehensive market data including all pools. For simulations only.
-
-```rust
-fn get_market_data() -> Result<MarketData, MCError>
-```
-
----
-
-#### `get_asset_decimals`
-
-Returns `7` (Stellar standard).
-
-```rust
-fn get_asset_decimals() -> u32
-```
-
----
-
-#### `get_oracle_price_decimals`
-
-Get oracle price decimals (typically `14`).
-
-```rust
-fn get_oracle_price_decimals() -> u32
-```
-
----
-
-### Refresh (Interest Accrual)
-
-#### `refresh_pool`
-
-Manually accrue interest on a pool.
-
-```rust
-fn refresh_pool(pool_address: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_obligation`
-
-Accrue interest on all pools in a user's obligation.
-
-```rust
-fn refresh_obligation(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_earn_obligation`
-
-Accrue interest for Earn obligation.
-
-```rust
-fn refresh_earn_obligation(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_multiply_pair_obligation`
-
-Accrue interest for multiply pair obligation.
-
-```rust
-fn refresh_multiply_pair_obligation(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<(), MCError>
-```
-
----
-
-## Admin Functions
-
-### Pool Management
-
-#### `initialize_pool`
-
-Create a new lending pool for an asset.
-
-```rust
-fn initialize_pool(
-    token_address: Address,
-    salt: Option<BytesN<32>>,
-    pool_config: Option<PoolConfig>,
-) -> Result<Address, MCError>
-```
-
----
-
-#### `initialize_multiply_pair`
-
-Register a new leveraged pair.
-
-```rust
-fn initialize_multiply_pair(
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<(), MCError>
-```
-
----
-
-#### `bootstrap_pool`
-
-Add incentives to bootstrap a pool's supply.
-
-```rust
-fn bootstrap_pool(
-    pool_address: Address,
-    sponsor: Address,
-    amount: i128,
-    start_period: u64,
-    end_period: u64,
-) -> Result<(), MCError>
-```
-
----
-
-### Pool Configuration (Time-Locked)
-
-#### `queue_in_pool_config_update`
-
-Queue a pool configuration change (24h delay).
-
-```rust
-fn queue_in_pool_config_update(
-    pool_address: Address,
-    new_pool_config: PoolConfig,
-) -> Result<(), MCError>
-```
-
----
-
-#### `apply_pool_config_update`
-
-Apply a queued configuration after the delay period.
-
-```rust
-fn apply_pool_config_update(pool_address: Address) -> Result<(), MCError>
-```
-
----
-
-#### `cancel_pool_config_update`
-
-Cancel a pending configuration update.
-
-```rust
-fn cancel_pool_config_update(pool_address: Address) -> Result<(), MCError>
-```
-
----
-
-#### `get_pool_config_queued_in_update`
-
-Get pending configuration update for a pool.
-
-```rust
-fn get_pool_config_queued_in_update(pool_address: Address) -> Result<PoolUpdate, MCError>
-```
-
----
-
-### Market Management
-
-#### `update_market`
-
-Update market-level parameters.
-
-```rust
-fn update_market(
-    new_max_positions: u32,
-    new_min_collateral_value: i128,
-) -> Result<(), MCError>
-```
-
----
-
-#### `update_market_status`
-
-Change market status (Active, BorrowFrozen, DepositFrozen, Frozen).
-
-```rust
-fn update_market_status(new_status: u32) -> Result<(), MCError>
-```
-
-| Status        | Value | Description                     |
-| ------------- | ----- | ------------------------------- |
-| Active        | `0`   | All operations enabled          |
-| BorrowFrozen  | `1`   | Borrowing disabled              |
-| DepositFrozen | `2`   | Deposits and borrowing disabled |
-| Frozen        | `3`   | Only liquidations allowed       |
-
----
-
-### Upgrades
-
-#### `upgrade`
-
-Upgrade the contract to a new WASM binary (admin only).
-
-```rust
-fn upgrade(new_wasm_hash: BytesN<32>)
-```
-
----
-
-### Fees
-
-#### `distribute_pool_fees`
-
-Distribute accumulated fees for a specific pool to beneficiaries.
-
-```rust
-fn distribute_pool_fees(pool_address: Address) -> Result<(), MCError>
-```
-
----
-
-#### `distribute_all_pools_fees`
-
-Distribute accumulated fees for all pools to beneficiaries.
-
-```rust
-fn distribute_all_pools_fees() -> Result<(), MCError>
-```
-
----
-
-#### `set_take_rate_fees_beneficiaries`
-
-Configure beneficiaries for take rate fees.
-
-```rust
-fn set_take_rate_fees_beneficiaries(
-    pool_address: Address,
-    beneficiaries: Vec<FeeBeneficiary>,
-) -> Result<(), MCError>
-```
-
----
-
-#### `set_operation_fees_beneficiaries`
-
-Configure beneficiaries for operation fees (borrow fees, flash loan fees).
-
-```rust
-fn set_operation_fees_beneficiaries(beneficiaries: Vec<FeeBeneficiary>) -> Result<(), MCError>
-```
-
----
-
-### Bad Debt
-
-#### `issue_cover_bad_debt`
-
-Request coverage for bad debt from the insurance fund.
-
-```rust
-fn issue_cover_bad_debt(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `issue_cover_bad_debt_pair`
-
-Request coverage for bad debt on a multiply pair obligation.
-
-```rust
-fn issue_cover_bad_debt_pair(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<(), MCError>
-```
-
----
-
-#### `claim_cover_bad_debt_results`
-
-Claim coverage results after insurance fund processes the request.
-
-```rust
-fn claim_cover_bad_debt_results(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `claim_cover_bad_debt_result_pair`
-
-Claim coverage results for a multiply pair obligation.
-
-```rust
-fn claim_cover_bad_debt_result_pair(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<(), MCError>
-```
-
----
-
-### Miscellaneous
-
-#### `donate`
-
-Donate tokens to a pool's reserve.
-
-```rust
-fn donate(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
-```
-
----
-
-#### `swap`
-
-Swap tokens via integrated swap provider.
-
-```rust
-fn swap(
-    user: Address,
-    token_in: Address,
-    token_out: Address,
-    amount_in: i128,
-) -> Result<i128, MCError>
-```
-
----
-
-### Farms Integration
-
-#### `set_farms_contract`
-
-Set the farms contract address for delegated staking.
-
-```rust
-fn set_farms_contract(farms_contract: Address) -> Result<(), MCError>
-```
-
----
-
-#### `clear_farms_contract`
-
-Remove farms contract integration.
-
-```rust
-fn clear_farms_contract() -> Result<(), MCError>
-```
-
----
-
-#### `get_farms_contract`
-
-Get the configured farms contract address.
-
-```rust
-fn get_farms_contract() -> Option<Address>
-```
-
----
-
-#### `set_pool_supply_farm`
-
-Configure a supply (j-token) farm for a pool.
-
-```rust
-fn set_pool_supply_farm(pool_address: Address, farm_id: BytesN<32>) -> Result<(), MCError>
-```
-
----
-
-#### `set_pool_debt_farm`
-
-Configure a debt (d-token) farm for a pool.
-
-```rust
-fn set_pool_debt_farm(pool_address: Address, farm_id: BytesN<32>) -> Result<(), MCError>
-```
-
----
-
-#### `clear_pool_farms`
-
-Clear all farm configuration for a pool.
-
-```rust
-fn clear_pool_farms(pool_address: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_obligation_farms`
-
-Sync all farm stakes for a user's standard obligation.
-
-```rust
-fn refresh_obligation_farms(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_earn_obligation_farms`
-
-Sync all farm stakes for a user's Earn obligation.
-
-```rust
-fn refresh_earn_obligation_farms(user: Address) -> Result<(), MCError>
-```
-
----
-
-#### `refresh_multiply_pair_farms`
-
-Sync all farm stakes for a user's multiply pair obligation.
-
-```rust
-fn refresh_multiply_pair_farms(
-    user: Address,
-    deposit_pool_address: Address,
-    borrow_pool_address: Address,
-) -> Result<(), MCError>
-```
-
----
-
-### Admin Transfer
-
-#### `propose_new_admin`
-
-Propose a new admin address. The new admin must accept.
-
-```rust
-fn propose_new_admin(new_admin: Address) -> Result<(), MCError>
-```
-
----
-
-#### `accept_proposed_admin`
-
-Accept the admin role (called by the proposed new admin).
-
-```rust
-fn accept_proposed_admin() -> Result<(), MCError>
-```
-
----
-
-### Pool Status
-
-#### `update_pool_status`
-
-Update a pool's operational status.
-
-```rust
-fn update_pool_status(pool_address: Address, new_status: u32) -> Result<(), MCError>
-```
-
----
-
-#### `fund_update_market_status`
-
-Allow the insurance fund to update market status (emergency freeze).
-
-```rust
-fn fund_update_market_status(new_status: u32) -> Result<(), MCError>
-```
-
----
-
-## Data Types
-
-### PoolConfig
-
-```rust
-pub struct PoolConfig {
-    pub open_ltv_bps: i128,              // Max LTV at borrow (default: 7000 = 70%)
-    pub close_ltv_bps: i128,             // Liquidation threshold (default: 8000 = 80%)
-    pub liability_factor_bps: i128,      // Risk weight for debt (default: 10000 = 100%)
-    pub base_rate_bps: i128,             // Base interest rate
-    pub slope1_bps: i128,                // Slope before kink1
-    pub slope2_bps: i128,                // Slope between kink1 and kink2
-    pub slope3_bps: i128,                // Slope after kink2
-    pub kink1_utilization_bps: i128,     // First kink point (default: 7000 = 70%)
-    pub kink2_utilization_bps: i128,     // Second kink point (default: 8000 = 80%)
-    pub reserve_ratio_bps: i128,         // Protocol reserve (default: 1000 = 10%)
-    pub borrow_fee_bps: i128,            // One-time borrow fee
-    pub flash_loan_fee_bps: i128,        // Flash loan fee
-    pub liquidation_bonus_bps: i128,     // Liquidator bonus (default: 1000 = 10%)
-    pub liquidation_close_factor_bps: i128, // Max liquidatable (default: 5000 = 50%)
-    pub borrow_enabled: bool,
-    pub deposit_enabled: bool,
-    pub supply_limit: i128,
+# Alula Market API Reference
+
+The complete public interface of the **Market** contract
+(`contracts/market/src/contract.rs`). Generated clients are available under
+`packages/sdk/market` (`make sdk`); this document is the human-readable
+companion.
+
+Conventions used throughout:
+
+- **Amounts** are `i128` with **7-decimal** precision (Stellar standard). Oracle
+  prices use **14-decimal** precision.
+- **Percentages** are basis points (`10000` = 100%).
+- Passing `i128::MAX` (or `u64::MAX`) as an `amount` means **"the maximum
+  currently allowed"** — full withdraw, full collateral removal, or full-debt
+  repay, capped by the position's Open-LTV and available liquidity.
+- Every state-changing call requires `require_auth` from the acting party
+  (the obligation's `user`, or the `liquidator` / admin as noted).
+- Errors are returned as [`MCError`](#error-codes) — a `contracterror` with
+  stable numeric codes.
+
+---
+
+## The request-batch model
+
+The Market is built around a single composable primitive:
+
+```rust
+fn submit_requests_batch(
+    e: Env,
+    user: ObligationKey,
+    requests: Vec<Request>,
+    referrer: Option<Address>,
+) -> Result<(), MCError>;
+```
+
+A batch is a list of [`Request`](#request-variants) actions executed
+**atomically** against one obligation. Health and invariants are checked once,
+at the end of the batch — so intermediate states may be transiently unhealthy as
+long as the batch settles healthy. This is what makes composite flows possible
+in a single transaction:
+
+| Flow | Batch |
+| --- | --- |
+| Leveraged (multiply) deposit | `FlashBorrow` → `SwapExactTokens` → `AddCollateral` → `Borrow` → (flash repay) |
+| Collateral swap | `RemoveCollateral` → `SwapExactTokens` → `AddCollateral` |
+| One-shot open | `AddCollateral` → `Borrow` |
+
+The single-action entry points below (`deposit`, `borrow`, `withdraw`, …) are
+thin conveniences that wrap one `Request`. Reach for `submit_requests_batch`
+whenever you need atomicity across two or more actions.
+
+### Request variants
+
+```rust
+enum Request {
+    Deposit(StandardRequest),
+    Borrow(StandardRequest),
+    Withdraw(StandardRequest),
+    Repay(StandardRequest),
+    AddCollateral(StandardRequest),
+    RemoveCollateral(StandardRequest),
+    FlashBorrow(StandardRequest),
+    SwapExactTokens(SwapExactTokensRequest),
+    SwapForExactTokens(SwapForExactTokensRequest),
+    Liquidate(LiquidateRequest),
 }
+
+struct StandardRequest        { amount: i128, pool_address: Address }
+struct SwapExactTokensRequest { swap_provider: Address, path: Vec<Address>, amount_in: i128,  min_amount_out: i128 }
+struct SwapForExactTokensRequest { swap_provider: Address, path: Vec<Address>, max_amount_in: i128, amount_out: i128 }
+struct LiquidateRequest       { borrower_obligation_key: ObligationKey, borrow_pool_address: Address,
+                                collateral_pool_address: Address, repay_amount: i128, min_demanded_collateral_amount: i128 }
 ```
 
-### GlobalState
+### ObligationKey
 
 ```rust
-pub struct GlobalState {
-    pub status: u32,
-    pub name: String,
-    pub is_owned: bool,
-    pub admin: Address,
-    pub oracle: Address,
-    pub deployer: Address,
-    pub max_positions: u32,
-    pub insolvency_ltv_bps: i128,
-    pub min_collateral_value: i128,
-    pub update_in_queue_period: Option<u64>,
-}
+struct ObligationKey { user: Address, seed: Option<BytesN<32>> }
 ```
 
-### Obligation
-
-```rust
-pub struct Obligation {
-    pub deposits: Map<Address, DepositPosition>,
-    pub borrows: Map<Address, BorrowPosition>,
-    pub collaterals: Map<Address, i128>,
-}
-```
+Identifies a position. A single `user` can hold **multiple isolated
+obligations** by supplying different `seed` values — useful for segregating
+strategies (e.g. a leveraged position kept separate from a plain deposit) so a
+liquidation of one cannot touch the other.
 
 ---
 
-## Error Codes
+## User operations
 
-See [`error.rs`](../contracts/market/src/error.rs) for complete error definitions.
+All require the obligation user's authorization.
 
-Common errors:
+| Function | Signature (after `e: Env`) | Notes |
+| --- | --- | --- |
+| `deposit` | `user, pool_address, amount, referrer` | Supply to earn yield; mints j-tokens. |
+| `withdraw` | `user, pool_address, amount, referrer` | Actual amount capped to keep the position at its Open-LTV. `i128::MAX` = withdraw all available. |
+| `simulate_withdraw` | `user, pool_address, amount, referrer` → `WithdrawResult` | Read-only preview of a withdraw. |
+| `add_collateral` | `user, pool_address, amount, referrer` | Collateral-only supply — always healthily withdrawable, earns no interest. |
+| `remove_collateral` | `user, pool_address, amount, referrer` | Capped to Open-LTV; `i128::MAX` removes all available. |
+| `borrow` | `user, pool_address, amount, referrer` | Draw a loan against collateral; accrues d-tokens. |
+| `repay` | `user, pool_address, amount, referrer` | Repay debt; excess is ignored. `i128::MAX` = repay entire debt. |
+| `liquidate` | `liquidator, borrower, borrow_pool_address, collateral_pool_address, repay_amount, demanded_collateral_amount` | Requires the liquidator's auth. Repays borrower debt, receives collateral at a bounded discount. `demanded_collateral_amount` is the liquidator's minimum-acceptable collateral (slippage guard). |
+| `flash_loan` | `contract, caller, pool_address, amount` | ERC-3156 flash loan. `contract` is the receiver implementing `ModErc3156`; it must validate `caller` as `initiator` and grant a just-in-time `amount + fee` allowance in its `exec_op` callback. |
+| `submit_requests_batch` | `user, requests, referrer` | The atomic multi-action primitive above. |
 
-| Error                           | Description                             |
-| ------------------------------- | --------------------------------------- |
-| `ObligationIsHealthy`           | Cannot liquidate healthy position       |
-| `ObligationIsNotHealthy`        | Operation would make position unhealthy |
-| `LiquidationExceedsCloseFactor` | Exceeds max liquidatable amount         |
-| `OracleStalePrice`              | Oracle price too old                    |
-| `PoolDoesNotExist`              | Invalid pool address                    |
-| `InsufficientLiquidity`         | Not enough liquidity in pool            |
+The optional `referrer` is credited an immediate fee share when the pool is
+configured for it.
+
+## Bad-debt handling
+
+| Function | Signature | Notes |
+| --- | --- | --- |
+| `issue_cover_bad_debt` | `user` | Files cover-bad-debt requests to the Insurance Fund for every bad-debt borrow position on the obligation. |
+| `claim_cover_bad_debt_results` | `user` | Claims the Insurance Fund's response to previously issued requests. |
+
+## Fees
+
+| Function | Signature | Notes |
+| --- | --- | --- |
+| `distribute_pool_fees` | `pool_address` | Permissionless. Pays accrued fees to the pool's beneficiaries. |
+| `distribute_all_pools_fees` | — | Same, across every pool. |
+| `set_take_rate_fees_beneficiaries` | `pool_address, beneficiaries: Map<Address, u32>` | Streaming-fee split. Shares in BPS must sum to 100%. Owner-only. |
+| `set_operation_fees_beneficiaries` | `pool_address, beneficiaries: Map<Address, u32>` | Origination-fee split. Shares in BPS must sum to 100%. Owner-only. |
+
+## Views (read-only)
+
+| Function | Returns | Notes |
+| --- | --- | --- |
+| `get_global_state` | `GlobalState` | Owner, status, market-wide config. |
+| `get_user_obligation` | `Obligation` | All deposits, collateral, and borrows for a key. |
+| `get_pool` | `Pool` | Raw pool state. |
+| `get_pool_data` | `PoolData` | Pool state **plus** computed borrow/supply APYs. Simulation-only. |
+| `get_all_pools` | `Vec<Address>` | Every pool address in the market. |
+| `get_market_data` | `MarketData` | Aggregated market metrics. Simulation-only. |
+| `get_oracle_price_decimals` | `u32` | Oracle price precision (14). |
+| `get_pool_asset_oracle_price` | `i128` | Current oracle price for a pool's asset. |
+| `refresh_obligation` | `()` | Accrues interest on all pools the obligation touches. |
+| `refresh_pool` | `()` | Accrues interest on one pool. |
+
+`get_pool_data` and `get_market_data` are intended for off-chain simulation, not
+on-chain composition.
+
+## Governance & administration
+
+Config changes are **timelocked**: queue → wait out the queue period → apply.
+An owned market can queue updates; an ungoverned market's config is immutable.
+
+| Function | Signature | Notes |
+| --- | --- | --- |
+| `queue_in_market_update` | `new_max_positions, new_min_collateral_value_cents, new_bad_debt_lock_d` | Queue a market-config change. |
+| `cancel_market_update` | — | Drop the queued market update. |
+| `apply_market_update` | — | Apply it once the queue period has elapsed. |
+| `get_market_queued_in_update` | → `MarketUpdate` | Inspect the pending market update. |
+| `queue_in_pool_set` | `pool_address, pool_config: PoolConfig` | Create a new pool or queue a config change for an existing one. |
+| `cancel_pool_set` | `pool_address` | Drop the queued pool set. |
+| `apply_pool_set` | `pool_address` | Apply the pool set once applicable. |
+| `get_queued_pool_set` | `pool_address` → `QueuedPoolSet` | Inspect the pending pool set. |
+| `update_market_status` | `new_status: u32` | Change [market status](#market-status-codes). |
+| `fund_update_market_status` | `new_status: u32` | Status change authorized by the Insurance Fund contract (e.g. auto-freeze on shortfall). |
+| `upgrade` | `new_wasm_hash: BytesN<32>` | Swap the contract WASM. |
+
+## Farms (delegated staking)
+
+| Function | Signature | Notes |
+| --- | --- | --- |
+| `set_farms_contract` | `farms_contract: Address` | Enable farm integration. |
+| `clear_farms_contract` | — | Disable it. |
+| `get_farms_contract` | → `Option<Address>` | Current farms contract, if any. |
+| `set_pool_supply_farm` | `pool_address, farm_id: BytesN<32>` | Reward j-token (supply) holders. |
+| `set_pool_debt_farm` | `pool_address, farm_id: BytesN<32>` | Reward d-token (debt) holders. |
+| `clear_pool_farms` | `pool_address` | Remove a pool's farm config. |
+| `refresh_obligation_farms` | `user: Address` | Permissionless. Re-syncs a user's farm stakes with their current positions. |
+
+---
+
+## Market status codes
+
+`update_market_status` / `fund_update_market_status` take a `u32`:
+
+| Code | Status | Effect |
+| --- | --- | --- |
+| `0` | `Active` | Normal operation. |
+| `1` | `BorrowFrozen` | Borrowing disabled. |
+| `2` | `BorrowFrozenByAdmin` | Borrowing disabled by admin (sticky). |
+| `3` | `DepositFrozen` | Deposits disabled. |
+| `4` | `DepositFrozenByAdmin` | Deposits disabled by admin (sticky). |
+| `5` | `Frozen` | Deposits **and** borrows disabled. |
+| `6` | `FrozenByAdmin` | Fully frozen by admin (sticky). |
+
+`…ByAdmin` states are "hard locks" only the market admin can move into or out
+of: the automatic (Insurance-Fund-driven) `fund_update_market_status` path
+rejects any transition that either starts from or lands on one of them. The
+plain variants (`1`/`3`/`5`) are the ones the Insurance Fund may set or clear
+automatically.
+
+## Error codes
+
+`MCError` values are grouped by concern; the numeric code is stable across
+releases.
+
+| Code | Variant | Meaning |
+| --- | --- | --- |
+| 0 | `InternalError` | Unexpected internal failure. |
+| 1 | `InvalidInputAmount` | Amount is zero/negative or otherwise invalid. |
+| 2 | `DependencyContractError` | A cross-contract call failed. |
+| 3 | `MarketIsNotOwned` | Governance action on an ungoverned (immutable) market. |
+| 4 | `BorrowForbiddenOnMarket` | Market status forbids borrowing. |
+| 5 | `DepositForbiddenOnMarket` | Market status forbids deposits. |
+| 6 | `MarketIsFrozen` | Market fully frozen. |
+| 7 | `InvalidMarketConfigOrUpdate` | Rejected market config/update. |
+| 8 | `IncorrectRequestType` | Request variant not valid in this context. |
+| 9 | `OverOrUnderflow` | Checked-arithmetic bound hit. |
+| 10 | `TooManyPositions` | Obligation exceeds `max_positions`. |
+| 11 | `MinCollateralValueIsNotMet` | Below the market's minimum collateral value. |
+| 12 | `NonPositiveSharesAmount` | Share computation produced ≤ 0. |
+| 100 | `InvalidInitialization` | Bad init params. |
+| 101 | `PoolDoesNotExist` | Unknown pool. |
+| 102 | `InvalidLoanPoolConfig` | Rejected pool config. |
+| 103 | `NotEnoughPoolFunds` | Insufficient pool liquidity. |
+| 104 | `DepositPoolDoesNotExist` | Deposit pool missing. |
+| 105 | `BorrowPoolDoesNotExist` | Borrow pool missing. |
+| 106 | `CollateralPoolDoesNotExist` | Collateral pool missing. |
+| 107 | `PoolAlreadyContainsQueuedPoolSet` | A pool set is already queued. |
+| 108 | `PoolDoesNotHaveQueuedPoolSet` | No pool set queued. |
+| 109 | `PoolSetIsNotYetApplicable` | Queue period not yet elapsed. |
+| 110 | `OperationForbiddenOnPool` | Operation not permitted on this pool. |
+| 111 | `MarketAlreadyContainsQueuedInConfigUpdate` | A market update is already queued. |
+| 112 | `MarketDoesNotHaveQueuedInConfigUpdate` | No market update queued. |
+| 113 | `MarketConfigUpdateIsNotYetApplicable` | Queue period not yet elapsed. |
+| 114 | `PoolBadDebtLocked` | Pool locked while bad debt is being processed. |
+| 200 | `ObligationDoesNotExist` | Unknown obligation. |
+| 201 | `DepositPositionDoesNotExist` | No deposit position for asset. |
+| 202 | `BorrowPositionDoesNotExist` | No borrow position for asset. |
+| 203 | `WithdrawScarcityOverLimit` | Withdraw exceeds the scarcity limit. |
+| 204 | `ScarcityCooldownPeriod` | Within the scarcity cooldown window. |
+| 205 | `BorrowPositionForAssetExists` | Asset already borrowed. |
+| 206 | `DepositPositionForAssetExists` | Asset already deposited. |
+| 207 | `UnhealthyOperation` | Operation would leave the position unhealthy. |
+| 400 | `PoolSupplyLimitExceeded` | Pool supply cap reached. |
+| 401 | `PoolUtilizationRatioCapExceeded` | Pool utilization cap reached. |
+| 500 | `OracleDoesNotKnowAssetPrice` | No price for asset. |
+| 501 | `OracleStalePrice` | Price older than the max allowed age. |
+| 502 | `NonPositiveOraclePrice` | Oracle returned ≤ 0. |
+| 600 | `InvalidLiquidationInputs` | Malformed liquidation request. |
+| 601 | `ObligationIsHealthy` | Position not liquidatable. |
+| 602 | `ObligationContainsOpenCoverBadDebtRequests` | Pending bad-debt requests block the action. |
+| 603 | `BadDebtCoverageCriterionIsNotMet` | Coverage precondition unmet. |
+| 604 | `AssetCannotBeUsedAsCollateral` | Asset not eligible as collateral. |
+| 605 | `LiquidationExcessiveDemandedCollateral` | Liquidator demanded more collateral than allowed. |
+| 701 | `InvalidSwap` | Swap request rejected. |
+| 702 | `FlashBorrowAlreadyRegistered` | Duplicate flash borrow in one batch. |
+| 703 | `SwapSlippageExceeded` | Swap breached its min/max bound. |
+
+---
+
+See the [top-level README](../README.md) for protocol concepts, and
+[`docs/multisig.md`](./multisig.md) for the governance-key workflow that authors
+`queue_*` / `apply_*` / `upgrade` transactions.

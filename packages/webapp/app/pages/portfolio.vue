@@ -1,3 +1,0 @@
-<template>
-  <portfolio-page />
-</template>

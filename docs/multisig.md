@@ -28,10 +28,9 @@ emergency keys.
 
 ## Part 1 — Create the multisig (one-time, CLI)
 
-You only do this once per account. It needs to be atomic (add signers
-
-- set threshold + burn master in one tx), which is exactly what
-  `alula multisig setup` is for.
+You only do this once per account. It needs to be atomic (add signers, set
+threshold, and burn the master in one tx), which is exactly what
+`alula multisig setup` is for.
 
 ### Testnet (auto-funded)
 
