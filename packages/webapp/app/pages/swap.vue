@@ -1,3 +1,0 @@
-<template>
-  <swap-page />
-</template>
