@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "alula",
     "antfu",
     "apys",
     "beasties",
@@ -11,8 +12,6 @@
     "contractimport",
     "contracttype",
     "doctest",
-    "jlending",
-    "jpool",
     "keccak",
     "kyryl",
     "lastprice",
@@ -25,7 +24,6 @@
     "multiplicator",
     "nextest",
     "oxlint",
-    "pinia",
     "repr",
     "rlib",
     "rustc",
