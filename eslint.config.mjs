@@ -5,36 +5,20 @@ export default antfu(
     gitignore: true,
     stylistic: true,
     typescript: true,
-    formatters: {
-      css: true,
-      html: true,
-      markdown: 'prettier',
-    },
     yaml: true,
-    toml: true,
     ignores: [
       '**/dist/**',
       '**/coverage/**',
+      '**/Cargo.toml', // sorted + formatted by cargo-sort (see tomlfmt.toml)
     ],
-  }, {
+  },
+  {
     rules: {
       'antfu/consistent-list-newline': 'off',
       'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
 
-      // 'toml/padding-line-between-pairs': 'off',
-      'toml/array-element-newline': 'off',
-      'toml/array-bracket-spacing': 'off',
-
-      // 'ts/consistent-type-definitions': ['error', 'type'],
       'ts/consistent-type-definitions': 'off',
       'ts/consistent-type-imports': 'off',
-
-      // 'ts/naming-convention': ['error', {
-      //     selector: 'variable',
-      //     format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
-      //     leadingUnderscore: 'forbid',
-      //     trailingUnderscore: 'forbid',
-      // }],
 
       'curly': ['error', 'all'],
 

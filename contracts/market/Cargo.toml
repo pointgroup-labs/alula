@@ -2,6 +2,7 @@
 name = "market"
 version = "0.0.5"
 edition = { workspace = true }
+license = { workspace = true }
 publish = false
 
 [lib]
