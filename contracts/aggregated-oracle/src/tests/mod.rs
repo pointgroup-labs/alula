@@ -3,7 +3,7 @@
 use sep_40_oracle::{Asset, PriceData};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, FromVal, IntoVal, Map, Symbol, Vec as SVec, symbol_short,
+    Address, Env, FromVal, IntoVal, Map, Symbol, TryFromVal, Vec as SVec, symbol_short,
     testutils::{Address as _, Events, Ledger},
     vec as svec,
 };
@@ -257,15 +257,11 @@ fn test_max_deviation_check() {
 
     // -- Verify that deviation check has failed --
 
-    assert!(e.events().all().is_empty());
+    assert!(e.events().all().events().is_empty());
 
     assert!(contract_client.lastprice(&xlm_asset_stellar).is_none());
 
-    let events = e.events().all();
-    let (contract_address, topics, _data) = events.get(0).unwrap();
-    assert_eq!(contract_address, contract_id);
-    let first_topic_symbol = Symbol::from_val(&e, &topics.get(0).unwrap());
-    assert_eq!(first_topic_symbol, Symbol::new(&e, "price_deviation_exceeds_max"));
+    assert_first_event_is_price_deviation(&e, &contract_id);
 
     // -- Set prices that don't exceed max deviation check --
 
@@ -316,15 +312,11 @@ fn test_max_deviation_check() {
         oracle_client.set_price(&asset, &obviously_deviated_price, &timestamp);
     }
 
-    assert_eq!(e.events().all().len(), 0);
+    assert_eq!(e.events().all().events().len(), 0);
 
     assert!(contract_client.lastprice(&xlm_asset_stellar).is_none());
 
-    let events = e.events().all();
-    let (contract_address, topics, _data) = events.get(0).unwrap();
-    assert_eq!(contract_address, contract_id);
-    let first_topic_symbol = Symbol::from_val(&e, &topics.get(0).unwrap());
-    assert_eq!(first_topic_symbol, Symbol::new(&e, "price_deviation_exceeds_max"));
+    assert_first_event_is_price_deviation(&e, &contract_id);
 
     // -- Wait for deviation to expire --
 
@@ -981,6 +973,28 @@ fn get_default_env() -> Env {
     e.ledger().set_timestamp(1_000_000_700);
 
     e
+}
+
+/// Asserts that the first published contract event was emitted by
+/// `expected_contract` and carries `price_deviation_exceeds_max` as its first
+/// topic.
+fn assert_first_event_is_price_deviation(e: &Env, expected_contract: &Address) {
+    use soroban_sdk::xdr::{ContractEventBody, ScAddress};
+
+    let all = e.events().all();
+    let event = all.events().first().expect("expected at least one event");
+
+    let expected_address: ScAddress = expected_contract.into();
+    if let ScAddress::Contract(expected_id) = expected_address {
+        assert_eq!(event.contract_id.as_ref(), Some(&expected_id));
+    } else {
+        panic!("expected contract address");
+    }
+
+    let ContractEventBody::V0(body) = &event.body;
+    let first_topic = body.topics.first().expect("expected at least one topic");
+    let first_topic_symbol = Symbol::try_from_val(e, first_topic).expect("first topic is a symbol");
+    assert_eq!(first_topic_symbol, Symbol::new(e, "price_deviation_exceeds_max"));
 }
 
 mod mock_oracle;

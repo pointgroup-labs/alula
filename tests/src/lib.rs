@@ -108,7 +108,7 @@ impl TestMarketFixture<'_> {
 
         e.ledger().set(LedgerInfo {
             timestamp: 1590969600, // June 1, 2020
-            protocol_version: 23,
+            protocol_version: 25,
             sequence_number: 1000,
             network_id: Default::default(),
             base_reserve: 10,

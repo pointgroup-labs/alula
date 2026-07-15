@@ -154,7 +154,7 @@ pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
 }
 
-// - Cahced(in this ledger) price -
+// - Cached(in this ledger) price -
 pub fn get_cached_price(e: &Env, asset: &Address) -> Option<(i128, u64)> {
     e.storage().temporary().get(&DataKey::CachedPrice(asset.clone()))
 }

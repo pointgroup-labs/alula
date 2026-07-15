@@ -6,7 +6,7 @@ export function updateMessageVoteId(
   text: string,
   newVoteId?: string,
 ): string {
-  // удалить все voteId из текста
+  // remove all voteId from the text
   let cleaned = text
     .replaceAll(SOLANA_ADDRESS_REGEX, '')
     .replaceAll(/\s+/g, ' ')

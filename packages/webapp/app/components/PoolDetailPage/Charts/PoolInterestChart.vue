@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
             :style="{ '--color': chartCurrentUtilizationPctColor }"
           >
             <div class="stat-card__label">
-              Сurrent <br> utilization
+              Current <br> utilization
             </div>
             <div class="stat-card__value">
               {{ truncatePercent(currentUtilizationPct, 2) }}%

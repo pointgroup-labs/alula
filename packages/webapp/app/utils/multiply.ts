@@ -36,7 +36,7 @@ export function checkIsHaveMultiply(
 }
 
 /**
- * @param ltvByBps — LTV в basis points (0…10000)
+ * @param ltvByBps — LTV in basis points (0…10000)
  * @returns number ≥1, max multiplier
  */
 export function calculateMaxMultiplierFromBps(ltvByBps: number): number {
