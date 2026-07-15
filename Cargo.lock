@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aggregated_oracle"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-fixed-point-math",
@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "aqua_swap_provider"
-version = "0.0.0"
+version = "1.0.0"
 dependencies = [
  "proxy-swap-interface",
  "soroban-sdk",
@@ -293,7 +293,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "controlled_insurance_fund"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "insurance-fund-interface",
  "soroban-sdk",
@@ -660,7 +660,7 @@ dependencies = [
 
 [[package]]
 name = "farms-interface"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -905,7 +905,7 @@ checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
 
 [[package]]
 name = "insurance-fund-interface"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "market"
-version = "0.0.5"
+version = "1.0.0"
 dependencies = [
  "enum_dispatch",
  "farms-interface",
@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "market_manager"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1048,7 +1048,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "moderc3156"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "proxy-swap-interface"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1235,7 +1235,7 @@ dependencies = [
 
 [[package]]
 name = "redstone_sep_40_adapter"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
@@ -1695,7 +1695,7 @@ dependencies = [
 
 [[package]]
 name = "soroswap_swap_provider"
-version = "0.0.0"
+version = "1.0.0"
 dependencies = [
  "proxy-swap-interface",
  "soroban-sdk",
@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "arbitrary",
  "controlled_insurance_fund",
