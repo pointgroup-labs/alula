@@ -757,7 +757,7 @@ fn test_withdraw_scarcity_over_limit() {
     let remaining_liquidity =
         get_pool_total_available_adjusted(&contract_client, &gold_pool_address).unwrap();
     let allowed_withdrawal =
-        remaining_liquidity.fixed_mul_ceil(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
+        remaining_liquidity.fixed_mul_floor(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
 
     assert_eq!(
         contract_client.try_withdraw(
@@ -901,10 +901,6 @@ fn test_withdraw_crosses_scarcity_limit() {
     );
 }
 
-/// Reproduces an observed testnet pool state and verifies that the exact
-/// amount reported by the `withdraw_scaricty_limit.py` simulator is actually
-/// withdrawable on-chain (and that a single unit more is rejected).
-///
 /// Testnet state being reproduced (from the simulator's DEBUG dump):
 ///   supply    = 94_440_526_454
 ///   borrowed  = 83_534_950_390

@@ -140,7 +140,7 @@ fn test_median_price_with_all_expired_prices() {
 
 #[test]
 fn test_max_deviation_check() {
-    const MAX_DEV_BPS: u32 = 100; // 10%
+    const MAX_DEV_BPS: u32 = 100;
     const MAX_DEV_CONSECUTIVE_DIFF_SECS: u64 = 10000; // NB: Must exceed the resolution on the oracles to notice the effect
 
     let TestFixture {
