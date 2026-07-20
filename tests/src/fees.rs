@@ -1181,7 +1181,7 @@ fn test_distribute_take_rate_fees() {
         &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
     );
 
-    // -- Distributie existing fees --
+    // -- Distribute existing fees --
 
     let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
     let balance_before = usdc_token_client.balance(&contract_id);

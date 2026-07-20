@@ -1449,6 +1449,8 @@ fn compute_withdraw_scarcity_fee_bps(
     }
 
     let current_utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
+    let utilization_limit_bps = pool.config.health_config.utilization_ratio_limit_bps;
+
     let new_utilization_ratio_bps = {
         let new_total_supply = pool_total_supply - deposit_decrease; // safe
 
@@ -1462,60 +1464,69 @@ fn compute_withdraw_scarcity_fee_bps(
         }
     };
 
-    if new_utilization_ratio_bps == BPS_FACTOR {
-        return Ok(pool.config.fee_config.withdraw_max_scarcity_fee_bps);
-    }
+    // Calculate the exact withdrawal amount to reach utilization ratio limit
+    let up_to_utilization_ratio_limit_withdrawal =
+        if current_utilization_ratio_bps <= utilization_limit_bps && utilization_limit_bps > 0 {
+            let safe_supply = pool
+                .total_borrowed
+                .fixed_div_ceil(utilization_limit_bps, BPS_FACTOR)
+                .map_over_or_underflow()?;
 
-    let utilization_ratio_diff_bps = if new_utilization_ratio_bps
-        > pool.config.health_config.utilization_ratio_limit_bps
-    {
-        let deposit_decrease_to_total_supply_bps = deposit_decrease
-            .fixed_div_ceil(pool_total_supply, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        let withdraw_scarcity_limit_bps = if current_utilization_ratio_bps
-            < pool.config.health_config.utilization_ratio_limit_bps
-        {
-            let remaining_utilization_ratio = pool.config.health_config.utilization_ratio_limit_bps
-                - current_utilization_ratio_bps; // safe
-
-            remaining_utilization_ratio
-                .checked_add(pool.config.health_config.withdraw_scarcity_limit_bps)
-                .map_over_or_underflow()?
+            pool_total_supply - safe_supply // safe
         } else {
-            pool.config.health_config.withdraw_scarcity_limit_bps
+            0
         };
-        if deposit_decrease_to_total_supply_bps > withdraw_scarcity_limit_bps {
+
+    // Validate Scarcity Limits
+    if new_utilization_ratio_bps > utilization_limit_bps {
+        let supply_after_safe = pool_total_supply - up_to_utilization_ratio_limit_withdrawal; // safe
+        let available_liquidity_at_threshold = supply_after_safe - pool.total_borrowed; // safe
+
+        // The amount of the remaining available liquidity allowed to be withdrawn
+        // if utilization ratio exceeds the utilization ratio limit
+        let scarcity_allowance = available_liquidity_at_threshold
+            .fixed_mul_floor(pool.config.health_config.withdraw_scarcity_limit_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let max_allowed_withdrawal = up_to_utilization_ratio_limit_withdrawal + scarcity_allowance; // safe
+
+        if deposit_decrease > max_allowed_withdrawal {
             return Err(MCError::WithdrawScarcityOverLimit);
         }
 
-        let last_scarcity_withdraw_ts = deposit_position.last_scarcity_withdraw_ts;
-        let scarcity_withdraw_cooldown = pool.config.health_config.withdraw_scarcity_cooldown_s;
-        let current_timestamp = e.ledger().timestamp();
+        // Only enforce cooldown if the user is dipping into the scarcity allowance
+        if deposit_decrease > up_to_utilization_ratio_limit_withdrawal {
+            let last_scarcity_withdraw_ts = deposit_position.last_scarcity_withdraw_ts;
+            let scarcity_withdraw_cooldown = pool.config.health_config.withdraw_scarcity_cooldown_s;
+            let current_timestamp = e.ledger().timestamp();
 
-        if current_timestamp
-            < last_scarcity_withdraw_ts
-                .checked_add(scarcity_withdraw_cooldown)
-                .map_over_or_underflow()?
-        {
-            return Err(MCError::ScarcityCooldownPeriod);
+            if current_timestamp
+                < last_scarcity_withdraw_ts
+                    .checked_add(scarcity_withdraw_cooldown)
+                    .map_over_or_underflow()?
+            {
+                return Err(MCError::ScarcityCooldownPeriod);
+            }
         }
 
-        new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
+        // Compute the scarcity fee
+        if new_utilization_ratio_bps >= BPS_FACTOR {
+            return Ok(pool.config.fee_config.withdraw_max_scarcity_fee_bps);
+        }
+
+        let utilization_ratio_diff_bps = new_utilization_ratio_bps - utilization_limit_bps; // safe
+        let max_utilization_ratio_diff_bps = BPS_FACTOR - utilization_limit_bps; // safe
+
+        let fee = utilization_ratio_diff_bps
+            .fixed_mul_ceil(
+                pool.config.fee_config.withdraw_max_scarcity_fee_bps as i128,
+                max_utilization_ratio_diff_bps,
+            )
+            .map_over_or_underflow()? as u32;
+
+        Ok(fee)
     } else {
-        return Ok(0);
-    };
-
-    let max_utilization_ratio_diff_bps =
-        BPS_FACTOR - pool.config.health_config.utilization_ratio_limit_bps; // safe
-    let fee = utilization_ratio_diff_bps
-        .fixed_mul_ceil(
-            pool.config.fee_config.withdraw_max_scarcity_fee_bps as i128,
-            max_utilization_ratio_diff_bps,
-        )
-        .map_over_or_underflow()? as u32;
-
-    Ok(fee)
+        Ok(0)
+    }
 }
 
 #[contracttype]

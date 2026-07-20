@@ -70,7 +70,7 @@ pub struct Farm {
     /// Reward tokens in initialization order; `reward_index` points here.
     pub rewards: Vec<Address>,
     pub current_slashed_amount: i128,
-    pub cumulative_slashed_amount: i128, // X5(what the hell is this)
+    pub cumulative_slashed_amount: i128,
 }
 
 impl Farm {

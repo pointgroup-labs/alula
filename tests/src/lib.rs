@@ -108,7 +108,7 @@ impl TestMarketFixture<'_> {
 
         e.ledger().set(LedgerInfo {
             timestamp: 1590969600, // June 1, 2020
-            protocol_version: 23,
+            protocol_version: 25,
             sequence_number: 1000,
             network_id: Default::default(),
             base_reserve: 10,
@@ -860,6 +860,16 @@ pub fn get_pool_total_available(contract_client: &MarketClient, pool_address: &A
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_available
+}
+
+pub fn get_pool_total_available_adjusted(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let total_available_adjusted = pool.total_available()?;
+
+    Ok(total_available_adjusted)
 }
 
 pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &Address) -> i128 {
