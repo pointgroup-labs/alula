@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D},
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_MAX_POSITIONS},
     error::MCError,
     obligation::ObligationKey,
 };
@@ -170,6 +170,21 @@ impl LiquidationTest {
 
         self.fixture.contract_client.refresh_pool(&self.borrow_pool_address);
         self.fixture.contract_client.refresh_pool(&self.collateral_pool_address);
+    }
+
+    fn set_min_collateral_value_cents(&self, cents: i128) {
+        let update_in_queue_period =
+            self.fixture.contract_client.get_global_state().update_in_queue_period;
+
+        self.fixture.contract_client.queue_in_market_update(
+            &DEFAULT_MAX_POSITIONS,
+            &cents,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        );
+        self.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+        self.fixture.contract_client.refresh_pool(&self.borrow_pool_address);
+        self.fixture.contract_client.refresh_pool(&self.collateral_pool_address);
+        self.fixture.contract_client.apply_market_update();
     }
 
     fn ltv(&self) -> i128 {
@@ -852,4 +867,65 @@ fn test_liquidate_with_excess_repay_amount_refunds_difference() {
         ),
         Err(MCError::ObligationDoesNotExist)
     );
+}
+
+#[test]
+fn test_liquidate_below_min_collateral_while_close_ltv_solvent() {
+    let test = LiquidationTest::new();
+    test.set_min_collateral_value_cents(100);
+
+    let debt_before = test.debt();
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &test.max_liquidation_amount(),
+        &0,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Position below min_collateral_value_cents must be liquidatable even when close-LTV \
+         solvent, got: {result:?}"
+    );
+    assert!(test.debt() < debt_before, "Debt should be reduced by the liquidation");
+}
+
+#[test]
+fn test_below_min_collateral_liquidation_not_rejected_as_healthy() {
+    let test = LiquidationTest::new();
+    test.set_min_collateral_value_cents(100);
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &1,
+        &0,
+    );
+
+    assert_ne!(
+        result,
+        Err(Ok(MCError::ObligationIsHealthy)),
+        "Sub-minimum collateral positions must not be treated as healthy"
+    );
+}
+
+#[test]
+fn test_healthy_position_above_min_collateral_still_healthy() {
+    let test = LiquidationTest::new();
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &1,
+        &0,
+    );
+
+    assert_eq!(result, Err(Ok(MCError::ObligationIsHealthy)));
 }

@@ -1064,11 +1064,11 @@ pub fn process_claim_cover_bad_debt_results(
 
     if obligation.is_empty() {
         obligation.remove(e, &obligation_key);
+        events::claim_cover_bad_debt_results(e, obligation_key, None);
     } else {
         obligation.set(e, &obligation_key);
+        events::claim_cover_bad_debt_results(e, obligation_key, Some(obligation));
     }
-
-    events::claim_cover_bad_debt_results(e, obligation_key);
 
     Ok(())
 }

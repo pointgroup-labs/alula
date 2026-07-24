@@ -210,6 +210,7 @@ struct IssueCoverBadDebt {
 struct ClaimCoverBadDebtResults {
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
 }
 
 #[contractevent]
@@ -725,8 +726,12 @@ pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
     IssueCoverBadDebt { obligation_key }.publish(e);
 }
 
-pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
-    ClaimCoverBadDebtResults { obligation_key }.publish(e);
+pub fn claim_cover_bad_debt_results(
+    e: &Env,
+    obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
+) {
+    ClaimCoverBadDebtResults { obligation_key, obligation }.publish(e);
 }
 
 pub fn bad_debt_request_cancelled(e: &Env, pool_address: &Address, request_id: u64, missing: bool) {
