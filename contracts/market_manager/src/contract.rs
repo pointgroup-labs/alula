@@ -182,8 +182,11 @@ impl MarketManager for MarketManagerContract {
         new_wasm_hash: BytesN<32>,
     ) -> Result<(), MMCError> {
         extend_instance(&e);
+
         require_admin(&e);
         require_deployed_market(&e, &market_address)?;
+        let market_admin = market::Client::new(&e, &market_address).get_global_state().admin;
+        market_admin.require_auth();
 
         if storage::get_queued_in_market_upgrade(&e, &market_address).is_some() {
             return Err(MMCError::UpgradeAlreadyExists);
@@ -217,11 +220,15 @@ impl MarketManager for MarketManagerContract {
 
     fn cancel_market_upgrade(e: Env, market_address: Address) -> Result<(), MMCError> {
         extend_instance(&e);
+
         require_admin(&e);
 
         if storage::get_queued_in_market_upgrade(&e, &market_address).is_none() {
             return Err(MMCError::UpgradeDoesNotExist);
         }
+
+        let market_admin = market::Client::new(&e, &market_address).get_global_state().admin;
+        market_admin.require_auth();
 
         storage::remove_queued_in_market_upgrade(&e, &market_address);
 
