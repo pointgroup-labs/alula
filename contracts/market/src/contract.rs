@@ -1002,13 +1002,6 @@ impl MarketContract {
         Ok(())
     }
 
-    /// Updates market's oracle contract (this is a stage market)
-    pub fn stage_update_oracle(e: Env, new_oracle: Address) {
-        require_admin(&e);
-
-        storage::set_oracle(&e, &new_oracle);
-    }
-
     // Updates pool's status
     //
     // # Arguments

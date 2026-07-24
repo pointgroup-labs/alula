@@ -377,7 +377,8 @@ impl Obligation {
     }
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    // obligation, scaling each value with the appropriate `close_ltv_bps` value
+    // obligation, scaling each value with the appropriate `close_ltv_bps` value.
+    // As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
     fn compute_collateral_value_scaled_w_close_ltvs(
         &self,
         e: &Env,
