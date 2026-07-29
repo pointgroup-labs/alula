@@ -227,9 +227,6 @@ impl MarketManager for MarketManagerContract {
             return Err(MMCError::UpgradeDoesNotExist);
         }
 
-        let market_admin = market::Client::new(&e, &market_address).get_global_state().admin;
-        market_admin.require_auth();
-
         storage::remove_queued_in_market_upgrade(&e, &market_address);
 
         Ok(())
