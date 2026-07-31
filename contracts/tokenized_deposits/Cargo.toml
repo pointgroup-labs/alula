@@ -13,7 +13,9 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-market = { workspace = true }
+# NB: the `market` crate is deliberately *not* a dependency. It is itself a `cdylib` contract, and
+# linking two contracts into one wasm yields duplicate exported symbols (`deposit`, `borrow`, ...).
+# The market's types are mirrored structurally in `src/market.rs` instead
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 

@@ -4,10 +4,8 @@ use soroban_sdk::contracterror;
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum TDError {
     // Core errors (0-99)
-    InternalError = 0,
     OverOrUnderflow = 1,
     NegativeAmount = 2,
-    NotInitialized = 3,
     InvalidInitialization = 4,
 
     // Authorization errors (100-199)
@@ -25,12 +23,13 @@ pub enum TDError {
     ZeroShares = 300,
     // A redemption converted to zero assets
     ZeroAssets = 301,
-    // The requested deposit exceeds `max_deposit` (the market's supply cap)
-    ExceedsMaxDeposit = 302, /* This must definitely panic. Okay, maybe panicking sometimes is good here */
-    // The requested withdrawal exceeds `max_withdraw` (the owner's balance, or the liquidity the
-    // market can currently honor)
-    ExceedsMaxWithdraw = 303, // Same here
-    // The market returned less than the vault asked for. Left unchecked this would let the vault
-    // burn a holder's shares while paying out someone else's liquidity
-    MarketReturnedLess = 304,
+    // The requested withdrawal exceeds what the market can currently honor for the owner --
+    // either their balance, the pool's liquidity, or their obligation's health headroom
+    ExceedsMaxWithdraw = 303,
+    // The pool's `jToken` rate could not be read. The rate is recovered from a withdrawal
+    // simulation, so it is unavailable while the vault holds no position at all
+    RateUnavailable = 305,
+    // A transfer would leave the sender's obligation unhealthy. Shares encumbered by a borrow
+    // cannot be moved -- the market's own health check is the authority here
+    TransferWouldBeUnhealthy = 306,
 }

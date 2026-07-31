@@ -11,20 +11,6 @@ pub struct TransferEvent {
     pub amount: i128,
 }
 
-#[contractevent(topics = ["mint"], data_format = "single-value")]
-pub struct MintEvent {
-    #[topic]
-    pub to: Address,
-    pub amount: i128,
-}
-
-#[contractevent(topics = ["burn"], data_format = "single-value")]
-pub struct BurnEvent {
-    #[topic]
-    pub from: Address,
-    pub amount: i128,
-}
-
 #[contractevent(topics = ["approve"], data_format = "vec")]
 pub struct ApproveEvent {
     #[topic]
@@ -35,7 +21,10 @@ pub struct ApproveEvent {
     pub expiration_ledger: u32,
 }
 
-// -- SEP-56 events (field names and order are mandated by the standard) --
+// -- Vault lifecycle events --
+//
+// Modelled on SEP-56's `Deposit` and `Withdraw` for familiarity. The vault does not claim SEP-56
+// conformance, but there is no reason to invent a different shape for the same two operations
 
 #[contractevent]
 pub struct Deposit {
@@ -88,14 +77,6 @@ pub struct AdminUpdated {
 
 pub fn transfer(e: &Env, from: Address, to: Address, amount: i128) {
     TransferEvent { from, to, amount }.publish(e);
-}
-
-pub fn mint(e: &Env, to: Address, amount: i128) {
-    MintEvent { to, amount }.publish(e);
-}
-
-pub fn burn(e: &Env, from: Address, amount: i128) {
-    BurnEvent { from, amount }.publish(e);
 }
 
 pub fn approve(e: &Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
