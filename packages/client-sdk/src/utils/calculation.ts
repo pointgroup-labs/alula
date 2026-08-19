@@ -3,7 +3,7 @@ import type { ObligationArray } from '../types'
 import Decimal from 'decimal.js'
 import { bigintToNumber, bpsToNumber } from './format'
 
-export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number, ltvType?: 'open' | 'close') {
+export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number, ltvType?: 'open' | 'close') {
   const deposits = [...obligation?.deposits]
   if (!deposits || deposits.length === 0) {
     return 0
@@ -19,6 +19,7 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
       continue
     }
 
+    const assetDecimals = Number(depositedPool.pool.token_decimals)
     const price = depositedPool?.oracle_asset_price ? bigintToNumber(depositedPool?.oracle_asset_price, oraclePriceDecimals) : 0
 
     const ltvMultiplier = ltvType === 'close'
@@ -50,7 +51,7 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
   return userDepositsInUsd
 }
 
-export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
+export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number) {
   const borrows = [...obligation?.borrows]
   if (!borrows || borrows.length === 0) {
     return 0
@@ -66,6 +67,7 @@ export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsDat
       continue
     }
 
+    const assetDecimals = Number(borrowedPool.pool.token_decimals)
     const price = borrowedPool?.oracle_asset_price ? bigintToNumber(borrowedPool?.oracle_asset_price, oraclePriceDecimals) : 0
 
     const borrowBps = bigintToNumber(data.d_tokens * BigInt(borrowedPool.d_token_rate_ceil_bps), assetDecimals)
@@ -87,7 +89,7 @@ export function calculateTotalStake(
     total_borrowed: bigint
     total_available: bigint
   },
-  decimals = 7,
+  decimals: number,
 ) {
   if (depositedPool.total_j_tokens === 0n) {
     return new Decimal(0)
@@ -103,7 +105,7 @@ export function calculateTotalStake(
 export function calculateBorrow(
   d_tokens: bigint,
   pool: { total_d_tokens: bigint, total_borrowed: bigint },
-  decimals = 7,
+  decimals: number,
 ): number {
   const d = new Decimal(d_tokens.toString())
   const totalD = new Decimal(pool.total_d_tokens.toString())
