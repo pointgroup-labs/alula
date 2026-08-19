@@ -56,10 +56,10 @@ use crate::{get_default_env, setup_test_asset};
 // ---- Scenario sizing ----
 
 /// Collateral-only positions (each in its own pool).
-const N_COLLATERAL: usize = 10;
+const N_COLLATERAL: usize = 5;
 /// Borrow positions (each in its own pool, all distinct from the collateral
 /// pools), for a total of `N_COLLATERAL + N_BORROW == 10` positions.
-const N_BORROW: usize = 10;
+const N_BORROW: usize = 5;
 
 /// Collateral deposited into each of the 5 collateral pools (7-decimal SAC).
 const COLLATERAL_AMOUNT: i128 = 1_000_000;
@@ -107,7 +107,7 @@ impl TenPositionFixture<'_> {
         // and persistent entry bumps never overrun `max_entry_ttl`.
         e.ledger().set(LedgerInfo {
             timestamp: 1590969600, // June 1, 2020
-            protocol_version: 23,
+            protocol_version: 25,
             sequence_number: 1000,
             network_id: Default::default(),
             base_reserve: 10,
@@ -300,9 +300,6 @@ fn ten_positions_stay_within_pubnet_resource_limits() {
     // this operation.
     const PROBE_BORROW_AMOUNT: i128 = 1_000;
     f.contract_client.borrow(&f.borrower, &f.borrow_pools[0], &PROBE_BORROW_AMOUNT, &None);
-
-    // 23 303 806
-    // one must check liquidations also, fuccckkk!
 
     let budget = f.e.cost_estimate().budget();
     let cpu = budget.cpu_instruction_cost();

@@ -1,8 +1,8 @@
 # Alula
 
-[![Stellar](https://img.shields.io/badge/Stellar-000000?logo=stellar&logoColor=white&style=for-the-badge)](https://stellar.org)
-[![Rust](https://img.shields.io/badge/Rust-1.95-e64514?logo=rust&logoColor=white&style=for-the-badge)](https://www.rust-lang.org)
-[![CI](https://img.shields.io/github/actions/workflow/status/pointgroup-labs/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
+[![Stellar](https://img.shields.io/badge/Stellar-grey?logo=stellar&logoColor=white&style=for-the-badge)](https://stellar.org)
+[![Rust](https://img.shields.io/badge/Rust-1.95-blue?logo=rust&logoColor=white&style=for-the-badge)](https://www.rust-lang.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/pointgroup-labs/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=CI)](./.github/workflows/ci.yml)
 
 Alula is an institutional-grade RWA money-market protocol on Stellar. Configurable, segregated lending pools let originators fund real-world-asset-backed credit on-chain — with cross-pool collateral, flash-loan-powered leverage, and per-pool risk controls — while liquidity providers earn yield in Stellar assets.
 

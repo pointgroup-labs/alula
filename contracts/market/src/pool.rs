@@ -968,7 +968,7 @@ pub struct PoolHealthConfig {
     pub supply_limit: i128,
     // The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
-    // Basis points of the pool's total supply that can be withdrawn in a single operation when the pool's utilization ratio exceeds
+    // Basis points of the pool's total available liquidity that can be withdrawn in a single operation when the pool's utilization ratio exceeds
     // `utilization_ratio_limit_bps`
     pub withdraw_scarcity_limit_bps: i128,
     // Cooldown period(in seconds) required between a pair of sequential withdrawals when the pool's utilization ratio exceeds
