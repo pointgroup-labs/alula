@@ -131,9 +131,9 @@ const COLLATERAL_HEAVY_SWEEP: [usize; 9] = [3, 5, 7, 10, 15, 16, 17, 20, 25];
 /// calls overruns a pubnet limit, per shape, in `MARKET_BUILDS` order. `None`
 /// means the shape survived the whole sweep. Pinning these both records the
 /// ceiling and proves every smaller count in the sweep — 10 included — fits.
-const EXPECTED_EVEN: [Option<usize>; 2] = [None, Some(20)];
+const EXPECTED_EVEN: [Option<usize>; 2] = [None, None];
 const EXPECTED_BORROW_HEAVY: [Option<usize>; 2] = [None, Some(20)];
-const EXPECTED_COLLATERAL_HEAVY: [Option<usize>; 2] = [Some(17), Some(16)];
+const EXPECTED_COLLATERAL_HEAVY: [Option<usize>; 2] = [None, None];
 
 /// Both builds of the market are swept: the natively-linked contract these
 /// tests normally drive, and the deployable wasm that actually runs on pubnet.
@@ -814,13 +814,11 @@ fn cover_bad_debt_borrow_heavy_pubnet_ceiling() {
 /// remaining position a collateral. The worst of the three shapes and the one
 /// that sets the ceiling for the whole flow.
 ///
-/// Collateral positions are the expensive ones because
-/// `require_no_liquidatable_collateral_exists` re-derives the threshold *inside*
-/// its per-deposit loop (`contracts/market/src/obligation.rs:1229`), and
-/// `compute_min_collateral_threshold_scaled` calls the oracle's `decimals()`,
-/// which — unlike `lastprice` — is not cached per ledger timestamp. That is two
-/// uncached oracle invocations per deposit position, ~2.8 MB each on wasm
-/// against ~1.7 MB for a borrow position.
+/// Collateral positions used to be the expensive ones: the threshold was
+/// re-derived inside the per-deposit loop, and the `decimals()` behind it is the
+/// one oracle read with no per-ledger cache — ~2.8 MB per deposit on wasm against
+/// ~1.7 MB for a borrow. Hoisting it out cut this shape ~40% (10 positions:
+/// 63.06% → 39.43% of memory) and removed it as the binding path entirely.
 #[test]
 fn cover_bad_debt_collateral_heavy_pubnet_ceiling() {
     let ceilings = cover_bad_debt_ceilings("/ch", &COLLATERAL_HEAVY_SWEEP, |total| (total - 1, 1));

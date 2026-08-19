@@ -1207,6 +1207,8 @@ impl Obligation {
     }
 
     pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
+        let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
+
         for (pool_address, deposit_position) in self.deposits.iter() {
             let DepositPosition { j_tokens, collateral, .. } = deposit_position;
             let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
@@ -1226,7 +1228,6 @@ impl Obligation {
                 pool.token_decimals,
             )?;
 
-            let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
             if collateral_value > min_collateral_value_threshold {
                 return Err(MCError::BadDebtCoverageCriterionIsNotMet);
             }
