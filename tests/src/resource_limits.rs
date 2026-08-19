@@ -14,10 +14,15 @@
 //! a "fat" obligation is the natural worst case for Soroban's per-transaction
 //! resource budget, and `max_positions` is the governance knob that bounds it.
 //!
-//! `liquidate` is the heaviest of those paths: `Obligation::liquidate` runs *all
-//! four* value aggregators plus `compute_min_collateral_threshold_scaled` before
-//! it touches any seizure math, so it pays roughly twice the revaluation work a
+//! `liquidate` is the heaviest of the health-sensitive paths: it runs *all four*
+//! value aggregators plus `compute_min_collateral_threshold_scaled` before it
+//! touches any seizure math, so it pays roughly twice the revaluation work a
 //! `borrow` over the same position set does.
+//!
+//! It is not, however, the binding path. The bad-debt cover flow
+//! (`issue_cover_bad_debt` / `claim_cover_bad_debt_results`) costs more per
+//! position than a liquidation over the same obligation and is what actually
+//! bounds `max_positions` — see `cover_bad_debt_collateral_heavy_pubnet_ceiling`.
 //!
 //! What "resource limits" means here
 //! ---------------------------------
@@ -55,6 +60,9 @@
 //! that actually runs on pubnet — so the multiplier is measured rather than
 //! assumed, and the wasm rows are the ones a governance decision should read.
 
+use controlled_insurance_fund::{
+    ControlledInsuranceFundContract, ControlledInsuranceFundContractClient,
+};
 use market::{
     constants::{
         DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS,
@@ -70,6 +78,7 @@ use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM
 use soroban_sdk::{
     Address, Env, String, Symbol,
     testutils::{Address as _, Ledger, LedgerInfo},
+    token::StellarAssetClient,
     vec as svec,
 };
 
@@ -83,6 +92,12 @@ mod market_wasm {
     // measures the VM instantiation + bytecode execution these tests otherwise
     // skip.
     contractimport!(file = "../wasms/market.wasm");
+}
+
+mod insurance_fund_wasm {
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../wasms/controlled_insurance_fund.wasm");
 }
 
 // ---- Scenario sizing ----
@@ -107,6 +122,19 @@ const LIQUIDITY_AMOUNT: i128 = 1_000_000;
 /// `MAX_RESERVES` (25), the hard ceiling `max_positions` may be set to.
 const POSITION_SWEEP: [usize; 7] = [3, 5, 7, 10, 15, 20, 25];
 
+/// Counts swept for the collateral-heavy bad-debt shape, the one measured path
+/// whose ceiling falls inside the sweep: the extra rows pin it exactly instead
+/// of leaving a 15-to-20 bracket.
+const COLLATERAL_HEAVY_SWEEP: [usize; 9] = [3, 5, 7, 10, 15, 16, 17, 20, 25];
+
+/// Smallest swept position count at which one of the bad-debt cover flow's two
+/// calls overruns a pubnet limit, per shape, in `MARKET_BUILDS` order. `None`
+/// means the shape survived the whole sweep. Pinning these both records the
+/// ceiling and proves every smaller count in the sweep — 10 included — fits.
+const EXPECTED_EVEN: [Option<usize>; 2] = [None, Some(20)];
+const EXPECTED_BORROW_HEAVY: [Option<usize>; 2] = [None, Some(20)];
+const EXPECTED_COLLATERAL_HEAVY: [Option<usize>; 2] = [Some(17), Some(16)];
+
 /// Both builds of the market are swept: the natively-linked contract these
 /// tests normally drive, and the deployable wasm that actually runs on pubnet.
 const MARKET_BUILDS: [(&str, MarketBuild); 2] =
@@ -119,12 +147,25 @@ const MARKET_BUILDS: [(&str, MarketBuild); 2] =
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 const ORACLE_PRICE_DECIMALS: u32 = 14;
 
+// ---- Insurance fund ----
+
+// Pinned like the oracle above rather than generated: `Env`'s contract ids come
+// from a counter, so registering the fund with `register_at` keeps every later
+// asset/pool address — and therefore the liquidation measurements — identical.
+const INSURANCE_FUND_ADDRESS: &str = "CCQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2CNSG";
+
 /// Crashed collateral price ($0.115) that makes the obligation liquidatable at
 /// every swept size: close-LTV-weighted collateral is `0.115 * 0.80 * 5_000_000
 /// = 460_000` against `500_000` of debt, while the unweighted LTV of 8_695 bps
 /// stays under `DEFAULT_INSOLVENCY_LTV_BPS`, so liquidation takes the
 /// solvent (close-factor-bounded) branch rather than the bad-debt one.
 const CRASHED_COLLATERAL_PRICE: i128 = 11_500_000_000_000;
+
+/// Smallest price the oracle accepts (`get_asset_price` rejects `<= 0`). At
+/// 7-decimal amounts every collateral position floors to a value of zero, which
+/// is what `require_no_liquidatable_collateral_exists` demands before the market
+/// will hand an obligation to the insurance fund.
+const DUST_COLLATERAL_PRICE: i128 = 1;
 
 // ---- Pubnet per-transaction resource ceilings ----
 //
@@ -161,6 +202,7 @@ struct PositionFixture<'a> {
     e: Env,
     contract_client: MarketClient<'a>,
     oracle_client: MockPriceOracleClient<'a>,
+    insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
     borrower: ObligationKey,
     liquidator: Address,
     collateral_pools: Vec<Address>,
@@ -204,7 +246,31 @@ impl PositionFixture<'_> {
         let borrower_addr = Address::generate(&e);
         let liquidity_provider_addr = Address::generate(&e);
         let liquidator_addr = Address::generate(&e);
-        // All three are minted huge balances by `setup_test_asset`.
+
+        // -- Insurance fund --
+        //
+        // A real contract rather than a bare address: the bad-debt cover flow
+        // calls into it per borrow position and claims tokens back from it. It
+        // follows the market's build, because registering the fund natively for
+        // the wasm sweep would strip the VM cost out of exactly the loop these
+        // measurements are about.
+        let insurance_fund = Address::from_str(&e, INSURANCE_FUND_ADDRESS);
+        match build {
+            MarketBuild::Native => e.register_at(
+                &insurance_fund,
+                ControlledInsuranceFundContract,
+                (contract_admin.clone(),),
+            ),
+            MarketBuild::Wasm => {
+                e.register_at(&insurance_fund, insurance_fund_wasm::WASM, (contract_admin.clone(),))
+            }
+        };
+        let insurance_fund_client = ControlledInsuranceFundContractClient::new(&e, &insurance_fund);
+
+        // All three are minted huge balances by `setup_test_asset`. The fund is
+        // deliberately not on this list — it is funded per borrow pool by
+        // `fund_insurance_fund`, because minting to it unconditionally shifts
+        // every other measurement in this file by ~1%.
         let users =
             vec![borrower_addr.clone(), liquidity_provider_addr.clone(), liquidator_addr.clone()];
 
@@ -214,7 +280,6 @@ impl PositionFixture<'_> {
         let oracle_client = MockPriceOracleClient::new(&e, &oracle);
 
         // -- Market contract --
-        let insurance_fund = Address::generate(&e);
         let market_manager = Address::generate(&e);
         let init_args = (
             String::from_str(&e, "resource_limits_market"),
@@ -238,6 +303,7 @@ impl PositionFixture<'_> {
             MarketBuild::Wasm => e.register(market_wasm::WASM, init_args),
         };
         let contract_client = MarketClient::new(&e, &contract_id);
+        insurance_fund_client.set_market(&contract_id);
         // Owned markets start frozen; flip to Active (status code 0).
         contract_client.update_market_status(&0);
 
@@ -308,6 +374,7 @@ impl PositionFixture<'_> {
             e,
             contract_client,
             oracle_client,
+            insurance_fund_client,
             borrower,
             liquidator: liquidator_addr,
             collateral_pools,
@@ -316,14 +383,26 @@ impl PositionFixture<'_> {
     }
 
     /// Repricing every collateral asset to `CRASHED_COLLATERAL_PRICE` puts the
-    /// obligation under its close-LTV threshold. The extra ledger second evicts
-    /// the market's per-timestamp oracle price cache (`market::oracle`), which
-    /// would otherwise keep serving the pre-crash prices.
+    /// obligation under its close-LTV threshold.
     fn crash_collateral_prices(&self) {
+        self.reprice_collateral(CRASHED_COLLATERAL_PRICE);
+    }
+
+    /// Wipes out the collateral entirely, which is the state the bad-debt cover
+    /// flow requires: `require_no_liquidatable_collateral_exists` refuses an
+    /// obligation that still has a position worth seizing.
+    fn wipe_out_collateral_prices(&self) {
+        self.reprice_collateral(DUST_COLLATERAL_PRICE);
+    }
+
+    /// Borrow assets stay at $1. The extra ledger second evicts the market's
+    /// per-timestamp oracle price cache (`market::oracle`), which would otherwise
+    /// keep serving the pre-crash prices.
+    fn reprice_collateral(&self, collateral_price: i128) {
         let unit_price = 10_i128.pow(ORACLE_PRICE_DECIMALS);
         let mut prices = soroban_sdk::Vec::new(&self.e);
         for _ in 0..self.collateral_pools.len() {
-            prices.push_back(CRASHED_COLLATERAL_PRICE);
+            prices.push_back(collateral_price);
         }
         for _ in 0..self.borrow_pools.len() {
             prices.push_back(unit_price);
@@ -331,6 +410,15 @@ impl PositionFixture<'_> {
         self.oracle_client.set_price_stable(&prices);
 
         self.e.ledger().with_mut(|li| li.timestamp += 1);
+    }
+
+    /// Gives the insurance fund enough of every borrow asset to cover the whole
+    /// position, so `claim_cover_bad_debt_results` takes its settling branch.
+    fn fund_insurance_fund(&self) {
+        for pool in &self.borrow_pools {
+            StellarAssetClient::new(&self.e, pool)
+                .mint(&self.insurance_fund_client.address, &LIQUIDITY_AMOUNT);
+        }
     }
 
     /// A repay that stays under the 50% close factor of the targeted borrow
@@ -614,4 +702,128 @@ fn flash_liquidate_scales_within_pubnet_resource_limits() {
             assert_within_pubnet_limits(&label, total as u32, &m);
         }
     }
+}
+
+/// Drives the whole bad-debt cover flow over one obligation and reports each of
+/// its two top-level invocations. Soroban budgets per transaction, so the flow
+/// is only dangerous if a *single* call blows the ceiling — hence the split.
+fn measure_cover_bad_debt(
+    build: MarketBuild,
+    label: &str,
+    n_collateral: usize,
+    n_borrow: usize,
+) -> (Measurement, Measurement) {
+    let total = (n_collateral + n_borrow) as u32;
+    let f = PositionFixture::with_positions(build, n_collateral, n_borrow);
+    assert_eq!(f.positions_count(), total);
+
+    f.wipe_out_collateral_prices();
+    f.fund_insurance_fund();
+
+    f.contract_client.issue_cover_bad_debt(&f.borrower);
+    let issue = report(&f, &format!("issue-cover/{label}"), total);
+
+    // `ControlledInsuranceFundContract` always answers `Recorded`, so the issue
+    // call leaves one pending request per borrow position, numbered from 0.
+    // Approving them all puts the claim on its heaviest (`Ready`) branch, which
+    // pays a `get_status`, a `claim_coverage` and two token `balance` calls per
+    // request.
+    for request_id in 0..n_borrow as u64 {
+        // Clamped to the request amount by the fund.
+        f.insurance_fund_client.mark_ready(&request_id, &i128::MAX);
+    }
+
+    f.contract_client.claim_cover_bad_debt_results(&f.borrower);
+    let claim = report(&f, &format!("claim-cover/{label}"), total);
+
+    (issue, claim)
+}
+
+/// Sweeps one collateral/borrow split of the bad-debt cover flow and returns the
+/// smallest position count at which *either* of its two calls overruns a pubnet
+/// limit — i.e. the count at which the obligation can no longer be closed out.
+fn sweep_cover_bad_debt(
+    build: MarketBuild,
+    label: &str,
+    sweep: &[usize],
+    split: impl Fn(usize) -> (usize, usize),
+) -> Option<usize> {
+    let mut first_overrun = None;
+
+    for &total in sweep {
+        let (n_collateral, n_borrow) = split(total);
+        let (issue, claim) = measure_cover_bad_debt(build, label, n_collateral, n_borrow);
+
+        if !(issue.fits_pubnet() && claim.fits_pubnet()) && first_overrun.is_none() {
+            first_overrun = Some(total);
+        }
+    }
+
+    first_overrun
+}
+
+/// Ceilings of one bad-debt shape across both market builds, in `MARKET_BUILDS`
+/// order.
+fn cover_bad_debt_ceilings(
+    label_suffix: &str,
+    sweep: &[usize],
+    split: impl Fn(usize) -> (usize, usize) + Copy,
+) -> Vec<Option<usize>> {
+    report_header();
+
+    MARKET_BUILDS
+        .iter()
+        .map(|(build_label, build)| {
+            sweep_cover_bad_debt(*build, &format!("{build_label}{label_suffix}"), sweep, split)
+        })
+        .collect()
+}
+
+/// Cost of the bad-debt cover flow at the same even collateral/borrow split
+/// `liquidate_scales_within_pubnet_resource_limits` uses, so the two curves are
+/// directly comparable. At 10 positions on wasm `issue_cover_bad_debt` costs
+/// 21_753_488 memory bytes against `liquidate`'s 16_537_935 and the flash
+/// liquidation's 16_920_691, which makes it — not liquidation — the path that
+/// bounds `max_positions`.
+#[test]
+fn cover_bad_debt_even_split_pubnet_ceiling() {
+    let ceilings = cover_bad_debt_ceilings("", &POSITION_SWEEP, |total| {
+        let n_borrow = total / 2;
+        (total - n_borrow, n_borrow)
+    });
+
+    assert_eq!(ceilings, EXPECTED_EVEN, "even-split ceiling moved");
+}
+
+/// A single collateral pool with every remaining position a borrow, which
+/// maximises the per-borrow insurance-fund calls.
+///
+/// This is the shape the "two cross-contract calls per borrow position" concern
+/// points at, and here the *claim* is the expensive half, not the issue: it pays
+/// four cross-contract calls per recorded request against the issue's two, and
+/// overruns first (19 borrows: 57_629_267 memory bytes against the issue's
+/// 34_140_534).
+#[test]
+fn cover_bad_debt_borrow_heavy_pubnet_ceiling() {
+    let ceilings = cover_bad_debt_ceilings("/bh", &POSITION_SWEEP, |total| (1, total - 1));
+
+    assert_eq!(ceilings, EXPECTED_BORROW_HEAVY, "borrow-heavy ceiling moved");
+}
+
+/// One borrow — the minimum `require_borrow_exists` accepts — and every
+/// remaining position a collateral. The worst of the three shapes and the one
+/// that sets the ceiling for the whole flow.
+///
+/// Collateral positions are the expensive ones because
+/// `require_no_liquidatable_collateral_exists` re-derives the threshold *inside*
+/// its per-deposit loop (`contracts/market/src/obligation.rs:1229`), and
+/// `compute_min_collateral_threshold_scaled` calls the oracle's `decimals()`,
+/// which — unlike `lastprice` — is not cached per ledger timestamp. That is two
+/// uncached oracle invocations per deposit position, ~2.8 MB each on wasm
+/// against ~1.7 MB for a borrow position.
+#[test]
+fn cover_bad_debt_collateral_heavy_pubnet_ceiling() {
+    let ceilings = cover_bad_debt_ceilings("/ch", &COLLATERAL_HEAVY_SWEEP, |total| (total - 1, 1));
+
+    assert_eq!(ceilings, EXPECTED_COLLATERAL_HEAVY, "collateral-heavy ceiling moved");
 }
