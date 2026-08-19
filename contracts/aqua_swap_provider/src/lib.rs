@@ -30,12 +30,14 @@ pub enum ASPError {
     DuplicatePool = 8,
     IdenticalTokens = 9,
     Unauthorized = 10,
+    NoPendingAdmin = 11,
 }
 
 #[contracttype]
 pub enum DataKey {
     Admin,
     Pool(Address, Address),
+    PendingAdmin,
 }
 
 #[contract]
@@ -92,6 +94,33 @@ impl AquaSwapProviderContract {
         }
 
         e.storage().instance().set(&key, &pool_addr);
+    }
+
+    /// Nominates `new_admin` as the next administrator. Admin-gated.
+    /// The transfer is not effective until `new_admin` calls `accept_admin`.
+    pub fn propose_admin(e: Env, new_admin: Address) {
+        extend_instance(&e);
+
+        let stored_admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        stored_admin.require_auth();
+
+        e.storage().instance().set(&DataKey::PendingAdmin, &new_admin);
+    }
+
+    /// Completes the admin transfer initiated by `propose_admin`.
+    /// Must be called by the address that was proposed.
+    pub fn accept_admin(e: Env) {
+        extend_instance(&e);
+
+        let pending_admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdmin)
+            .unwrap_or_else(|| panic_with_error!(&e, ASPError::NoPendingAdmin));
+        pending_admin.require_auth();
+
+        e.storage().instance().set(&DataKey::Admin, &pending_admin);
+        e.storage().instance().remove(&DataKey::PendingAdmin);
     }
 }
 
