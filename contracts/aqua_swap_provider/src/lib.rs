@@ -11,6 +11,9 @@ mod pool {
     contractimport!(file = "../../wasms/downloads/aqua-pool.wasm");
 }
 
+#[cfg(test)]
+mod tests;
+
 const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
 const SECONDS_PER_LEDGER: u32 = 6;
 const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
@@ -137,25 +140,36 @@ impl ProxySwap for AquaSwapProviderContract {
         user.require_auth();
         validate_path(&e, &path);
 
-        let token_in = path.first().unwrap();
-        let token_out = path.last().unwrap();
-
-        let pool_addr = get_pool(&e, token_in.clone(), token_out.clone());
-        let pool_client = pool::Client::new(&e, &pool_addr);
-
-        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
-
-        let in_amount_u128 = convert_to_u128(&e, amount_in);
+        let hops = path.len() - 1;
         let min_out_u128 = convert_to_u128(&e, min_amount_out);
 
-        let balance_before = TokenClient::new(&e, &token_out).balance(&user);
+        let mut hop_amount_in = convert_to_u128(&e, amount_in);
+        let mut received = 0i128;
 
-        pool_client.swap(&user, &in_idx, &out_idx, &in_amount_u128, &min_out_u128);
+        for i in 0..hops {
+            let token_out = path.get(i + 1).unwrap();
+            let is_last = i + 1 == hops;
 
-        let balance_after = TokenClient::new(&e, &token_out).balance(&user);
-        let received = balance_after.checked_sub(balance_before).unwrap_or_else(|| {
-            panic_with_error!(&e, ASPError::OverOrUnderflow);
-        });
+            let (pool_client, in_idx, out_idx) = hop_pool(&e, &path.get(i).unwrap(), &token_out);
+
+            // Intermediate hops swap at any price: their output is spent by the
+            // next hop, so slippage only surfaces in the final `received` check,
+            // which reverts the whole atomic call.
+            let hop_min_out = if is_last { min_out_u128 } else { 0 };
+
+            let balance_before = TokenClient::new(&e, &token_out).balance(&user);
+
+            pool_client.swap(&user, &in_idx, &out_idx, &hop_amount_in, &hop_min_out);
+
+            let balance_after = TokenClient::new(&e, &token_out).balance(&user);
+            received = balance_after.checked_sub(balance_before).unwrap_or_else(|| {
+                panic_with_error!(&e, ASPError::OverOrUnderflow);
+            });
+
+            if !is_last {
+                hop_amount_in = convert_to_u128(&e, received);
+            }
+        }
 
         if received < min_amount_out {
             panic_with_error!(&e, ASPError::InvalidSwapResult);
@@ -175,19 +189,44 @@ impl ProxySwap for AquaSwapProviderContract {
         user.require_auth();
         validate_path(&e, &path);
 
+        let hops = path.len() - 1;
         let token_in = path.first().unwrap();
-        let token_out = path.last().unwrap();
-
-        let pool_addr = get_pool(&e, token_in.clone(), token_out.clone());
-        let pool_client = pool::Client::new(&e, &pool_addr);
-
-        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
-        let max_in_u128 = convert_to_u128(&e, max_amount_in);
-        let out_amount_u128 = convert_to_u128(&e, amount_out);
+        let hop_out_amounts = size_route_backwards(&e, &path, amount_out);
 
         let balance_before = TokenClient::new(&e, &token_in).balance(&user);
 
-        pool_client.swap_strict_receive(&user, &in_idx, &out_idx, &out_amount_u128, &max_in_u128);
+        // Only the first hop may draw on the caller's own funds. Every later hop
+        // is capped at what the previous one actually delivered, so a pool that
+        // charges more than it estimated reverts the route instead of reaching
+        // into the caller's balance of an intermediate token — which `spent`,
+        // measured on `path[0]`, would not account for.
+        let mut hop_in_max = convert_to_u128(&e, max_amount_in);
+
+        for i in 0..hops {
+            let token_out = path.get(i + 1).unwrap();
+            let is_last = i + 1 == hops;
+
+            let (pool_client, in_idx, out_idx) = hop_pool(&e, &path.get(i).unwrap(), &token_out);
+
+            let hop_before = (!is_last).then(|| TokenClient::new(&e, &token_out).balance(&user));
+
+            pool_client.swap_strict_receive(
+                &user,
+                &in_idx,
+                &out_idx,
+                &hop_out_amounts.get(i).unwrap(),
+                &hop_in_max,
+            );
+
+            if let Some(before) = hop_before {
+                let after = TokenClient::new(&e, &token_out).balance(&user);
+                let delta = after.checked_sub(before).unwrap_or_else(|| {
+                    panic_with_error!(&e, ASPError::OverOrUnderflow);
+                });
+
+                hop_in_max = convert_to_u128(&e, delta);
+            }
+        }
 
         let balance_after = TokenClient::new(&e, &token_in).balance(&user);
         let spent = balance_before.checked_sub(balance_after).unwrap_or_else(|| {
@@ -205,38 +244,69 @@ impl ProxySwap for AquaSwapProviderContract {
         extend_instance(&e);
         validate_path(&e, &path);
 
-        let token_in = path.first().unwrap();
-        let token_out = path.last().unwrap();
+        let mut amount_u128 = convert_to_u128(&e, amount_in);
 
-        let pool_addr = get_pool(&e, token_in, token_out);
-        let pool_client = pool::Client::new(&e, &pool_addr);
+        for i in 0..path.len() - 1 {
+            let (pool_client, in_idx, out_idx) =
+                hop_pool(&e, &path.get(i).unwrap(), &path.get(i + 1).unwrap());
 
-        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
-        let in_amount_u128 = convert_to_u128(&e, amount_in);
+            amount_u128 = pool_client.estimate_swap(&in_idx, &out_idx, &amount_u128);
+        }
 
-        let amount_out_u128 = pool_client.estimate_swap(&in_idx, &out_idx, &in_amount_u128);
-
-        convert_to_i128(&e, amount_out_u128)
+        convert_to_i128(&e, amount_u128)
     }
 
     fn get_amount_in(e: Env, path: Vec<Address>, amount_out: i128) -> i128 {
         extend_instance(&e);
         validate_path(&e, &path);
 
-        let token_in = path.first().unwrap();
-        let token_out = path.last().unwrap();
+        let mut amount_u128 = convert_to_u128(&e, amount_out);
 
-        let pool_addr = get_pool(&e, token_in, token_out);
-        let pool_client = pool::Client::new(&e, &pool_addr);
+        for i in (0..path.len() - 1).rev() {
+            let (pool_client, in_idx, out_idx) =
+                hop_pool(&e, &path.get(i).unwrap(), &path.get(i + 1).unwrap());
 
-        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
+            amount_u128 = pool_client.estimate_swap_strict_receive(&in_idx, &out_idx, &amount_u128);
+        }
 
-        let out_amount_u128 = convert_to_u128(&e, amount_out);
-        let amount_in_u128 =
-            pool_client.estimate_swap_strict_receive(&in_idx, &out_idx, &out_amount_u128);
-
-        convert_to_i128(&e, amount_in_u128)
+        convert_to_i128(&e, amount_u128)
     }
+}
+
+/// Walks the path in reverse to find, for each hop, the exact amount it must
+/// deliver so the next hop can pay for itself. Aqua charges what
+/// `estimate_swap_strict_receive` quotes, so the chain closes exactly as long as
+/// no pool appears twice in the path.
+fn size_route_backwards(e: &Env, path: &Vec<Address>, amount_out: i128) -> Vec<u128> {
+    let mut hop_out_amounts = Vec::new(e);
+    hop_out_amounts.push_front(convert_to_u128(e, amount_out));
+
+    for i in (1..path.len() - 1).rev() {
+        let (pool_client, in_idx, out_idx) =
+            hop_pool(e, &path.get(i).unwrap(), &path.get(i + 1).unwrap());
+
+        let required = pool_client.estimate_swap_strict_receive(
+            &in_idx,
+            &out_idx,
+            &hop_out_amounts.first().unwrap(),
+        );
+
+        hop_out_amounts.push_front(required);
+    }
+
+    hop_out_amounts
+}
+
+fn hop_pool<'a>(
+    e: &'a Env,
+    token_in: &Address,
+    token_out: &Address,
+) -> (pool::Client<'a>, u32, u32) {
+    let pool_addr = get_pool(e, token_in.clone(), token_out.clone());
+    let pool_client = pool::Client::new(e, &pool_addr);
+    let (in_idx, out_idx) = get_token_indices(e, &pool_client, token_in, token_out);
+
+    (pool_client, in_idx, out_idx)
 }
 
 fn get_pool(e: &Env, mut token_a: Address, mut token_b: Address) -> Address {
@@ -257,15 +327,17 @@ fn extend_instance(e: &Env) {
 }
 
 fn validate_path(e: &Env, path: &Vec<Address>) {
-    if path.len() != 2 {
+    if path.len() < 2 {
         panic_with_error!(e, ASPError::InvalidPath);
     }
 }
 
-fn get_token_indices(e: &Env, pool_client: &pool::Client, path: &Vec<Address>) -> (u32, u32) {
-    let token_in = path.first().unwrap();
-    let token_out = path.last().unwrap();
-
+fn get_token_indices(
+    e: &Env,
+    pool_client: &pool::Client,
+    token_in: &Address,
+    token_out: &Address,
+) -> (u32, u32) {
     let pool_tokens = pool_client.get_tokens();
 
     let mut in_idx: Option<u32> = None;
@@ -273,10 +345,10 @@ fn get_token_indices(e: &Env, pool_client: &pool::Client, path: &Vec<Address>) -
 
     for i in 0..pool_tokens.len() {
         let token = pool_tokens.get(i).unwrap();
-        if token == token_in {
+        if token == *token_in {
             in_idx = Some(i);
         }
-        if token == token_out {
+        if token == *token_out {
             out_idx = Some(i);
         }
     }
