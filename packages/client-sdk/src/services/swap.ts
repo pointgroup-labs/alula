@@ -5,7 +5,7 @@ import { Client as MarketClient } from '@alula/market-sdk'
 import { Client as AquaSwapProviderClient } from 'aqua_swap_provider'
 import Decimal from 'decimal.js'
 import { Client as SoroswapSwapProviderClient } from 'soroswap_swap_provider'
-import { AQUA_PROVIDER_ADDRESS, SOROSWAP_PROVIDER_ADDRESS } from '../constants'
+import { AQUA_PROVIDER_ADDRESS, BRIDGE_TOKEN_ADDRESSES, SOROSWAP_PROVIDER_ADDRESS } from '../constants'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
 
@@ -181,8 +181,8 @@ export class SwapService extends BaseClient {
    * are silently dropped — the UI can show "no routes found" if the result is
    * empty.
    *
-   * Multi-hop discovery is intentionally out of scope for now; if the protocol
-   * later wants `[from, USDC, to]` style bridging, extend `candidatePaths`.
+   * Pairs with no direct pool are also quoted through each bridge token, so a
+   * route can exist even when the two assets share no pool.
    */
   async getSwapRoutes(params: GetSwapRoutesParams): Promise<SwapRoute[]> {
     const amountIn = this.amountToBigInt(params.amountIn, params.fromTokenDecimals)
@@ -197,12 +197,12 @@ export class SwapService extends BaseClient {
       { name: 'Aquarius', address: AQUA_PROVIDER_ADDRESS[this.rpc] },
       { name: 'Soroswap', address: SOROSWAP_PROVIDER_ADDRESS[this.rpc] },
     ].filter(p => p.address)
-    // TODO(multi-hop): when `getExpectedAmountsOut` learns to quote a path of
-    // length > 2 (e.g. via per-hop provider calls or a router-side multi-hop
-    // RPC), extend `candidatePaths` with `[from, USDC, to]`-style bridges.
-    // The `Promise.allSettled` shape below already supports a wider fan-out.
+    const bridges = (BRIDGE_TOKEN_ADDRESSES[this.rpc] ?? []).filter(
+      b => b !== params.fromTokenAddress && b !== params.toTokenAddress,
+    )
     const candidatePaths: string[][] = [
       [params.fromTokenAddress, params.toTokenAddress],
+      ...bridges.map(b => [params.fromTokenAddress, b, params.toTokenAddress]),
     ]
 
     const settled = await Promise.allSettled(

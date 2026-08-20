@@ -29,6 +29,11 @@ export const AQUA_PROVIDER_ADDRESS: Record<string, string> = {
   public: 'CBAEVZTBCNZOB3FCLRAORTGK6MOTG6SU6PREG6JFWR24WTYXOXERWHB2',
 }
 
+export const BRIDGE_TOKEN_ADDRESSES: Record<string, string[]> = {
+  testnet: [],
+  public: ['CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75'],
+}
+
 export const MAX_I128 = 170_141_183_460_469_231_731_687_303_715_884_105_727n
 
 export const CONTRACT_ID: Record<string, string> = {
