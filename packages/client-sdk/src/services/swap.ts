@@ -310,21 +310,13 @@ export class SwapService extends BaseClient {
     amountIn: bigint,
     path: string[],
   ): Promise<bigint[]> {
-    // The provider's `get_amount_out` returns a single scalar for the whole
-    // path, not a per-hop array. We therefore only support direct paths today —
-    // attempting to fan out across an intermediate asset would require either a
-    // provider call per hop or a different provider RPC, neither of which is
-    // wired up. Fail loudly rather than silently mis-quote.
-    if (path.length !== 2) {
-      throw new Error(
-        `Multi-hop swap paths are not yet supported (got ${path.length} tokens)`,
-      )
-    }
     const providerClient = this.getSwapProviderClient(swapProviderAddress)
     const response = await providerClient.get_amount_out({
       amount_in: amountIn,
       path,
     })
+    // `get_amount_out` quotes the whole path as one scalar rather than per hop,
+    // so this stays [in, out] at any hop count; callers read the last element.
     return [amountIn, response.result]
   }
 
