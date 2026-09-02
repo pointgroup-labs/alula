@@ -15,7 +15,7 @@ moderc3156 = { path = "libs/moderc3156" }
 proxy-swap-interface = { path = "libs/proxy-swap-interface" }
 sep-40-oracle = "^1.4.0"
 soroban-fixed-point-math = "^1.5.0"
-soroban-sdk = "^25.0.0"
+soroban-sdk = "^27.0.6"
 
 [profile.release]
 opt-level = "z" # Optimize for size
