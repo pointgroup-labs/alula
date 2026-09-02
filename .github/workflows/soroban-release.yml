@@ -1,0 +1,42 @@
+# Builds attested release artifacts for the production contracts.
+#
+# stellar.expert grants source validation only to contracts deployed from a GitHub release
+# produced by this reusable workflow, so it cannot be applied retroactively to bytes already
+# on the ledger — a contract shows as verified from the first upgrade deployed out of a
+# release built here.
+#
+# Each package gets its own release because the workflow attaches its artifacts and their
+# SHA-256 to the release named by `release_name`, and parallel jobs writing to one release
+# would race.
+name: Soroban release build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build ${{ matrix.package }}
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - market
+          - market_manager
+          - aggregated_oracle
+          - controlled_insurance_fund
+          - redstone_sep_40_adapter
+          - aqua_swap_provider
+          - soroswap_swap_provider
+          - farms
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+    with:
+      release_name: ${{ github.ref_name }}-${{ matrix.package }}
+      package: ${{ matrix.package }}
+    secrets:
+      release_token: ${{ secrets.GITHUB_TOKEN }}
