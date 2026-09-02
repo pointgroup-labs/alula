@@ -5,9 +5,9 @@
 # on the ledger — a contract shows as verified from the first upgrade deployed out of a
 # release built here.
 #
-# Each package gets its own release because the workflow attaches its artifacts and their
-# SHA-256 to the release named by `release_name`, and parallel jobs writing to one release
-# would race.
+# `release_name` stays the bare tag: the workflow appends `_<package>_pkg<version>_cli<cli>`
+# itself, which both disambiguates the parallel matrix jobs and keeps the package name from
+# appearing twice.
 name: Soroban release build
 
 on:
@@ -36,7 +36,7 @@ jobs:
           - farms
     uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
     with:
-      release_name: ${{ github.ref_name }}-${{ matrix.package }}
+      release_name: ${{ github.ref_name }}
       package: ${{ matrix.package }}
     secrets:
       release_token: ${{ secrets.GITHUB_TOKEN }}

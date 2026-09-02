@@ -114,12 +114,19 @@ already net of it. Operation fees are one-off charges on individual actions.
 | `remove_collateral_fee_bps`     | Removing collateral                      | `0`          | `1000` (10%)                          |
 | `withdraw_max_scarcity_fee_bps` | Surcharge on scarce withdrawals (see §5) | `500` (5%)   | `withdraw_fee + scarcity_fee < 10000` |
 
-Exit fees are capped in the contract. `withdraw`, `repay` and
+Three exit fees are capped in the contract. `withdraw`, `repay` and
 `remove_collateral` are treated as constrained fees: they can never go above
 10%, and no single governance update can raise any of them by more than 3
-percentage points. The effect is that governance can't make leaving expensive
-after the fact. Entry-side fees (`deposit`, `borrow`, `add_collateral`,
-`flash_loan`) have no equivalent limit.
+percentage points.
+
+That cap does not cover every exit-side charge.
+`withdraw_max_scarcity_fee_bps` is validated only against overflow — it must
+stay below 100%, and its sum with `withdraw_fee_bps` must too — so a single
+governance update can take it from 5% to just under 100%. Withdrawing under
+scarcity is therefore the one exit governance *can* make expensive after the
+fact, and the constrained-fee rule does not prevent it. Entry-side fees
+(`deposit`, `borrow`, `add_collateral`, `flash_loan`) have no equivalent limit
+either.
 
 `take_rate_beneficiaries`, `operation_fee_beneficiaries` and `referrers` are
 address-to-share maps that decide where fees go. The first two have to sum to
@@ -193,8 +200,19 @@ Four independent bits per pool, all on by default, toggled by governance with
 immediate effect: `deposit_enabled`, `borrow_enabled`,
 `add_collateral_enabled`, `flash_loan_enabled`.
 
-There is no flag for withdrawal or repayment. Nothing at the pool level can
-trap supplied liquidity.
+There is no flag for withdrawal or repayment, but that is not the same as
+supply always being retrievable. The scarcity controls of §5 are pool-level and
+both accept zero: set `utilization_ratio_limit_bps` and
+`withdraw_scarcity_limit_bps` to `0` and the permitted withdrawal computes to
+zero, so every withdrawal from a pool carrying any debt reverts with
+`WithdrawScarcityOverLimit`. Governance cannot switch withdrawals off with a
+flag, but it can starve them to nothing through those two parameters — under
+the usual 12-hour pool-config timelock.
+
+A pool with a farm attached (§9) has a second such path. Withdrawing refreshes
+the farm stake, and the farms contract refuses that call while the farm is
+frozen, so the withdrawal reverts with it. The farm admin is therefore also a
+party that can hold up exits from the pool.
 
 ### Market status
 
@@ -361,8 +379,14 @@ across several SEP-40 feeds and adds a deviation check on top.
 | `oracles`                        | Source feeds aggregated into a median                                 | `1..=10`                    | fixed at construction |
 | `base_asset`, `decimals`         | Quote asset and price precision                                       | —                           | fixed at construction |
 | `periodic_oracles_price_max_age` | Staleness ceiling for cadence-based feeds                             | `60..=43200` (1 min – 12 h) | fixed at construction |
-| `max_dev_bps`                    | Max move between two consecutive medians before the price is rejected | per asset                   | admin, immediate      |
-| `max_dev_consecutive_diff_secs`  | Window over which that deviation check applies                        | per asset                   | admin, immediate      |
+| `max_dev_bps`                    | Max move between two consecutive medians before the price is rejected | per asset                   | fixed at registration |
+| `max_dev_consecutive_diff_secs`  | Window over which that deviation check applies                        | per asset                   | fixed at registration |
+
+Both deviation parameters are written once, by `add_asset`, and there is no way
+to change them afterwards: re-registering an asset fails with
+`AssetAlreadyRegistered`, and the oracle exposes neither a setter nor a removal
+call. Correcting either value means deploying a new oracle and repointing the
+market at it. Get them right before the first `add_asset`.
 
 The deviation check cuts both ways. If the median moves more than `max_dev_bps`
 inside `max_dev_consecutive_diff_secs`, the oracle returns no price at all.
