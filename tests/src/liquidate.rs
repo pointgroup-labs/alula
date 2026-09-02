@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D},
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_MAX_POSITIONS},
     error::MCError,
     obligation::ObligationKey,
 };
@@ -170,6 +170,21 @@ impl LiquidationTest {
 
         self.fixture.contract_client.refresh_pool(&self.borrow_pool_address);
         self.fixture.contract_client.refresh_pool(&self.collateral_pool_address);
+    }
+
+    fn set_min_collateral_value_cents(&self, cents: i128) {
+        let update_in_queue_period =
+            self.fixture.contract_client.get_global_state().update_in_queue_period;
+
+        self.fixture.contract_client.queue_in_market_update(
+            &DEFAULT_MAX_POSITIONS,
+            &cents,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        );
+        self.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+        self.fixture.contract_client.refresh_pool(&self.borrow_pool_address);
+        self.fixture.contract_client.refresh_pool(&self.collateral_pool_address);
+        self.fixture.contract_client.apply_market_update();
     }
 
     fn ltv(&self) -> i128 {
@@ -851,5 +866,172 @@ fn test_liquidate_with_excess_repay_amount_refunds_difference() {
             &test.borrow_pool_address,
         ),
         Err(MCError::ObligationDoesNotExist)
+    );
+}
+
+#[test]
+fn test_liquidate_below_min_collateral_while_close_ltv_solvent() {
+    let test = LiquidationTest::new();
+    test.set_min_collateral_value_cents(100);
+
+    let debt_before = test.debt();
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &test.max_liquidation_amount(),
+        &0,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Position below min_collateral_value_cents must be liquidatable even when close-LTV \
+         solvent, got: {result:?}"
+    );
+    assert!(test.debt() < debt_before, "Debt should be reduced by the liquidation");
+}
+
+#[test]
+fn test_below_min_collateral_liquidation_not_rejected_as_healthy() {
+    let test = LiquidationTest::new();
+    test.set_min_collateral_value_cents(100);
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &1,
+        &0,
+    );
+
+    assert_ne!(
+        result,
+        Err(Ok(MCError::ObligationIsHealthy)),
+        "Sub-minimum collateral positions must not be treated as healthy"
+    );
+}
+
+#[test]
+fn test_healthy_position_above_min_collateral_still_healthy() {
+    let test = LiquidationTest::new();
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &1,
+        &0,
+    );
+
+    assert_eq!(result, Err(Ok(MCError::ObligationIsHealthy)));
+}
+
+#[test]
+fn test_min_collateral_deduction_scales_with_position_count() {
+    let fixture = TestMarketFixture::new();
+
+    let liquidity_provider = fixture.users[0].clone();
+    let liquidator = fixture.users[1].clone();
+
+    let single_pos_borrower = fixture.users[2].clone();
+    let split_pos_borrower = fixture.users[3].clone();
+
+    let borrow_pool = fixture.usdc_pool_address.clone();
+    let gold_pool = fixture.gold_pool_address.clone();
+    let btc_pool = fixture.btc_pool_address.clone();
+
+    let total_collateral: i128 = 5_000_000;
+    let half_collateral: i128 = total_collateral / 2;
+    let debt: i128 = 2_500_000;
+
+    // Deep borrow-pool liquidity so both borrows are serviceable.
+    fixture.contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &borrow_pool,
+        &(10 * total_collateral),
+        &None,
+    );
+
+    // Borrower A: all collateral in a single pool (N = 1).
+    fixture.contract_client.add_collateral(
+        &ObligationKey::new(single_pos_borrower.clone()),
+        &gold_pool,
+        &total_collateral,
+        &None,
+    );
+    fixture.contract_client.borrow(
+        &ObligationKey::new(single_pos_borrower.clone()),
+        &borrow_pool,
+        &debt,
+        &None,
+    );
+
+    // Borrower B: same total collateral value & debt, split across two pools (N = 2).
+    fixture.contract_client.add_collateral(
+        &ObligationKey::new(split_pos_borrower.clone()),
+        &gold_pool,
+        &half_collateral,
+        &None,
+    );
+    fixture.contract_client.add_collateral(
+        &ObligationKey::new(split_pos_borrower.clone()),
+        &btc_pool,
+        &half_collateral,
+        &None,
+    );
+    fixture.contract_client.borrow(
+        &ObligationKey::new(split_pos_borrower.clone()),
+        &borrow_pool,
+        &debt,
+        &None,
+    );
+
+    // Raise min_collateral_value_cents to 10 cents -> threshold 1e13.
+    let update_in_queue_period = fixture.contract_client.get_global_state().update_in_queue_period;
+    fixture.contract_client.queue_in_market_update(
+        &DEFAULT_MAX_POSITIONS,
+        &10,
+        &DEFAULT_BAD_DEBT_LOCK_D,
+    );
+    fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    fixture.contract_client.refresh_pool(&borrow_pool);
+    fixture.contract_client.refresh_pool(&gold_pool);
+    fixture.contract_client.refresh_pool(&btc_pool);
+    fixture.contract_client.apply_market_update();
+
+    // N = 1: deduction is a single threshold -> still healthy.
+    let single_pos_result = fixture.contract_client.try_liquidate(
+        &liquidator,
+        &ObligationKey::new(single_pos_borrower.clone()),
+        &borrow_pool,
+        &gold_pool,
+        &1,
+        &0,
+    );
+    assert_eq!(
+        single_pos_result,
+        Err(Ok(MCError::ObligationIsHealthy)),
+        "Single-position borrower must stay healthy: only 1 * threshold is reserved"
+    );
+
+    // N = 2: deduction is two thresholds -> now liquidatable.
+    // Position is solvent, so the close factor caps repayment at 50% of debt;
+    // repay a meaningful slice so shares are actually burned.
+    let split_pos_result = fixture.contract_client.try_liquidate(
+        &liquidator,
+        &ObligationKey::new(split_pos_borrower.clone()),
+        &borrow_pool,
+        &gold_pool,
+        &(debt / 4),
+        &0,
+    );
+    assert!(
+        split_pos_result.is_ok(),
+        "Two-position borrower must be liquidatable: 2 * threshold is reserved, pushing the \
+         close-LTV collateral below the debt. Got: {split_pos_result:?}"
     );
 }

@@ -377,9 +377,14 @@ impl Obligation {
     }
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    // obligation, scaling each value with the appropriate `close_ltv_bps` value
-    fn compute_collateral_value_scaled_w_close_ltvs(&self, e: &Env) -> Result<i128, MCError> {
+    // obligation, scaling each value with the appropriate `close_ltv_bps` value.
+    // As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
+    fn compute_collateral_value_scaled_w_close_ltvs(
+        &self,
+        e: &Env,
+    ) -> Result<(i128, u32), MCError> {
         let mut value_sum = 0_i128;
+        let mut positions_with_non_zero_close_ltv_count = 0u32;
 
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -388,6 +393,9 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
+            if pool.config.health_config.close_ltv_bps.is_positive() {
+                positions_with_non_zero_close_ltv_count += 1;
+            }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
                 e,
                 &pool,
@@ -398,7 +406,7 @@ impl Obligation {
             value_sum = value_sum.checked_add(new_value_term).map_over_or_underflow()?;
         }
 
-        Ok(value_sum)
+        Ok((value_sum, positions_with_non_zero_close_ltv_count))
     }
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -927,10 +935,20 @@ impl Obligation {
                 .ok_or(MCError::BorrowPositionDoesNotExist)?,
         );
 
-        let (obligation_debt_value_w_liability_factors, obligation_collateral_value_w_close_ltvs) = (
+        let (
+            obligation_debt_value_w_liability_factors,
+            (obligation_collateral_value_w_close_ltvs, positions_with_non_zero_close_ltv_count),
+        ) = (
             self.compute_debt_value_scaled_w_liability_factors(e)?,
             self.compute_collateral_value_scaled_w_close_ltvs(e)?,
         );
+
+        let min_collateral_value_requirement = compute_min_collateral_threshold_scaled(e)?
+            .checked_mul(positions_with_non_zero_close_ltv_count as i128)
+            .map_over_or_underflow()?;
+        let obligation_collateral_value_w_close_ltvs = obligation_collateral_value_w_close_ltvs
+            .saturating_sub(min_collateral_value_requirement);
+
         if obligation_debt_value_w_liability_factors <= obligation_collateral_value_w_close_ltvs {
             return Err(MCError::ObligationIsHealthy);
         }
