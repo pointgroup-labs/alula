@@ -17,6 +17,6 @@
     "commander": "^15.0.0"
   },
   "devDependencies": {
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.13"
   }
 }
