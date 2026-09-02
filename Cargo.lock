@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "aqua_swap_provider"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "proxy-swap-interface",
  "soroban-sdk",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "market"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "enum_dispatch",
  "farms-interface",
@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "market_manager"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "soroban-sdk",
 ]
