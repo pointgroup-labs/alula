@@ -307,7 +307,7 @@ a convention rather than a rule. Read the deployed value from
 | Market status (freeze)                                                          | Admin                                       | immediate                |
 | Emergency market freeze                                                         | Insurance fund                              | immediate                |
 | Fee beneficiaries, farms                                                        | Admin                                       | immediate                |
-| Contract upgrade                                                                | Market Manager admin queues, anyone applies | per-market, `≥ 60 s`     |
+| Contract upgrade                                                                | Market Manager admin **and** market admin queue, anyone applies | per-market, `43200` (12 h) on `main` |
 | Admin transfer                                                                  | Two-step propose / accept                   | immediate on accept      |
 
 Queued changes are visible before they take effect.
@@ -317,6 +317,11 @@ leave before it lands, assuming the timelock is long enough to be useful.
 
 Once the delay has passed, anyone can apply a queued change. Governance can't
 sit on an approved change and spring it later.
+
+The per-market upgrade delay is fixed when the market is deployed and has no
+setter: `60 s` is only the floor `MarketManager::deploy` validates against, not
+what any market runs. The live `main` market is set to `43200` — read it from the
+manager's `DeployedMarket(<market>)` entry rather than from this table.
 
 Freezes are immediate while config changes wait, on the reasoning that making
 the protocol safer shouldn't be delayed and changing its economics should be.
