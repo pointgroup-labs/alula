@@ -1,25 +1,19 @@
-shellEmulator: true
+minimumReleaseAgeExcludePrune: true
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
-  - chokidar
   - semver
-  - '@noble/hashes@1.7.0'
-  - '@noble/curves@1.8.0'
-  - slow-redact
+
+shellEmulator: true
 
 packages:
   - packages/*
+
+overrides:
+  # @vue/compiler-sfc (via @antfu/eslint-config) pins an 8.5.12 that is behind
+  # GHSA-r28c-9q8g-f849 and GHSA-fxqj-rqcc-2cmp; ^8.5.23 also lifts nanoid to 3.3.18.
+  postcss: ^8.5.23
+
 allowBuilds:
   '@stellar/stellar-sdk': false
-  bigint-buffer: false
-  blake-hash: false
-  bufferutil: false
   esbuild: false
-  keccak: false
-  protobufjs: false
-  secp256k1: false
-  tiny-secp256k1: false
-  unix-dgram: false
-  unrs-resolver: true
-  usb: false
-  utf-8-validate: false
