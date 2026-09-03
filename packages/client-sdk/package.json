@@ -5,7 +5,9 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -14,8 +16,7 @@
   "dependencies": {
     "@alula/market-manager-sdk": "link:../sdk/market_manager",
     "@alula/market-sdk": "link:../sdk/market",
-    "@creit.tech/stellar-wallets-kit": "^1.7.7",
-    "@stellar/stellar-sdk": "^14.1.1",
+    "@stellar/stellar-sdk": "^14.6.1",
     "aqua_swap_provider": "link:../sdk/aqua_swap_provider",
     "decimal.js": "^10.6.0",
     "soroswap_swap_provider": "link:../sdk/soroswap_swap_provider"
