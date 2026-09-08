@@ -19,7 +19,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
     "@types/node": "^26.4.1",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "typescript": "~6.0.3"
   }
 }
