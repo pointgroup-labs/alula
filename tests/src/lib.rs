@@ -42,7 +42,7 @@ use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, Env, Symbol,
-    testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
+    testutils::{Address as _, Ledger, LedgerInfo, StellarAssetIssuer, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
 };
 
@@ -76,6 +76,7 @@ pub struct TestMarketFixture<'a> {
     pub insurance_fund: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
+    pub gold_issuer: StellarAssetIssuer,
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
     pub gold_pool_address: Address,
@@ -131,6 +132,7 @@ impl TestMarketFixture<'_> {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
+            ..
         } = setup_test_asset(&e, &usdc_admin, &users);
 
         let oracle = Address::from_str(&e, ORACLE_ADDRESS);
@@ -181,6 +183,7 @@ impl TestMarketFixture<'_> {
         let gold_admin = Address::generate(&e);
         let TestAssetSetup {
             sac_client: gold_sac,
+            issuer: gold_issuer,
             token_client: gold_token_client,
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
@@ -195,6 +198,7 @@ impl TestMarketFixture<'_> {
             sac_client: btc_sac,
             token_client: btc_token_client,
             token_address: btc_token_address,
+            ..
         } = setup_test_asset(&e, &btc_admin, &users);
         contract_client.queue_in_pool_set(&btc_token_address, &pool_config);
         e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
@@ -236,6 +240,7 @@ impl TestMarketFixture<'_> {
             insurance_fund,
             // GOLD
             gold_sac,
+            gold_issuer,
             gold_token_client,
             gold_token_address,
             gold_pool_address,
@@ -946,10 +951,12 @@ pub struct TestAssetSetup<'a> {
     pub token_client: TokenClient<'a>,
     pub token_address: Address,
     pub sac_client: StellarAssetClient<'a>,
+    pub issuer: StellarAssetIssuer,
 }
 
 pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
-    let token_address = e.register_stellar_asset_contract_v2(admin.clone()).address();
+    let sac = e.register_stellar_asset_contract_v2(admin.clone());
+    let token_address = sac.address();
     let sac_client = StellarAssetClient::new(e, &token_address);
     let token_client = TokenClient::new(e, &token_address);
 
@@ -959,7 +966,7 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
         sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
     }
 
-    TestAssetSetup { token_address, token_client, sac_client }
+    TestAssetSetup { token_address, token_client, sac_client, issuer: sac.issuer() }
 }
 
 pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {

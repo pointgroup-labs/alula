@@ -211,6 +211,8 @@ impl<'a> RequestTransfers<'a> {
             );
         }
 
+        // Zero amounts are sent on purpose: a transfer-gated collateral token must see the
+        // liquidator even when the seizure is paid in j-tokens (see liquidate.rs tests).
         for (token_address, amount) in self.market_transfers.iter() {
             TokenClient::new(self.e, &token_address).transfer(
                 &self.e.current_contract_address(),
