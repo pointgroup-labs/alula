@@ -567,9 +567,16 @@ impl Obligation {
             let max_prserving_ur_cap_borrow =
                 pool.compute_available_utilization_ratio_capped_borrow(e)?;
 
-            max_healthy_borrow_added_amount.min(max_prserving_ur_cap_borrow)
+            // The utilization cap is derived from the pool's supply, which still counts the assets
+            // an in-flight flash borrow holds; only the rest can actually be paid out.
+            max_healthy_borrow_added_amount
+                .min(max_prserving_ur_cap_borrow)
+                .min(pool.reducible_available(e)?)
         } else {
             pool.require_borrow_preserves_ur_cap(e, original_amount)?;
+            if original_amount > pool.reducible_available(e)? {
+                return Err(MCError::NotEnoughPoolFunds);
+            }
             if original_amount > max_healthy_borrow_added_amount {
                 return Err(MCError::UnhealthyOperation);
             }
@@ -668,18 +675,18 @@ impl Obligation {
             let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
 
             if provided_amount == i128::MAX {
-                max_healthy.min(all_deposit).min(pool.total_available()?)
+                max_healthy.min(all_deposit).min(pool.payable_available(e)?)
             } else if amount_capped_to_deposit > max_healthy {
                 return Err(MCError::UnhealthyOperation);
             } else {
                 amount_capped_to_deposit
             }
         } else if provided_amount == i128::MAX {
-            amount_capped_to_deposit.min(pool.total_available()?)
+            amount_capped_to_deposit.min(pool.payable_available(e)?)
         } else {
             amount_capped_to_deposit
         };
-        pool.require_total_available(deposit_decrease)?;
+        pool.require_total_available(e, deposit_decrease)?;
 
         let is_all_withdrawn = deposit_decrease == all_deposit;
 

@@ -125,6 +125,9 @@ pub enum DataKey {
     Obligation(ObligationKey),
     ProposedAdmin,
     BadDebtLockDuration,
+    // Amount of a pool's assets handed out by an in-flight batch flash borrow and not yet repaid.
+    // Non-zero only inside a single invocation.
+    FlashReserved(Address),
 }
 
 // -- TTL Bumpers --
@@ -195,6 +198,17 @@ pub fn set_max_positions(e: &Env, max_positions: u32) {
 }
 pub fn get_max_positions(e: &Env) -> u32 {
     e.storage().instance().get(&DataKey::MaxPositions).expect("MaxPositions must be set")
+}
+
+// - FlashReserved -
+pub fn set_flash_reserved(e: &Env, pool_address: &Address, amount: i128) {
+    e.storage().instance().set(&DataKey::FlashReserved(pool_address.clone()), &amount);
+}
+pub fn get_flash_reserved(e: &Env, pool_address: &Address) -> i128 {
+    e.storage().instance().get(&DataKey::FlashReserved(pool_address.clone())).unwrap_or(0)
+}
+pub fn clear_flash_reserved(e: &Env, pool_address: &Address) {
+    e.storage().instance().remove(&DataKey::FlashReserved(pool_address.clone()));
 }
 
 // - MinCollateralValueCents -

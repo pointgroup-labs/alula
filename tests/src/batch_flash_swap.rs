@@ -426,3 +426,341 @@ fn test_double_flash_borrow_rejected() {
 
     assert_eq!(result, Err(Ok(MCError::FlashBorrowAlreadyRegistered)));
 }
+
+#[test]
+fn test_flash_borrow_does_not_reprice_shares_within_batch() {
+    let run = |with_flash: bool| {
+        let TestMarketFixture {
+            e,
+            contract_client,
+            users,
+            usdc_pool_address,
+            gold_pool_address,
+            ..
+        } = TestMarketFixture::new();
+        let depositor = &users[0];
+        let lender = &users[1];
+        let borrower = &users[2];
+
+        contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &usdc_pool_address,
+            &(100 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        contract_client.add_collateral(
+            &ObligationKey::new(borrower.clone()),
+            &gold_pool_address,
+            &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
+        );
+        contract_client.borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
+        );
+
+        let mut batch = svec![&e];
+        if with_flash {
+            batch.push_back(Request::FlashBorrow(StandardRequest {
+                amount: 90 * DEFAULT_DEPOSIT_AMOUNT,
+                pool_address: usdc_pool_address.clone(),
+            }));
+        }
+        batch.push_back(Request::Deposit(StandardRequest {
+            amount: DEFAULT_DEPOSIT_AMOUNT,
+            pool_address: usdc_pool_address.clone(),
+        }));
+        contract_client.submit_requests_batch(
+            &ObligationKey::new(depositor.clone()),
+            &batch,
+            &None,
+        );
+
+        let value = |user: &Address| {
+            crate::get_obligation_j_tokens_as_tokens(&e, &contract_client, user, &usdc_pool_address)
+                .unwrap()
+        };
+        (value(lender), value(depositor))
+    };
+
+    let (lender_plain, depositor_plain) = run(false);
+    let (lender_flash, depositor_flash) = run(true);
+    assert_eq!((lender_flash, depositor_flash), (lender_plain, depositor_plain));
+}
+
+#[test]
+fn test_flash_borrow_share_price_realized_in_tokens() {
+    let run = |with_flash: bool| {
+        let TestMarketFixture {
+            e,
+            contract_client,
+            users,
+            usdc_pool_address,
+            gold_pool_address,
+            usdc_token_client,
+            ..
+        } = TestMarketFixture::new();
+        let attacker = &users[0];
+        let lender = &users[1];
+        let borrower = &users[2];
+
+        contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &usdc_pool_address,
+            &(100 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        contract_client.add_collateral(
+            &ObligationKey::new(borrower.clone()),
+            &gold_pool_address,
+            &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
+        );
+        contract_client.borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
+        );
+
+        let attacker_before = usdc_token_client.balance(attacker);
+        let lender_before = usdc_token_client.balance(lender);
+
+        let mut batch = svec![&e];
+        if with_flash {
+            batch.push_back(Request::FlashBorrow(StandardRequest {
+                amount: 90 * DEFAULT_DEPOSIT_AMOUNT,
+                pool_address: usdc_pool_address.clone(),
+            }));
+        }
+        batch.push_back(Request::Deposit(StandardRequest {
+            amount: DEFAULT_DEPOSIT_AMOUNT,
+            pool_address: usdc_pool_address.clone(),
+        }));
+        contract_client.submit_requests_batch(&ObligationKey::new(attacker.clone()), &batch, &None);
+
+        // Realize in a separate transaction, after the flash is repaid.
+        contract_client.withdraw(
+            &ObligationKey::new(attacker.clone()),
+            &usdc_pool_address,
+            &i128::MAX,
+            &None,
+        );
+        contract_client.withdraw(
+            &ObligationKey::new(lender.clone()),
+            &usdc_pool_address,
+            &i128::MAX,
+            &None,
+        );
+
+        (
+            usdc_token_client.balance(attacker) - attacker_before,
+            usdc_token_client.balance(lender) - lender_before,
+        )
+    };
+
+    let (attacker_plain, lender_plain) = run(false);
+    let (attacker_flash, lender_flash) = run(true);
+    // Lenders must be untouched by someone else's flash borrow, and the flash must never pay:
+    // the attacker's own net is at most what the flash fee costs them.
+    assert_eq!(lender_flash, lender_plain, "a flash borrow moved value away from the lender");
+    assert_eq!(attacker_plain, 0, "deposit-then-withdraw must break even without a flash");
+    assert!(attacker_flash <= 0, "flash borrow paid the attacker {attacker_flash}");
+}
+
+/// A third party's flash borrow must not make a healthy position liquidatable. The victim's
+/// collateral is a deposit (j-tokens) in the pool the attacker flashes.
+#[test]
+fn test_flash_borrow_cannot_make_a_healthy_position_liquidatable() {
+    let TestMarketFixture {
+        e, contract_client, users, usdc_pool_address, gold_pool_address, ..
+    } = TestMarketFixture::new();
+    let victim = &users[0];
+    let lender = &users[1];
+    let attacker = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(victim.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(victim.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 3),
+        &None,
+    );
+
+    // Control: the position is healthy, so a plain liquidation must be refused.
+    let plain = contract_client.try_liquidate(
+        attacker,
+        &ObligationKey::new(victim.clone()),
+        &usdc_pool_address,
+        &gold_pool_address,
+        &1,
+        &0,
+    );
+    assert_eq!(
+        plain,
+        Err(Ok(MCError::ObligationIsHealthy)),
+        "control failed: the victim was not healthy to begin with"
+    );
+
+    let batch = svec![
+        &e,
+        Request::FlashBorrow(StandardRequest {
+            amount: (DEFAULT_DEPOSIT_AMOUNT * 9) / 10,
+            pool_address: gold_pool_address.clone(),
+        }),
+        Request::Liquidate(LiquidateRequest {
+            borrower_obligation_key: ObligationKey::new(victim.clone()),
+            borrow_pool_address: usdc_pool_address.clone(),
+            collateral_pool_address: gold_pool_address.clone(),
+            repay_amount: DEFAULT_DEPOSIT_AMOUNT / 10,
+            min_demanded_collateral_amount: 0,
+        }),
+    ];
+    let result = contract_client.try_submit_requests_batch(
+        &ObligationKey::new(attacker.clone()),
+        &batch,
+        &None,
+    );
+
+    assert_eq!(
+        result,
+        Err(Ok(MCError::ObligationIsHealthy)),
+        "a flash borrow made a healthy position liquidatable"
+    );
+}
+
+/// A capped borrow must never be allowed past what the pool can actually pay out, at any flash size.
+/// Asserts the absence of the insolvency event too, so it covers the class, not one example.
+#[test]
+fn test_capped_borrow_inside_flash_batch_stays_within_payable() {
+    for pct in [5i128, 11, 25, 50, 90] {
+        let TestMarketFixture {
+            e,
+            contract_client,
+            users,
+            usdc_pool_address,
+            gold_pool_address,
+            ..
+        } = TestMarketFixture::new();
+        let borrower = &users[0];
+        let lender = &users[1];
+
+        contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &usdc_pool_address,
+            &(100 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        contract_client.add_collateral(
+            &ObligationKey::new(borrower.clone()),
+            &gold_pool_address,
+            &(50 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+
+        let batch = svec![
+            &e,
+            Request::FlashBorrow(StandardRequest {
+                amount: (100 * DEFAULT_DEPOSIT_AMOUNT * pct) / 100,
+                pool_address: usdc_pool_address.clone(),
+            }),
+            Request::Borrow(StandardRequest {
+                amount: i128::MAX,
+                pool_address: usdc_pool_address.clone(),
+            }),
+        ];
+        let result = contract_client.try_submit_requests_batch(
+            &ObligationKey::new(borrower.clone()),
+            &batch,
+            &None,
+        );
+
+        assert_ne!(
+            result,
+            Err(Ok(MCError::InternalError)),
+            "flash {pct}%: a capped borrow tripped the pool's own insolvency guard"
+        );
+    }
+}
+
+/// No flash reservation may outlive the transaction that made it: a leak would permanently floor the
+/// pool's payouts with no way back short of an upgrade. Checks the successful and the reverted batch.
+#[test]
+fn test_flash_reservation_never_outlives_the_transaction() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        contract_id,
+        users,
+        usdc_pool_address,
+        gold_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let lender = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    let reserved = |pool: &Address| {
+        e.as_contract(&contract_id, || market::storage::get_flash_reserved(&e, pool))
+    };
+    let assert_clean = |label: &str| {
+        assert_eq!(reserved(&usdc_pool_address), 0, "{label}: usdc reservation leaked");
+        assert_eq!(reserved(&gold_pool_address), 0, "{label}: gold reservation leaked");
+    };
+
+    assert_clean("before");
+
+    let flash_amount = 10 * DEFAULT_DEPOSIT_AMOUNT;
+    let ok_batch = svec![
+        &e,
+        Request::FlashBorrow(StandardRequest {
+            amount: flash_amount,
+            pool_address: usdc_pool_address.clone(),
+        }),
+        Request::Deposit(StandardRequest {
+            amount: DEFAULT_DEPOSIT_AMOUNT,
+            pool_address: usdc_pool_address.clone(),
+        }),
+    ];
+    contract_client.submit_requests_batch(&ObligationKey::new(user.clone()), &ok_batch, &None);
+    assert_clean("after a batch that succeeded");
+
+    // A batch that fails after the flash: the reservation must roll back with everything else.
+    let failing_batch = svec![
+        &e,
+        Request::FlashBorrow(StandardRequest {
+            amount: flash_amount,
+            pool_address: usdc_pool_address.clone(),
+        }),
+        Request::Withdraw(StandardRequest {
+            amount: i128::MAX,
+            pool_address: gold_pool_address.clone(),
+        }),
+    ];
+    let failed = contract_client.try_submit_requests_batch(
+        &ObligationKey::new(user.clone()),
+        &failing_batch,
+        &None,
+    );
+    assert!(failed.is_err(), "the control batch was supposed to fail");
+    assert_clean("after a batch that reverted");
+}

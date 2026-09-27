@@ -523,13 +523,17 @@ pub fn process_flash_borrow<'a>(
 
     require_positive(*amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
+    let pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
     pool.require_bad_debt_unlocked(e)?;
-    pool.require_total_available(*amount)?;
+    pool.require_total_available(e, *amount)?;
 
-    pool.adjust_total_available(e, amount.checked_neg().map_over_or_underflow()?)?;
-    pool.set(e);
+    // The assets stay the pool's: reserve them instead of removing them, so nothing that prices
+    // shares, accrues interest or checks the supply limit sees a smaller pool mid-batch.
+    if storage::get_flash_reserved(e, pool_address) != 0 {
+        return Err(MCError::FlashBorrowAlreadyRegistered);
+    }
+    storage::set_flash_reserved(e, pool_address, *amount);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, amount);
@@ -626,7 +630,7 @@ pub fn process_flash_loan(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
     pool.require_bad_debt_unlocked(e)?;
-    pool.require_total_available(amount)?;
+    pool.require_total_available(e, amount)?;
 
     let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
     let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
