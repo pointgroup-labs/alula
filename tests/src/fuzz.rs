@@ -1,8 +1,9 @@
 #![cfg(test)]
 
 use crate::{
-    Amount, Borrow, Command::*, Deposit, DepositCollateral, Input, Liquidate, PassTime, Repay,
-    TestMarketFixture, Token::*, Withdraw, WithdrawCollateral, make_oracle_prices_different,
+    Amount, BatchOp, Borrow, Command::*, Deposit, DepositCollateral, FlashBatch, Input, Liquidate,
+    PassTime, Repay, TestMarketFixture, Token::*, Withdraw, WithdrawCollateral,
+    make_oracle_prices_different,
 };
 
 #[allow(unused)]
@@ -15,6 +16,38 @@ fn test_fuzzed_issue(input: &Input) {
         command.run(&test_fixture);
         test_fixture.assert_invariants();
     }
+}
+
+/// A flash borrow followed, in the same transaction, by a deposit into the flashed pool: the shape
+/// that repriced shares. Pinned as a deterministic regression for the flash command family.
+#[test]
+fn flash_batch_sep_28() {
+    test_fuzzed_issue(&Input {
+        commands: core::array::from_fn(|i| match i {
+            0 => NibblesDeposit(Deposit { amount: Amount(3_000_000_000), token: USDC }),
+            1 => JerryDeposit(Deposit { amount: Amount(2_000_000_000), token: GOLD }),
+            2 => TomFlashBatch(FlashBatch {
+                flash_token: USDC,
+                flash_pct: 90,
+                ops: [
+                    BatchOp::Deposit(Deposit { amount: Amount(500_000_000), token: USDC }),
+                    BatchOp::Deposit(Deposit { amount: Amount(100_000_000), token: USDC }),
+                ],
+            }),
+            3 => ButchFlashBatch(FlashBatch {
+                flash_token: GOLD,
+                flash_pct: 75,
+                ops: [
+                    BatchOp::Deposit(Deposit { amount: Amount(200_000_000), token: GOLD }),
+                    BatchOp::AddCollateral(DepositCollateral {
+                        amount: Amount(10_000_000),
+                        token: GOLD,
+                    }),
+                ],
+            }),
+            _ => AllPassTime(PassTime { amount: 3600 }),
+        }),
+    });
 }
 
 #[test]
