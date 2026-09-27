@@ -296,6 +296,11 @@ impl Obligation {
             // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
             // any health factor decreasing operation is prohibited
             0
+        } else if scalar_bps == 0 {
+            // The asset is scaled out of the health computation, so moving it cannot lower the health
+            // factor: the amount is unbounded. `open_ltv_bps` of 0 is a valid supply-only pool, and
+            // without this the divisor below is `asset_price * 0` and the host traps.
+            i128::MAX
         } else {
             let asset_price: i128 = oracle::get_asset_price(e, &pool.token_address)?;
 
