@@ -764,3 +764,54 @@ fn test_flash_reservation_never_outlives_the_transaction() {
     assert!(failed.is_err(), "the control batch was supposed to fail");
     assert_clean("after a batch that reverted");
 }
+
+/// One batch may hold at most one flash borrow, including across different pools, and a refused batch
+/// leaves the market's balances alone. Note this cannot observe *where* the refusal happens: the
+/// revert undoes a transfer that already moved, so a guard placed earlier is not detectable here.
+#[test]
+fn test_two_flash_borrows_in_one_batch_are_refused() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        contract_id,
+        users,
+        usdc_pool_address,
+        gold_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let lender = &users[1];
+
+    for pool in [&usdc_pool_address, &gold_pool_address] {
+        contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            pool,
+            &(10 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+    }
+
+    let market_before = |pool: &Address| TokenClient::new(&e, pool).balance(&contract_id);
+    let (usdc_before, gold_before) =
+        (market_before(&usdc_pool_address), market_before(&gold_pool_address));
+
+    // Second flash on a different pool: the per-pool reservation check cannot see it, so only the
+    // batch-level guard can.
+    let batch = svec![
+        &e,
+        Request::FlashBorrow(StandardRequest {
+            amount: DEFAULT_DEPOSIT_AMOUNT,
+            pool_address: usdc_pool_address.clone(),
+        }),
+        Request::FlashBorrow(StandardRequest {
+            amount: DEFAULT_DEPOSIT_AMOUNT,
+            pool_address: gold_pool_address.clone(),
+        }),
+    ];
+    let result =
+        contract_client.try_submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
+
+    assert_eq!(result, Err(Ok(MCError::FlashBorrowAlreadyRegistered)));
+    assert_eq!(market_before(&usdc_pool_address), usdc_before, "usdc balance moved");
+    assert_eq!(market_before(&gold_pool_address), gold_before, "gold balance moved");
+}
