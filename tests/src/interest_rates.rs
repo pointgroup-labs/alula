@@ -2,6 +2,8 @@
 
 use market::{
     constants::*,
+    error::MCError,
+    interest_rate_model::kinked::KinkedIRConfig,
     obligation::ObligationKey,
     pool::{Pool, PoolConfig, PoolFeeConfig, PoolHealthConfig},
 };
@@ -392,4 +394,42 @@ fn test_interest_rate_reactivity() {
     });
 
     assert!(increased_modifier > initial_modifier);
+}
+
+/// A pool set carrying an invalid interest-rate model must be refused when it is queued. Accrual runs
+/// inside deposit, withdraw, repay, borrow and liquidate, so a model that cannot compute an APR takes
+/// the pool out of service entirely.
+#[test]
+fn test_invalid_interest_rate_model_is_refused() {
+    let TestMarketFixture { contract_client, btc_pool_address, .. } = TestMarketFixture::new();
+
+    let with_model = |model: KinkedIRConfig| market::pool::PoolConfig {
+        interest_rate_model: market::interest_rate_model::InterestRateModel::Kinked(model),
+        ..Default::default()
+    };
+    let default_model = KinkedIRConfig::default();
+
+    // Accrual rejects a negative APR, so once such a set is applied every money operation on the
+    // pool fails with `InvalidInputAmount`.
+    let negative_apr =
+        with_model(KinkedIRConfig { base_apr_bps: -1000, kink1_apr_bps: -500, ..default_model });
+    // Refused too, although both are harmless at runtime: equal kinks make the middle branch
+    // unreachable, and a descending slope only lowers the rate.
+    let equal_kinks =
+        with_model(KinkedIRConfig { kink1_ur_bps: 5000, kink2_ur_bps: 5000, ..default_model });
+    let descending =
+        with_model(KinkedIRConfig { kink1_apr_bps: 9000, kink2_apr_bps: 100, ..default_model });
+
+    for (label, config) in [
+        ("negative APRs", negative_apr),
+        ("equal kinks", equal_kinks),
+        ("descending APRs", descending),
+    ] {
+        let queued = contract_client.try_queue_in_pool_set(&btc_pool_address, &config);
+        assert_eq!(
+            queued,
+            Err(Ok(MCError::InvalidLoanPoolConfig)),
+            "{label}: an unusable interest-rate model was accepted"
+        );
+    }
 }

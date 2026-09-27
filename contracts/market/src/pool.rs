@@ -6,7 +6,7 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    interest_rate_model::InterestRateModel,
+    interest_rate_model::{InterestRate, InterestRateModel},
     math_utils::MathUtils,
     misc::PoolData,
     obligation::{
@@ -983,11 +983,13 @@ impl PoolConfig {
             fee_config,
             ir_reactivity_constant,
             target_utilization_ratio_bps,
+            interest_rate_model,
             ..
         } = self;
 
         if health_config.validate().is_err()
             || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
+            || interest_rate_model.validate().is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
             || !is_valid_bps_percent(*target_utilization_ratio_bps)
         {
