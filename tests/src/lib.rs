@@ -1,5 +1,6 @@
 mod bad_debt;
 mod batch_flash_swap;
+mod batch_liquidate_seed;
 mod borrow;
 mod deposit;
 mod farm_faults;

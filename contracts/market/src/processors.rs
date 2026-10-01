@@ -161,7 +161,7 @@ pub fn process_submit_requests_batch(
 
                 let liquidation_transfers = process_liquidate(
                     e,
-                    &obligation_key.user,
+                    obligation_key,
                     &borrower_obligation_key,
                     &borrow_pool_address,
                     &collateral_pool_address,
@@ -660,7 +660,9 @@ pub fn process_flash_loan(
 
 pub fn process_liquidate<'a>(
     e: &'a Env,
-    liquidator: &'a Address,
+    // The caller's key, not just its address: a batch's seed must reach the seizure, or the seized
+    // shares land where the rest of the batch cannot spend them.
+    liquidator_obligation_key: &ObligationKey,
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
@@ -670,6 +672,7 @@ pub fn process_liquidate<'a>(
     require_positive(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
+    let liquidator = &liquidator_obligation_key.user;
     if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
     {
         return Err(MCError::InvalidLiquidationInputs);
@@ -695,9 +698,8 @@ pub fn process_liquidate<'a>(
         min_demanded_collateral_amount,
     )?;
 
-    let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
     let mut liquidator_event_obligation: Option<Obligation> =
-        Obligation::try_get(e, &liquidator_obligation_key).ok();
+        Obligation::try_get(e, liquidator_obligation_key).ok();
 
     if liquidation_result.j_tokens_seized.is_positive() {
         let mut liquidator_obligation = liquidator_event_obligation.unwrap_or(Obligation::new(e));
@@ -707,13 +709,13 @@ pub fn process_liquidate<'a>(
             &collateral_pool,
             liquidation_result.j_tokens_seized,
         )?;
-        liquidator_obligation.set(e, &liquidator_obligation_key);
+        liquidator_obligation.set(e, liquidator_obligation_key);
 
         // Auto-refresh liquidator's supply farm stake (they received j-tokens)
         farms::try_refresh_pool_farm(
             e,
             &liquidator_obligation,
-            &liquidator_obligation_key,
+            liquidator_obligation_key,
             &collateral_pool,
             farms::FarmKind::Supply,
         )?;

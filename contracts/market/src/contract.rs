@@ -761,7 +761,8 @@ impl Market for MarketContract {
         liquidator.require_auth();
         process_liquidate(
             &e,
-            &liquidator,
+            // No seed at this entry point: the seizure lands on the liquidator's plain obligation.
+            &ObligationKey::new(liquidator),
             &borrower,
             &borrow_pool_address,
             &collateral_pool_address,
