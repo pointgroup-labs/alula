@@ -629,6 +629,9 @@ impl Market for MarketContract {
         // NB: Distribute pool fees for valid fees tracking afterwards
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         pool.accrue_interest(&e)?;
+        // `accrue_interest` never persists and the distribution below reads storage, so without this the
+        // interest reaches the bucket once the map already names the incoming beneficiary.
+        pool.set(&e);
 
         process_distribute_pool_fees(&e, pool_address.clone())?;
         pool.refresh(&e)?;
