@@ -1062,16 +1062,17 @@ pub fn process_claim_cover_bad_debt_results(
         }
     }
 
+    let settled = completed_requests.len();
     for (pool_addr, req_id) in completed_requests {
         obligation.insurance_fund_requests_ids.remove((pool_addr, req_id));
     }
 
     if obligation.is_empty() {
         obligation.remove(e, &obligation_key);
-        events::claim_cover_bad_debt_results(e, obligation_key, None);
+        events::claim_cover_bad_debt_results(e, obligation_key, None, settled);
     } else {
         obligation.set(e, &obligation_key);
-        events::claim_cover_bad_debt_results(e, obligation_key, Some(obligation));
+        events::claim_cover_bad_debt_results(e, obligation_key, Some(obligation), settled);
     }
 
     Ok(())

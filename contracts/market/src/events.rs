@@ -211,6 +211,7 @@ struct ClaimCoverBadDebtResults {
     #[topic]
     obligation_key: ObligationKey,
     obligation: Option<Obligation>,
+    settled: u32,
 }
 
 #[contractevent]
@@ -734,12 +735,15 @@ pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
     IssueCoverBadDebt { obligation_key }.publish(e);
 }
 
+// `settled` is what a keeper reads to tell a claim that closed something from one that found every
+// request still pending; both return `Ok(())`.
 pub fn claim_cover_bad_debt_results(
     e: &Env,
     obligation_key: ObligationKey,
     obligation: Option<Obligation>,
+    settled: u32,
 ) {
-    ClaimCoverBadDebtResults { obligation_key, obligation }.publish(e);
+    ClaimCoverBadDebtResults { obligation_key, obligation, settled }.publish(e);
 }
 
 pub fn bad_debt_request_cancelled(e: &Env, pool_address: &Address, request_id: u64, missing: bool) {
