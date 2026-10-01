@@ -231,8 +231,9 @@ pub trait Market {
     // * `user` - user which repays borrowed tokens
     // * `pool_address` - address of a pool from which the borrow happened
     // * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
-    //   the outstanding debt will be repaid.
-    //   Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
+    //   the outstanding debt is repaid and the excess is refunded in the same transaction.
+    //   The signed transfer is the full amount, so the ceiling is the payer's balance: [`i128::MAX`] is
+    //   refused by the token contract, whose code 10 reads here as `TooManyPositions`.
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn repay(
         e: Env,

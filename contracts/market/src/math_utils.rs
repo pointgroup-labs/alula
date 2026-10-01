@@ -20,6 +20,9 @@ impl<T> MathUtils<T> for Option<T> {
 // i128::MAX (which happens for high APRs compounded over SECONDS_IN_YEAR). The final result is
 // narrowed back to i128; if it still doesn't fit, OverOrUnderflow is returned.
 //
+// Measured at the MAX_APR_BPS cap: past 2.33 years the narrowing refuses, past 4.69 years the I256
+// squaring overflows and the host *panics*. `exp == 1` is also not monotone with `exp == 2`.
+//
 // # Arguments
 // * `e` - The Soroban environment (required for I256 host operations)
 // * `base` - The base value in fixed-point representation (scaled by denominator)

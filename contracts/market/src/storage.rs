@@ -47,9 +47,10 @@ pub enum MarketStatus {
     DepositFrozen,
     // Borrowing and depositing operations on the market are prohibited and IF cannot over-write
     DepositFrozenByAdmin,
-    // All operations on the market are prohibited
+    // Borrowing and depositing are prohibited — the same set as `DepositFrozen`, because the only gate
+    // that separates them, `require_market_not_frozen`, has no caller. Exits stay open.
     Frozen,
-    // All operations on the market are prohibited and IF cannot over-write
+    // As `Frozen`, and IF cannot over-write
     FrozenByAdmin,
 }
 
