@@ -643,6 +643,10 @@ impl Market for MarketContract {
 
         pool.config = new_config;
         pool.set(&e);
+        let queued_beneficiaries = beneficiaries.clone();
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.fee_config.take_rate_beneficiaries = Some(queued_beneficiaries);
+        });
 
         events::set_take_rate_fees_beneficiaries(&e, pool_address, beneficiaries);
 
@@ -667,6 +671,10 @@ impl Market for MarketContract {
 
         pool.config = new_config;
         pool.set(&e);
+        let queued_beneficiaries = beneficiaries.clone();
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.fee_config.operation_fee_beneficiaries = Some(queued_beneficiaries);
+        });
 
         events::set_operation_fees_beneficiaries(&e, pool_address, beneficiaries);
 
@@ -1022,6 +1030,11 @@ impl MarketContract {
         pool.config.status.flags = new_status_flags;
 
         pool.set(&e);
+        // Carry it into any queued set, or applying that set would undo it — this field holds the only
+        // flash-loan kill switch.
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.status.flags = new_status_flags;
+        });
 
         Ok(())
     }

@@ -1157,3 +1157,99 @@ fn test_frozen_by_admin_blocks_deposit_and_borrow() {
         &None,
     );
 }
+
+/// **An instantaneous config write survives a ripe queued set.** Three entry points write
+/// `pool.config` outside the timelock, and `apply_pool_set`, open to anyone, replaces it
+/// wholesale. Unpatched, an apply rolls the status flags back, and the per-pool flash bit is the
+/// only flash-loan kill switch.
+#[test]
+fn test_an_instant_status_write_is_not_rolled_back_by_a_ripe_queued_set() {
+    let f = TestMarketFixture::new();
+    let pool = f.usdc_pool_address.clone();
+
+    let flags_at_queue_time = f.contract_client.get_pool(&pool).config.status.flags;
+    let queued = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: 123, ..Default::default() },
+        ..Default::default()
+    };
+    f.contract_client.queue_in_pool_set(&pool, &queued);
+
+    // The incident action: flip every operation bit off, instantly, while the set sits in the queue.
+    f.full_contract_client.update_pool_status(&pool, &0);
+    assert_eq!(f.contract_client.get_pool(&pool).config.status.flags, 0);
+
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.e.ledger().with_mut(|li| li.timestamp += period);
+    f.contract_client.apply_pool_set(&pool);
+
+    let after = f.contract_client.get_pool(&pool).config;
+    assert_eq!(
+        after.status.flags, 0,
+        "applying the queued set restored the flags to their queue-time value \
+         {flags_at_queue_time}, undoing the instantaneous write"
+    );
+    assert_eq!(
+        after.fee_config.borrow_fee_bps, 123,
+        "the queued change itself must still land; discarding it is not the remedy"
+    );
+}
+
+/// The same interlock for the two fee-beneficiary setters. Unpatched, an apply puts both maps
+/// back to `None`, and `distribute_pool_fees` then pays nothing.
+#[test]
+fn test_an_instant_beneficiary_write_is_not_rolled_back_by_a_ripe_queued_set() {
+    use market::constants::BPS_FACTOR;
+    use soroban_sdk::{Address, map as smap, testutils::Address as _};
+
+    let f = TestMarketFixture::new();
+    let pool = f.usdc_pool_address.clone();
+    let (taker, operator) = (Address::generate(&f.e), Address::generate(&f.e));
+
+    f.contract_client.queue_in_pool_set(&pool, &PoolConfig::default());
+
+    f.contract_client
+        .set_take_rate_fees_beneficiaries(&pool, &smap![&f.e, (taker.clone(), BPS_FACTOR as u32)]);
+    f.contract_client.set_operation_fees_beneficiaries(
+        &pool,
+        &smap![&f.e, (operator.clone(), BPS_FACTOR as u32)],
+    );
+
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.e.ledger().with_mut(|li| li.timestamp += period);
+    f.contract_client.apply_pool_set(&pool);
+
+    let fee_config = f.contract_client.get_pool(&pool).config.fee_config;
+    assert_eq!(
+        fee_config.take_rate_beneficiaries,
+        Some(smap![&f.e, (taker, BPS_FACTOR as u32)]),
+        "the apply put the take-rate map back to its queue-time value"
+    );
+    assert_eq!(
+        fee_config.operation_fee_beneficiaries,
+        Some(smap![&f.e, (operator, BPS_FACTOR as u32)]),
+        "the apply put the operation-fee map back to its queue-time value"
+    );
+}
+
+/// Patching must not touch the clock: a set already serving its delay cannot have it restarted by an
+/// instantaneous write, or an operator could postpone a governance change indefinitely.
+#[test]
+fn test_patching_a_queued_set_does_not_restart_its_timelock() {
+    let f = TestMarketFixture::new();
+    let pool = f.usdc_pool_address.clone();
+
+    f.contract_client.queue_in_pool_set(&pool, &PoolConfig::default());
+    let queued_at = f.contract_client.get_queued_pool_set(&pool).queued_in_timestamp;
+
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.e.ledger().with_mut(|li| li.timestamp += period / 2);
+    f.full_contract_client.update_pool_status(&pool, &0);
+
+    assert_eq!(
+        f.contract_client.get_queued_pool_set(&pool).queued_in_timestamp,
+        queued_at,
+        "the patch moved the queue timestamp, which would postpone the set"
+    );
+    f.e.ledger().with_mut(|li| li.timestamp += period / 2);
+    f.contract_client.apply_pool_set(&pool);
+}

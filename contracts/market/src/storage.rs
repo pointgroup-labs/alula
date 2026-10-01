@@ -375,6 +375,25 @@ pub fn queue_in_pool_set(
     Ok(())
 }
 
+// Rewrites a queued set's config in place, so that applying a ripe set cannot undo a write made outside
+// the timelock. `queued_in_timestamp` is preserved: a patch must not restart the delay.
+pub fn patch_queued_pool_set(
+    e: &Env,
+    pool_address: &Address,
+    patch: impl FnOnce(&mut PoolConfig),
+) -> bool {
+    let key = DataKey::QueuedPoolSet(pool_address.clone());
+    let Some(mut queued) = e.storage().persistent().get::<_, QueuedPoolSet>(&key) else {
+        return false;
+    };
+
+    patch(&mut queued.new_config);
+    e.storage().persistent().set(&key, &queued);
+    extend_shared(e, &key);
+
+    true
+}
+
 // Removes a queued pool set from the queue
 pub fn remove_queued_pool_set(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let key = DataKey::QueuedPoolSet(pool_address.clone());
