@@ -49,11 +49,20 @@ pub fn refresh_pool_farm_stake(
         }
     };
 
-    FarmsClient::new(e, farms_contract).set_stake_delegated(
-        &obligation_key.into(),
-        farm_id,
-        &stake,
-    );
+    // Fallible on purpose: a refusing farm would otherwise abort every deposit and withdraw on the
+    // pool, trapping lenders' funds. A stale stake traps nothing.
+    if FarmsClient::new(e, farms_contract)
+        .try_set_stake_delegated(&obligation_key.into(), farm_id, &stake)
+        .is_err()
+    {
+        events::farm_stake_push_failed(
+            e,
+            pool.pool_address.clone(),
+            farm_id.clone(),
+            obligation_key.clone(),
+            stake,
+        );
+    }
 
     Ok(())
 }

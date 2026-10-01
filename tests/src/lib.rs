@@ -2,6 +2,7 @@ mod bad_debt;
 mod batch_flash_swap;
 mod borrow;
 mod deposit;
+mod farm_faults;
 mod farms;
 mod fees;
 mod fuzz;

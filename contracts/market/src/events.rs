@@ -314,6 +314,14 @@ struct ObligationAmntBecomesNegative {
 }
 
 #[contractevent]
+struct FarmStakePushFailed {
+    pool: Address,
+    farm_id: BytesN<32>,
+    obligation_key: ObligationKey,
+    stake: i128,
+}
+
+#[contractevent]
 struct PoolAmountBecomesNegative {
     old_amount: i128,
     new_amount: i128,
@@ -795,6 +803,18 @@ pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
+}
+
+// Emitted when a farm refuses a stake push. The money operation proceeds, since a third-party farm must
+// not trap funds, so this is the record of the stake left out of sync.
+pub fn farm_stake_push_failed(
+    e: &Env,
+    pool: Address,
+    farm_id: BytesN<32>,
+    obligation_key: ObligationKey,
+    stake: i128,
+) {
+    FarmStakePushFailed { pool, farm_id, obligation_key, stake }.publish(e);
 }
 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
