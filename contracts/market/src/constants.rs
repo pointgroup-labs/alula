@@ -132,6 +132,11 @@ pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE;
 // ---- MISC ----
 
 pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
+
+// Floor mirrors the manager's: with `0` a queued set applies in the ledger it was queued in. Ceiling
+// keeps `queued_in_timestamp + period` from overflowing, which would jam both applies.
+pub const MIN_UPDATE_IN_QUEUE_SECONDS: u64 = 60;
+pub const MAX_UPDATE_IN_QUEUE_SECONDS: u64 = 10 * 365 * 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;

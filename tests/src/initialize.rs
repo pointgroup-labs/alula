@@ -154,3 +154,82 @@ fn test_constructor_accepts_boundary_min_collateral_value_cents() {
     let client = MarketClient::new(&e, &market_addr);
     assert_eq!(client.get_global_state().min_collateral_value_cents, 10_000);
 }
+
+/// **A market cannot be constructed with a timelock that defeats its own queue.** With a period of
+/// `0`, `apply_market_update` and `apply_pool_set` succeed in the ledger the change was queued in.
+#[test]
+#[should_panic]
+fn test_constructor_rejects_a_zero_update_in_queue_period() {
+    let e = get_default_env();
+
+    e.register(
+        MarketContract,
+        (
+            &String::from_str(&e, "test"),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            MarketInitParams {
+                max_positions: MAX_RESERVES,
+                min_collateral_value_cents: 0,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: 0,
+                is_owned: false,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+            },
+        ),
+    );
+}
+
+/// The other end: a period near `u64::MAX` overflows the applicability test on any real ledger and jams
+/// both applies permanently, so it is refused too.
+#[test]
+#[should_panic]
+fn test_constructor_rejects_an_unapplicable_update_in_queue_period() {
+    let e = get_default_env();
+
+    e.register(
+        MarketContract,
+        (
+            &String::from_str(&e, "test"),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            MarketInitParams {
+                max_positions: MAX_RESERVES,
+                min_collateral_value_cents: 0,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: u64::MAX,
+                is_owned: false,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+            },
+        ),
+    );
+}
+
+/// The floor itself is accepted, so the bound is a bound and not a ban.
+#[test]
+fn test_constructor_accepts_the_minimum_update_in_queue_period() {
+    let e = get_default_env();
+
+    e.register(
+        MarketContract,
+        (
+            &String::from_str(&e, "test"),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            MarketInitParams {
+                max_positions: MAX_RESERVES,
+                min_collateral_value_cents: 0,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: market::constants::MIN_UPDATE_IN_QUEUE_SECONDS,
+                is_owned: false,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+            },
+        ),
+    );
+}

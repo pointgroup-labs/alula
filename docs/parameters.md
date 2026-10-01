@@ -277,7 +277,7 @@ including the admin.
 | `insurance_fund`         | Insurance fund contract address                       | any                            |
 | `name`                   | Market name                                           | any                            |
 | `insolvency_ltv_bps`     | LTV above which a liquidation is treated as insolvent | `9500..=10000`, default `9850` |
-| `update_in_queue_period` | Governance timelock for all config changes            | not range-checked              |
+| `update_in_queue_period` | Governance timelock for all config changes            | 60 s to 10 years               |
 | `is_owned`               | Whether the market has governance at all              | —                              |
 
 `is_owned = false` makes the market immutable. Every path that changes
@@ -290,10 +290,10 @@ so a stalled feed stops price-dependent operations instead of letting them run
 on old data.
 
 `update_in_queue_period` is worth a look before you supply. It's the delay on
-every economic change, it's chosen freely at deployment, and the contract
-doesn't enforce a minimum. The test suite uses 24 hours throughout, but that's
-a convention rather than a rule. Read the deployed value from
-`get_global_state()`.
+every economic change, and it's chosen at deployment. The contract only
+requires 60 s to 10 years, and 60 s is too short to react to. The test suite
+uses 24 hours throughout, but that's a convention rather than a rule. Read the
+deployed value from `get_global_state()`.
 
 ---
 

@@ -627,7 +627,8 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
     let max_positions: u32 = MAX_RESERVES;
     let min_collateral_value_cents: i128 = DEFAULT_MIN_COLLATERAL_VALUE_CENTS;
     let insolvency_ltv_bps: i128 = DEFAULT_INSOLVENCY_LTV_BPS;
-    let update_in_queue_period: u64 = 1;
+    // The shortest timelock the constructor accepts; this test is about who may freeze the market.
+    let update_in_queue_period: u64 = market::constants::MIN_UPDATE_IN_QUEUE_SECONDS;
     let is_owned: bool = true;
 
     let market_addr = e.register(

@@ -1064,7 +1064,7 @@ fn verify_market_params(params: &MarketInitParams) -> Result<(), MCError> {
     let &MarketInitParams {
         min_collateral_value_cents,
         bad_debt_lock_d,
-        update_in_queue_period: _,
+        update_in_queue_period,
         insolvency_ltv_bps,
         max_positions,
         is_owned: _,
@@ -1077,6 +1077,8 @@ fn verify_market_params(params: &MarketInitParams) -> Result<(), MCError> {
         || !(MIN_COLLATERAL_VALUE_CENTS..=MAX_COLLATERAL_VALUE_CENTS)
             .contains(&min_collateral_value_cents)
         || !(MIN_BAD_DEBT_LOCK_D..=MAX_BAD_DEBT_LOCK_D).contains(&bad_debt_lock_d)
+        || !(MIN_UPDATE_IN_QUEUE_SECONDS..=MAX_UPDATE_IN_QUEUE_SECONDS)
+            .contains(&update_in_queue_period)
     {
         return Err(MCError::InvalidMarketConfigOrUpdate);
     }
