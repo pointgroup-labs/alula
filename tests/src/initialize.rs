@@ -297,3 +297,34 @@ fn test_constructor_accepts_an_oracle_that_does_not_answer_yet() {
         ),
     );
 }
+
+/// **A scarcity cooldown with no scarcity fee is refused as a pair.** The cooldown clock is only
+/// stamped inside `if withdraw_scarcity_fee_bps > 0`, so with a zero maximum it never arms.
+#[test]
+fn test_a_scarcity_cooldown_without_a_fee_is_refused() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, false);
+    let token = register_random_sac(&e);
+
+    let disarmed = PoolConfig {
+        health_config: PoolHealthConfig {
+            withdraw_scarcity_cooldown_s: 3_600,
+            ..Default::default()
+        },
+        fee_config: PoolFeeConfig { withdraw_max_scarcity_fee_bps: 0, ..Default::default() },
+        ..Default::default()
+    };
+    assert_eq!(
+        contract_client.try_queue_in_pool_set(&token, &disarmed),
+        Err(Ok(MCError::InvalidLoanPoolConfig)),
+        "a cooldown with no fee was accepted and would have been silently disarmed"
+    );
+
+    // The shipped pairing — no cooldown, no fee — stays valid, and so does an armed one.
+    assert!(contract_client.try_queue_in_pool_set(&token, &PoolConfig::default()).is_ok());
+    let armed = PoolConfig {
+        fee_config: PoolFeeConfig { withdraw_max_scarcity_fee_bps: 100, ..Default::default() },
+        ..disarmed
+    };
+    assert!(contract_client.try_queue_in_pool_set(&register_random_sac(&e), &armed).is_ok());
+}

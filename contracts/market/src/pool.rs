@@ -987,11 +987,17 @@ impl PoolConfig {
             ..
         } = self;
 
+        // A cooldown with no scarcity fee is silently disarmed: the clock is only stamped inside
+        // `if withdraw_scarcity_fee_bps > 0`, which is never true when the maximum is zero.
+        let cooldown_without_a_fee = health_config.withdraw_scarcity_cooldown_s > 0
+            && fee_config.withdraw_max_scarcity_fee_bps == 0;
+
         if health_config.validate().is_err()
             || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
             || interest_rate_model.validate().is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
             || !is_valid_bps_percent(*target_utilization_ratio_bps)
+            || cooldown_without_a_fee
         {
             return Err(MCError::InvalidLoanPoolConfig);
         }
