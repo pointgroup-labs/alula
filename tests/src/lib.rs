@@ -8,6 +8,7 @@ mod fees;
 mod fuzz;
 mod initialize;
 mod interest_rates;
+mod ir_controller;
 mod liquidate;
 mod market_manager;
 mod misc;

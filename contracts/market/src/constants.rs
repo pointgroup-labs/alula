@@ -68,6 +68,9 @@ pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
 pub const MAX_REACTIVITY_CONSTANT: u32 = 100; // 0.01
 pub const MIN_IR_MODIFIER: i128 = BPS_FACTOR / 10; // x0.1
 pub const MAX_IR_MODIFIER: i128 = BPS_FACTOR * 10; // x10
+// The controller's step scales with time since the last accrual, which is unbounded: a day idle asks for
+// 56x the modifier band. 900 s holds one step inside it for any config, since band / reactivity is 990.
+pub const MAX_IR_INTEGRATION_SECONDS: u64 = 900;
 
 // ---- Deposit ----
 
