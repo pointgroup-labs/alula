@@ -986,6 +986,14 @@ impl MarketContract {
         params: MarketInitParams,
     ) -> Result<(), MCError> {
         verify_market_params(&params)?;
+        // The oracle address is written once, so this is the only chance to refuse a scale that would trap
+        // every priced operation. A feed that does not answer *yet* is allowed: that is recoverable from
+        // the feed's side, an over-scaled one is not.
+        if let Ok(Ok(decimals)) = sep_40_oracle::PriceFeedClient::new(&e, &oracle).try_decimals()
+            && decimals > MAX_ORACLE_PRICE_DECIMALS
+        {
+            return Err(MCError::OracleUnusableAtConstruction);
+        }
 
         let MarketInitParams {
             max_positions,

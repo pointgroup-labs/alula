@@ -129,6 +129,9 @@ pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 // Maximum acceptable oracle price age in seconds
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE;
 
+// Above this, `i128::pow(10, decimals)` overflows and the host traps instead of returning an error.
+pub const MAX_ORACLE_PRICE_DECIMALS: u32 = 38;
+
 // ---- MISC ----
 
 pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
