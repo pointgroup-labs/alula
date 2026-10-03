@@ -3,6 +3,9 @@
 //! contract that does not know them refuses every push.
 #![cfg(test)]
 
+use farms::{
+    DelegatedFarmConfig, Delegation, FarmConfig, FarmsContract, FarmsContractClient, OptionalOracle,
+};
 use farms_interface::Delegatee;
 use market::obligation::ObligationKey;
 use soroban_sdk::{
@@ -127,4 +130,45 @@ fn test_a_refused_push_is_recorded_as_an_event() {
         "the refused push left no record: {refused} events against {plain} for the same deposit \
          with no farm wired"
     );
+}
+
+/// A real farm frozen while a lender is staked: the full withdrawal must still take the stake out, or
+/// the farm keeps paying rewards on a stake no position backs.
+#[test]
+fn test_a_frozen_farm_still_takes_a_full_withdrawal_out_of_the_stake() {
+    let f = TestMarketFixture::new();
+    let pool = f.usdc_pool_address.clone();
+    let lender = ObligationKey::new(f.users[0].clone());
+    let delegatee = Delegatee { owner: f.users[0].clone(), seed: None };
+
+    let farms = f.e.register(FarmsContract, (f.users[1].clone(),));
+    let farms_client = FarmsContractClient::new(&f.e, &farms);
+    let farm_id = farms_client.initialize_farm(
+        &None,
+        &FarmConfig {
+            token: pool.clone(),
+            deposit_cap: 0,
+            treasury_fee_bps: 0,
+            min_harvest_delay: 0,
+            min_stake_amount: 0,
+            delegation: Delegation::Delegated(DelegatedFarmConfig {
+                delegate_authority: f.contract_id.clone(),
+            }),
+            is_reward_once_enabled: false,
+            is_harvest_permissionless: false,
+            oracle: OptionalOracle::None,
+        },
+    );
+    farms_client.unfreeze_farm(&farm_id);
+    f.contract_client.set_farms_contract(&farms);
+    f.contract_client.set_pool_supply_farm(&pool, &farm_id);
+
+    f.contract_client.deposit(&lender, &pool, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert!(farms_client.get_delegatee_state(&delegatee, &farm_id).active_stake > 0);
+
+    farms_client.freeze_farm(&farm_id);
+    f.contract_client.withdraw(&lender, &pool, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    let left = farms_client.get_delegatee_state(&delegatee, &farm_id).active_stake;
+    assert_eq!(left, 0, "the frozen farm kept a stake of {left} after a full withdrawal");
 }
