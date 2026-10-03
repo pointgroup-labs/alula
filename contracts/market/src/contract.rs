@@ -115,6 +115,9 @@ pub trait Market {
     // # Arguments
     // * `pool_address` - address of a pool, for which the beneficiaries list is set
     // * `beneficiaries` - a list of beneficiaries' addresses and their shares(in basis points)
+    //
+    // Empties *both* buckets, not its own: it routes through `process_distribute_pool_fees`, which pays
+    // take-rate and operation unconditionally.
     fn set_operation_fees_beneficiaries(
         e: Env,
         pool_address: Address,
@@ -167,6 +170,9 @@ pub trait Market {
     //
     // # Returns
     // [`WithdrawResult`] with simulated withdrawal data
+    //
+    // Not read-only: it accrues and persists. `i128::MAX` previews what `payable_available` allows, not
+    // the whole holding.
     fn simulate_withdraw(
         e: Env,
         user: ObligationKey,
@@ -217,6 +223,9 @@ pub trait Market {
     //   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
     //   collateral
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    //
+    // An over-ask is capped, not refused, so `Ok` does not mean the requested amount moved. `withdraw`
+    // refuses instead; the asymmetry is deliberate.
     fn remove_collateral(
         e: Env,
         user: ObligationKey,
@@ -285,6 +294,10 @@ pub trait Market {
 
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
+    // Opens requests and socialises nothing; the write-off happens at settlement. While one is open,
+    // `withdraw`, `add_collateral` and `repay` are refused — blocking repay is deliberate, since
+    // settlement recomputes the debt from the position's current `d_tokens`.
+    //
     // # Arguments
     // * `user` - user that has a bad debt
     fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError>;
@@ -308,6 +321,9 @@ pub trait Market {
     //
     // # Arguments
     // * `pool_address` - address of asset which price is returned
+    //
+    // This getter writes: it advances the price cache, as `get_market_data` does. Within a ledger the
+    // cached price is then served unvalidated.
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError>;
 
     // Returns the user's obligation which includes data about all of their deposits and borrows
@@ -348,6 +364,9 @@ pub trait Market {
     fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError>;
 
     // Clears the farms contract address (disables farm integration)
+    //
+    // Writes only the market-level pointer; pools keep their farm ids. With none set the push is
+    // skipped; a new contract is sent ids it does not know, so clear the pools' farms first.
     fn clear_farms_contract(e: Env) -> Result<(), MCError>;
 
     // Gets the farms contract address if configured
@@ -376,6 +395,10 @@ pub trait Market {
     ) -> Result<(), MCError>;
 
     // Clears all farm configuration for a pool
+    //
+    // Does not unwind the stakes standing on the farm: obligations carry no per-pool index, so there is
+    // no set of stakeholders to zero. They keep earning, as `freeze_farm` does not stop rewards: end
+    // the farm's reward schedule as well.
     //
     // # Arguments
     // * `pool_address` - Address of the pool
