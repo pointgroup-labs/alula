@@ -11,7 +11,7 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund tokenized_deposits
 DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
 MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
 
@@ -115,6 +115,7 @@ build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_swap_provider,$(WASM_DIR))
 	$(call build_contract,aqua_swap_provider,$(WASM_DIR))
 	$(call build_contract,controlled_insurance_fund,$(WASM_DIR))
+	$(call build_contract,tokenized_deposits,$(WASM_DIR))
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
 	$(call build_contract,market_manager,$(WASM_DIR))
