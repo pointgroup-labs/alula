@@ -432,6 +432,7 @@ impl Market for MarketContract {
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_deployer(&e);
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
