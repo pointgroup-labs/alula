@@ -7,7 +7,7 @@ use market::{
 };
 use soroban_sdk::{
     Address,
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, IssuerFlags, Ledger},
 };
 
 use crate::{
@@ -506,6 +506,56 @@ fn test_liquidate_deposit_successful() {
         deposit_after
     );
     assert!(min_demanded_collateral <= liquidator_j_tokens_tokens);
+}
+
+#[test]
+fn test_liquidate_deposit_reverts_for_deauthorized_liquidator() {
+    let test = LiquidationTest::risky_with_deposit_as_collateral();
+    test.wait_n_years(2);
+
+    // Deposit-share seizure moves no tokens, so a transfer-gated collateral token can only
+    // reject the liquidator through the zero-amount collateral transfer the market still makes.
+    assert_eq!(test.collateral(), 0);
+
+    test.fixture.gold_issuer.set_flag(IssuerFlags::RevocableFlag);
+    test.fixture.gold_sac.set_authorized(&test.liquidator, &false);
+
+    let debt_before = test.debt();
+    let deposit_before = test.total_supplied();
+    let liquidation_amount = test.liquidation_amount_from_percentage(10);
+
+    // The SAC's BalanceDeauthorizedError is contract error 11, which the client decodes as
+    // MCError's code 11. Patching a zero-amount skip into the transfer loop makes this succeed.
+    assert_eq!(
+        test.fixture.contract_client.try_liquidate(
+            &test.liquidator,
+            &ObligationKey::new(test.borrower.clone()),
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &liquidation_amount,
+            &0,
+        ),
+        Err(Ok(MCError::MinCollateralValueIsNotMet))
+    );
+    assert_eq!(test.debt(), debt_before);
+    assert_eq!(test.total_supplied(), deposit_before);
+    assert_eq!(
+        test.fixture
+            .contract_client
+            .try_get_user_obligation(&ObligationKey::new(test.liquidator.clone())),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+
+    test.fixture.gold_sac.set_authorized(&test.liquidator, &true);
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &ObligationKey::new(test.borrower.clone()),
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &0,
+    );
+    assert_eq!(test.debt(), debt_before - liquidation_amount);
 }
 
 #[test]

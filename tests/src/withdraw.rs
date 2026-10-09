@@ -1133,3 +1133,83 @@ fn test_withdraw_all_when_borrow_exists_but_max_healthy_exceeds_deposit() {
         Err(MCError::DepositPositionDoesNotExist)
     );
 }
+
+/// A pool configured as supply-only (`open_ltv_bps = 0`) must not make a borrower's withdrawal trap.
+/// Config validation accepts 0, and the max-healthy-removal maths divides by `asset_price * open_ltv`.
+#[test]
+fn test_withdraw_from_zero_open_ltv_pool_with_a_borrow() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        users,
+        usdc_pool_address,
+        gold_pool_address,
+        btc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let lender = &users[1];
+
+    // BTC becomes supply-only: still depositable, but it backs no borrow.
+    let supply_only = market::pool::PoolConfig {
+        health_config: market::pool::PoolHealthConfig {
+            open_ltv_bps: 0,
+            close_ltv_bps: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    contract_client.queue_in_pool_set(&btc_pool_address, &supply_only);
+    let queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += queue_period);
+    contract_client.apply_pool_set(&btc_pool_address);
+
+    contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &usdc_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    // Collateral that does back the borrow, plus a deposit in the supply-only pool.
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(4 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    let result = contract_client.try_withdraw(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
+    assert!(result.is_ok(), "withdrawing an asset that backs no borrow must be allowed");
+
+    // `remove_collateral` reaches the same division through the same helper.
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    let removed = contract_client.try_remove_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
+    assert!(removed.is_ok(), "removing collateral that backs no borrow must be allowed");
+}

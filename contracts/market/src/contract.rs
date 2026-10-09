@@ -115,6 +115,9 @@ pub trait Market {
     // # Arguments
     // * `pool_address` - address of a pool, for which the beneficiaries list is set
     // * `beneficiaries` - a list of beneficiaries' addresses and their shares(in basis points)
+    //
+    // Empties *both* buckets, not its own: it routes through `process_distribute_pool_fees`, which pays
+    // take-rate and operation unconditionally.
     fn set_operation_fees_beneficiaries(
         e: Env,
         pool_address: Address,
@@ -167,6 +170,9 @@ pub trait Market {
     //
     // # Returns
     // [`WithdrawResult`] with simulated withdrawal data
+    //
+    // Not read-only: it accrues and persists. `i128::MAX` previews what `payable_available` allows, not
+    // the whole holding.
     fn simulate_withdraw(
         e: Env,
         user: ObligationKey,
@@ -217,6 +223,9 @@ pub trait Market {
     //   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
     //   collateral
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    //
+    // An over-ask is capped, not refused, so `Ok` does not mean the requested amount moved. `withdraw`
+    // refuses instead; the asymmetry is deliberate.
     fn remove_collateral(
         e: Env,
         user: ObligationKey,
@@ -231,8 +240,9 @@ pub trait Market {
     // * `user` - user which repays borrowed tokens
     // * `pool_address` - address of a pool from which the borrow happened
     // * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
-    //   the outstanding debt will be repaid.
-    //   Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
+    //   the outstanding debt is repaid and the excess is refunded in the same transaction.
+    //   The signed transfer is the full amount, so the ceiling is the payer's balance: [`i128::MAX`] is
+    //   refused by the token contract, whose code 10 reads here as `TooManyPositions`.
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn repay(
         e: Env,
@@ -284,6 +294,10 @@ pub trait Market {
 
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
+    // Opens requests and socialises nothing; the write-off happens at settlement. While one is open,
+    // `withdraw`, `add_collateral` and `repay` are refused — blocking repay is deliberate, since
+    // settlement recomputes the debt from the position's current `d_tokens`.
+    //
     // # Arguments
     // * `user` - user that has a bad debt
     fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError>;
@@ -307,6 +321,9 @@ pub trait Market {
     //
     // # Arguments
     // * `pool_address` - address of asset which price is returned
+    //
+    // This getter writes: it advances the price cache, as `get_market_data` does. Within a ledger the
+    // cached price is then served unvalidated.
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError>;
 
     // Returns the user's obligation which includes data about all of their deposits and borrows
@@ -347,6 +364,9 @@ pub trait Market {
     fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError>;
 
     // Clears the farms contract address (disables farm integration)
+    //
+    // Writes only the market-level pointer; pools keep their farm ids. With none set the push is
+    // skipped; a new contract is sent ids it does not know, so clear the pools' farms first.
     fn clear_farms_contract(e: Env) -> Result<(), MCError>;
 
     // Gets the farms contract address if configured
@@ -375,6 +395,10 @@ pub trait Market {
     ) -> Result<(), MCError>;
 
     // Clears all farm configuration for a pool
+    //
+    // Does not unwind the stakes standing on the farm: obligations carry no per-pool index, so there is
+    // no set of stakeholders to zero. They keep earning, as `freeze_farm` does not stop rewards: end
+    // the farm's reward schedule as well.
     //
     // # Arguments
     // * `pool_address` - Address of the pool
@@ -408,6 +432,7 @@ impl Market for MarketContract {
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_deployer(&e);
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
@@ -629,6 +654,9 @@ impl Market for MarketContract {
         // NB: Distribute pool fees for valid fees tracking afterwards
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         pool.accrue_interest(&e)?;
+        // `accrue_interest` never persists and the distribution below reads storage, so without this the
+        // interest reaches the bucket once the map already names the incoming beneficiary.
+        pool.set(&e);
 
         process_distribute_pool_fees(&e, pool_address.clone())?;
         pool.refresh(&e)?;
@@ -639,6 +667,10 @@ impl Market for MarketContract {
 
         pool.config = new_config;
         pool.set(&e);
+        let queued_beneficiaries = beneficiaries.clone();
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.fee_config.take_rate_beneficiaries = Some(queued_beneficiaries);
+        });
 
         events::set_take_rate_fees_beneficiaries(&e, pool_address, beneficiaries);
 
@@ -663,6 +695,10 @@ impl Market for MarketContract {
 
         pool.config = new_config;
         pool.set(&e);
+        let queued_beneficiaries = beneficiaries.clone();
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.fee_config.operation_fee_beneficiaries = Some(queued_beneficiaries);
+        });
 
         events::set_operation_fees_beneficiaries(&e, pool_address, beneficiaries);
 
@@ -749,7 +785,8 @@ impl Market for MarketContract {
         liquidator.require_auth();
         process_liquidate(
             &e,
-            &liquidator,
+            // No seed at this entry point: the seizure lands on the liquidator's plain obligation.
+            &ObligationKey::new(liquidator),
             &borrower,
             &borrow_pool_address,
             &collateral_pool_address,
@@ -974,6 +1011,14 @@ impl MarketContract {
         params: MarketInitParams,
     ) -> Result<(), MCError> {
         verify_market_params(&params)?;
+        // The oracle address is written once, so this is the only chance to refuse a scale that would trap
+        // every priced operation. A feed that does not answer *yet* is allowed: that is recoverable from
+        // the feed's side, an over-scaled one is not.
+        if let Ok(Ok(decimals)) = sep_40_oracle::PriceFeedClient::new(&e, &oracle).try_decimals()
+            && decimals > MAX_ORACLE_PRICE_DECIMALS
+        {
+            return Err(MCError::OracleUnusableAtConstruction);
+        }
 
         let MarketInitParams {
             max_positions,
@@ -1018,6 +1063,11 @@ impl MarketContract {
         pool.config.status.flags = new_status_flags;
 
         pool.set(&e);
+        // Carry it into any queued set, or applying that set would undo it — this field holds the only
+        // flash-loan kill switch.
+        storage::patch_queued_pool_set(&e, &pool_address, |queued| {
+            queued.status.flags = new_status_flags;
+        });
 
         Ok(())
     }
@@ -1060,7 +1110,7 @@ fn verify_market_params(params: &MarketInitParams) -> Result<(), MCError> {
     let &MarketInitParams {
         min_collateral_value_cents,
         bad_debt_lock_d,
-        update_in_queue_period: _,
+        update_in_queue_period,
         insolvency_ltv_bps,
         max_positions,
         is_owned: _,
@@ -1073,6 +1123,8 @@ fn verify_market_params(params: &MarketInitParams) -> Result<(), MCError> {
         || !(MIN_COLLATERAL_VALUE_CENTS..=MAX_COLLATERAL_VALUE_CENTS)
             .contains(&min_collateral_value_cents)
         || !(MIN_BAD_DEBT_LOCK_D..=MAX_BAD_DEBT_LOCK_D).contains(&bad_debt_lock_d)
+        || !(MIN_UPDATE_IN_QUEUE_SECONDS..=MAX_UPDATE_IN_QUEUE_SECONDS)
+            .contains(&update_in_queue_period)
     {
         return Err(MCError::InvalidMarketConfigOrUpdate);
     }

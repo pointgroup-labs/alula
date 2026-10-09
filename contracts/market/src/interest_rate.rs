@@ -88,8 +88,12 @@ impl Pool {
         let utilization_diff_bps = utilization_ratio_bps
             .checked_sub(self.config.target_utilization_ratio_bps)
             .map_over_or_underflow()?;
-        let utilization_error =
-            (seconds_passed as i128).checked_mul(utilization_diff_bps).map_over_or_underflow()?;
+        // Interest accrues over the real interval above; the controller integrates over a clamped one, so
+        // an idle pool cannot ask for a step wider than the modifier band.
+        let controller_seconds = seconds_passed.min(MAX_IR_INTEGRATION_SECONDS);
+        let utilization_error = (controller_seconds as i128)
+            .checked_mul(utilization_diff_bps)
+            .map_over_or_underflow()?;
         let new_interest_rate_modifier_bps = if utilization_diff_bps >= 0 {
             // Positive diff - modifier decreases
             let rate_diff = utilization_error

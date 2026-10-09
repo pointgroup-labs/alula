@@ -53,6 +53,8 @@ pub enum MCError {
     OracleDoesNotKnowAssetPrice = 500,
     OracleStalePrice = 501,
     NonPositiveOraclePrice = 502,
+    // The oracle address is written once, so a market built on an over-scaled feed is unusable for good.
+    OracleUnusableAtConstruction = 503,
 
     // Health factor and liquidation errors (600-699)
     InvalidLiquidationInputs = 600,

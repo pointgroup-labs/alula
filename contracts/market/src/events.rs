@@ -211,6 +211,7 @@ struct ClaimCoverBadDebtResults {
     #[topic]
     obligation_key: ObligationKey,
     obligation: Option<Obligation>,
+    settled: u32,
 }
 
 #[contractevent]
@@ -311,6 +312,14 @@ struct PoolIsMissingInStorage {
 struct ObligationAmntBecomesNegative {
     old_amount: i128,
     new_amount: i128,
+}
+
+#[contractevent]
+struct FarmStakePushFailed {
+    pool: Address,
+    farm_id: BytesN<32>,
+    obligation_key: ObligationKey,
+    stake: i128,
 }
 
 #[contractevent]
@@ -726,12 +735,15 @@ pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
     IssueCoverBadDebt { obligation_key }.publish(e);
 }
 
+// `settled` is what a keeper reads to tell a claim that closed something from one that found every
+// request still pending; both return `Ok(())`.
 pub fn claim_cover_bad_debt_results(
     e: &Env,
     obligation_key: ObligationKey,
     obligation: Option<Obligation>,
+    settled: u32,
 ) {
-    ClaimCoverBadDebtResults { obligation_key, obligation }.publish(e);
+    ClaimCoverBadDebtResults { obligation_key, obligation, settled }.publish(e);
 }
 
 pub fn bad_debt_request_cancelled(e: &Env, pool_address: &Address, request_id: u64, missing: bool) {
@@ -795,6 +807,18 @@ pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
+}
+
+// Emitted when a farm refuses a stake push. The money operation proceeds, since a third-party farm must
+// not trap funds, so this is the record of the stake left out of sync.
+pub fn farm_stake_push_failed(
+    e: &Env,
+    pool: Address,
+    farm_id: BytesN<32>,
+    obligation_key: ObligationKey,
+    stake: i128,
+) {
+    FarmStakePushFailed { pool, farm_id, obligation_key, stake }.publish(e);
 }
 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative

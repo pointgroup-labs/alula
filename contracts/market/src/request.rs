@@ -6,7 +6,7 @@ use soroban_sdk::{
 
 use crate::{
     constants::BPS_FACTOR, error::MCError, events, math_utils::MathUtils,
-    obligation::ObligationKey, pool::Pool,
+    obligation::ObligationKey, pool::Pool, storage,
 };
 #[contracttype]
 pub struct StandardRequest {
@@ -185,7 +185,8 @@ impl<'a> RequestTransfers<'a> {
             let repay_amount = amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
 
             token_client.transfer(&self.user, e.current_contract_address(), &repay_amount);
-            pool.adjust_total_available(e, amount)?;
+            // The principal was reserved, never removed, so only the reservation is released here.
+            storage::clear_flash_reserved(e, &pool_address);
             pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
 
             pool.set(e);
@@ -211,6 +212,8 @@ impl<'a> RequestTransfers<'a> {
             );
         }
 
+        // Zero amounts are sent on purpose: a transfer-gated collateral token must see the
+        // liquidator even when the seizure is paid in j-tokens (see liquidate.rs tests).
         for (token_address, amount) in self.market_transfers.iter() {
             TokenClient::new(self.e, &token_address).transfer(
                 &self.e.current_contract_address(),

@@ -68,6 +68,9 @@ pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
 pub const MAX_REACTIVITY_CONSTANT: u32 = 100; // 0.01
 pub const MIN_IR_MODIFIER: i128 = BPS_FACTOR / 10; // x0.1
 pub const MAX_IR_MODIFIER: i128 = BPS_FACTOR * 10; // x10
+// The controller's step scales with time since the last accrual, which is unbounded: a day idle asks for
+// 56x the modifier band. 900 s holds one step inside it for any config, since band / reactivity is 990.
+pub const MAX_IR_INTEGRATION_SECONDS: u64 = 900;
 
 // ---- Deposit ----
 
@@ -129,9 +132,17 @@ pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 // Maximum acceptable oracle price age in seconds
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE;
 
+// Above this, `i128::pow(10, decimals)` overflows and the host traps instead of returning an error.
+pub const MAX_ORACLE_PRICE_DECIMALS: u32 = 38;
+
 // ---- MISC ----
 
 pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
+
+// Floor mirrors the manager's: with `0` a queued set applies in the ledger it was queued in. Ceiling
+// keeps `queued_in_timestamp + period` from overflowing, which would jam both applies.
+pub const MIN_UPDATE_IN_QUEUE_SECONDS: u64 = 60;
+pub const MAX_UPDATE_IN_QUEUE_SECONDS: u64 = 10 * 365 * 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;

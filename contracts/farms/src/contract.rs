@@ -614,7 +614,6 @@ impl Farms for FarmsContract {
 
         let mut farm = Farm::try_get(&e, &farm_id)?;
         farm.require_delegate_authority()?;
-        farm.require_not_frozen()?;
 
         let mut is_new_user = false;
         let mut delegatee_state =
@@ -622,6 +621,12 @@ impl Farms for FarmsContract {
                 is_new_user = true;
                 DelegateeState::new(&e)
             });
+
+        // A frozen farm refuses new stake but takes a decrease: a delegatee that leaves while it is
+        // frozen must stop earning, not keep a stake nothing backs.
+        if new_stake >= delegatee_state.active_stake {
+            farm.require_not_frozen()?;
+        }
 
         processors::set_stake_delegated(
             &e,

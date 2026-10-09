@@ -161,7 +161,7 @@ pub fn process_submit_requests_batch(
 
                 let liquidation_transfers = process_liquidate(
                     e,
-                    &obligation_key.user,
+                    obligation_key,
                     &borrower_obligation_key,
                     &borrow_pool_address,
                     &collateral_pool_address,
@@ -523,13 +523,17 @@ pub fn process_flash_borrow<'a>(
 
     require_positive(*amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
+    let pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
     pool.require_bad_debt_unlocked(e)?;
-    pool.require_total_available(*amount)?;
+    pool.require_total_available(e, *amount)?;
 
-    pool.adjust_total_available(e, amount.checked_neg().map_over_or_underflow()?)?;
-    pool.set(e);
+    // The assets stay the pool's: reserve them instead of removing them, so nothing that prices
+    // shares, accrues interest or checks the supply limit sees a smaller pool mid-batch.
+    if storage::get_flash_reserved(e, pool_address) != 0 {
+        return Err(MCError::FlashBorrowAlreadyRegistered);
+    }
+    storage::set_flash_reserved(e, pool_address, *amount);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, amount);
@@ -626,7 +630,7 @@ pub fn process_flash_loan(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
     pool.require_bad_debt_unlocked(e)?;
-    pool.require_total_available(amount)?;
+    pool.require_total_available(e, amount)?;
 
     let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
     let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
@@ -656,7 +660,9 @@ pub fn process_flash_loan(
 
 pub fn process_liquidate<'a>(
     e: &'a Env,
-    liquidator: &'a Address,
+    // The caller's key, not just its address: a batch's seed must reach the seizure, or the seized
+    // shares land where the rest of the batch cannot spend them.
+    liquidator_obligation_key: &ObligationKey,
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
@@ -666,6 +672,7 @@ pub fn process_liquidate<'a>(
     require_positive(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
+    let liquidator = &liquidator_obligation_key.user;
     if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
     {
         return Err(MCError::InvalidLiquidationInputs);
@@ -691,9 +698,8 @@ pub fn process_liquidate<'a>(
         min_demanded_collateral_amount,
     )?;
 
-    let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
     let mut liquidator_event_obligation: Option<Obligation> =
-        Obligation::try_get(e, &liquidator_obligation_key).ok();
+        Obligation::try_get(e, liquidator_obligation_key).ok();
 
     if liquidation_result.j_tokens_seized.is_positive() {
         let mut liquidator_obligation = liquidator_event_obligation.unwrap_or(Obligation::new(e));
@@ -703,13 +709,13 @@ pub fn process_liquidate<'a>(
             &collateral_pool,
             liquidation_result.j_tokens_seized,
         )?;
-        liquidator_obligation.set(e, &liquidator_obligation_key);
+        liquidator_obligation.set(e, liquidator_obligation_key);
 
         // Auto-refresh liquidator's supply farm stake (they received j-tokens)
         farms::try_refresh_pool_farm(
             e,
             &liquidator_obligation,
-            &liquidator_obligation_key,
+            liquidator_obligation_key,
             &collateral_pool,
             farms::FarmKind::Supply,
         )?;
@@ -1058,16 +1064,17 @@ pub fn process_claim_cover_bad_debt_results(
         }
     }
 
+    let settled = completed_requests.len();
     for (pool_addr, req_id) in completed_requests {
         obligation.insurance_fund_requests_ids.remove((pool_addr, req_id));
     }
 
     if obligation.is_empty() {
         obligation.remove(e, &obligation_key);
-        events::claim_cover_bad_debt_results(e, obligation_key, None);
+        events::claim_cover_bad_debt_results(e, obligation_key, None, settled);
     } else {
         obligation.set(e, &obligation_key);
-        events::claim_cover_bad_debt_results(e, obligation_key, Some(obligation));
+        events::claim_cover_bad_debt_results(e, obligation_key, Some(obligation), settled);
     }
 
     Ok(())

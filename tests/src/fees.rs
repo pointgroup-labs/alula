@@ -1550,3 +1550,63 @@ fn test_queue_pool_update_with_allowed_fee_bump_succeeds() {
     // This should succeed
     contract_client.queue_in_pool_set(&usdc_pool_address, &allowed_bump_config);
 }
+
+/// **The outgoing take-rate beneficiary is paid the interest accrued before the map changed.**
+/// `accrue_interest` does not persist, so the setter must persist it before distributing, or that
+/// interest reaches the bucket once the map names the incoming beneficiary.
+#[test]
+fn test_take_rate_setter_pays_the_outgoing_beneficiary() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        users,
+        usdc_pool_address,
+        gold_pool_address,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let (lender, borrower) =
+        (ObligationKey::new(users[0].clone()), ObligationKey::new(users[1].clone()));
+    let (outgoing, incoming) = (Address::generate(&e), Address::generate(&e));
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (outgoing.clone(), BPS_FACTOR as u32)],
+    );
+
+    contract_client.deposit(&lender, &usdc_pool_address, &(100 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.add_collateral(
+        &borrower,
+        &gold_pool_address,
+        &(100 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(&borrower, &usdc_pool_address, &(50 * DEFAULT_DEPOSIT_AMOUNT), &None);
+
+    // A month of interest, none of it persisted into the take-rate bucket yet.
+    e.ledger().with_mut(|li| li.timestamp += 30 * 24 * 60 * 60);
+
+    let outgoing_before = usdc_token_client.balance(&outgoing);
+    let incoming_before = usdc_token_client.balance(&incoming);
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (incoming.clone(), BPS_FACTOR as u32)],
+    );
+    // A later accrual flushes whatever the setter left behind.
+    contract_client.refresh_pool(&usdc_pool_address);
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let outgoing_gain = usdc_token_client.balance(&outgoing) - outgoing_before;
+    let incoming_gain = usdc_token_client.balance(&incoming) - incoming_before;
+
+    assert!(
+        outgoing_gain + incoming_gain > 0,
+        "no take-rate fee accrued at all, so the split proves nothing"
+    );
+    assert!(
+        outgoing_gain > 0,
+        "the outgoing beneficiary was paid {outgoing_gain} of the interest it was owed; the \
+         incoming one took {incoming_gain}"
+    );
+}

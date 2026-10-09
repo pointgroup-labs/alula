@@ -1810,6 +1810,7 @@ dependencies = [
  "arbitrary",
  "controlled_insurance_fund",
  "farms",
+ "farms-interface",
  "insurance-fund-interface",
  "market",
  "market_manager",

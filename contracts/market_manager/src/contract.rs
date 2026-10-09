@@ -185,8 +185,6 @@ impl MarketManager for MarketManagerContract {
 
         require_admin(&e);
         require_deployed_market(&e, &market_address)?;
-        let market_admin = market::Client::new(&e, &market_address).get_global_state().admin;
-        market_admin.require_auth();
 
         if storage::get_queued_in_market_upgrade(&e, &market_address).is_some() {
             return Err(MMCError::UpgradeAlreadyExists);
@@ -265,6 +263,7 @@ impl MarketManager for MarketManagerContract {
         }
 
         let market_client = market::Client::new(&e, &market_address);
+        market_client.get_global_state().admin.require_auth();
         market_client.upgrade(&wasm_hash);
 
         storage::remove_queued_in_market_upgrade(&e, &market_address);

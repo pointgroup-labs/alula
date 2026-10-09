@@ -47,9 +47,10 @@ pub enum MarketStatus {
     DepositFrozen,
     // Borrowing and depositing operations on the market are prohibited and IF cannot over-write
     DepositFrozenByAdmin,
-    // All operations on the market are prohibited
+    // Borrowing and depositing are prohibited — the same set as `DepositFrozen`, because the only gate
+    // that separates them, `require_market_not_frozen`, has no caller. Exits stay open.
     Frozen,
-    // All operations on the market are prohibited and IF cannot over-write
+    // As `Frozen`, and IF cannot over-write
     FrozenByAdmin,
 }
 
@@ -125,6 +126,9 @@ pub enum DataKey {
     Obligation(ObligationKey),
     ProposedAdmin,
     BadDebtLockDuration,
+    // Amount of a pool's assets handed out by an in-flight batch flash borrow and not yet repaid.
+    // Non-zero only inside a single invocation.
+    FlashReserved(Address),
 }
 
 // -- TTL Bumpers --
@@ -195,6 +199,17 @@ pub fn set_max_positions(e: &Env, max_positions: u32) {
 }
 pub fn get_max_positions(e: &Env) -> u32 {
     e.storage().instance().get(&DataKey::MaxPositions).expect("MaxPositions must be set")
+}
+
+// - FlashReserved -
+pub fn set_flash_reserved(e: &Env, pool_address: &Address, amount: i128) {
+    e.storage().instance().set(&DataKey::FlashReserved(pool_address.clone()), &amount);
+}
+pub fn get_flash_reserved(e: &Env, pool_address: &Address) -> i128 {
+    e.storage().instance().get(&DataKey::FlashReserved(pool_address.clone())).unwrap_or(0)
+}
+pub fn clear_flash_reserved(e: &Env, pool_address: &Address) {
+    e.storage().instance().remove(&DataKey::FlashReserved(pool_address.clone()));
 }
 
 // - MinCollateralValueCents -
@@ -358,6 +373,25 @@ pub fn queue_in_pool_set(
     extend_shared(e, &key);
 
     Ok(())
+}
+
+// Rewrites a queued set's config in place, so that applying a ripe set cannot undo a write made outside
+// the timelock. `queued_in_timestamp` is preserved: a patch must not restart the delay.
+pub fn patch_queued_pool_set(
+    e: &Env,
+    pool_address: &Address,
+    patch: impl FnOnce(&mut PoolConfig),
+) -> bool {
+    let key = DataKey::QueuedPoolSet(pool_address.clone());
+    let Some(mut queued) = e.storage().persistent().get::<_, QueuedPoolSet>(&key) else {
+        return false;
+    };
+
+    patch(&mut queued.new_config);
+    e.storage().persistent().set(&key, &queued);
+    extend_shared(e, &key);
+
+    true
 }
 
 // Removes a queued pool set from the queue

@@ -1,12 +1,14 @@
 mod bad_debt;
 mod batch_flash_swap;
+mod batch_liquidate_seed;
 mod borrow;
 mod deposit;
-mod farms;
+mod farm_faults;
 mod fees;
 mod fuzz;
 mod initialize;
 mod interest_rates;
+mod ir_controller;
 mod liquidate;
 mod market_manager;
 mod misc;
@@ -20,6 +22,7 @@ mod withdraw;
 mod is_deployed_by_manager;
 mod per_market_upgrade;
 mod resource_limits;
+mod scarcity_brake;
 
 use std::ops::{Add, Sub};
 
@@ -36,13 +39,14 @@ use market::{
     math_utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
+    request::{Request, StandardRequest},
     storage::MarketInitParams,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, Env, Symbol,
-    testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
+    testutils::{Address as _, Ledger, LedgerInfo, StellarAssetIssuer, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
 };
 
@@ -76,6 +80,7 @@ pub struct TestMarketFixture<'a> {
     pub insurance_fund: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
+    pub gold_issuer: StellarAssetIssuer,
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
     pub gold_pool_address: Address,
@@ -131,6 +136,7 @@ impl TestMarketFixture<'_> {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
+            ..
         } = setup_test_asset(&e, &usdc_admin, &users);
 
         let oracle = Address::from_str(&e, ORACLE_ADDRESS);
@@ -181,6 +187,7 @@ impl TestMarketFixture<'_> {
         let gold_admin = Address::generate(&e);
         let TestAssetSetup {
             sac_client: gold_sac,
+            issuer: gold_issuer,
             token_client: gold_token_client,
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
@@ -195,6 +202,7 @@ impl TestMarketFixture<'_> {
             sac_client: btc_sac,
             token_client: btc_token_client,
             token_address: btc_token_address,
+            ..
         } = setup_test_asset(&e, &btc_admin, &users);
         contract_client.queue_in_pool_set(&btc_token_address, &pool_config);
         e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
@@ -236,6 +244,7 @@ impl TestMarketFixture<'_> {
             insurance_fund,
             // GOLD
             gold_sac,
+            gold_issuer,
             gold_token_client,
             gold_token_address,
             gold_pool_address,
@@ -288,6 +297,23 @@ impl TestMarketFixture<'_> {
         });
     }
 
+    // Floored supply-share rate per pool, in basis points, in the order `assert_invariants` uses.
+    // `None` where the pool holds no shares and the rate is undefined.
+    pub fn j_token_rates(&self) -> [Option<i128>; 3] {
+        let pools = [&self.usdc_pool_address, &self.btc_pool_address, &self.gold_pool_address];
+
+        pools.map(|address| {
+            let pool = self.contract_client.get_pool(address);
+            if pool.total_j_tokens == 0 {
+                return None;
+            }
+            Some(
+                pool.total_supply().unwrap().checked_mul(BPS_FACTOR).expect("rate overflow")
+                    / pool.total_j_tokens,
+            )
+        })
+    }
+
     pub fn assert_invariants(&self) {
         let TestMarketFixture {
             e,
@@ -326,9 +352,18 @@ impl TestMarketFixture<'_> {
 
         for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
             // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
+            //
+            // An outstanding batch flash borrow stays counted in `total_available` while out of
+            // the contract. It is 0 at a transaction boundary, where this runs; an in-batch check
+            // needs it.
+            let flash_reserved = e.as_contract(contract_id, || {
+                market::storage::get_flash_reserved(e, &pool.pool_address)
+            });
             let expected_minimum_balance = pool
                 .total_available
                 .checked_add(pool.operation_fees_sum)
+                .expect("Overflow in invariant calc")
+                .checked_sub(flash_reserved)
                 .expect("Overflow in invariant calc");
 
             assert!(
@@ -415,6 +450,11 @@ pub enum Command {
     ButchWithdrawCollateral(WithdrawCollateral),
     NibblesWithdrawCollateral(WithdrawCollateral),
 
+    TomFlashBatch(FlashBatch),
+    JerryFlashBatch(FlashBatch),
+    ButchFlashBatch(FlashBatch),
+    NibblesFlashBatch(FlashBatch),
+
     AllPassTime(PassTime),
 }
 
@@ -455,6 +495,10 @@ impl Command {
             NibblesLiquidate(command) => command.run(test_fixture, 3),
             NibblesDepositCollateral(command) => command.run(test_fixture, 3),
             NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
+            TomFlashBatch(command) => command.run(test_fixture, 0),
+            JerryFlashBatch(command) => command.run(test_fixture, 1),
+            ButchFlashBatch(command) => command.run(test_fixture, 2),
+            NibblesFlashBatch(command) => command.run(test_fixture, 3),
             // All
             AllPassTime(command) => command.run(test_fixture, 0),
         }
@@ -515,12 +559,107 @@ pub struct WithdrawCollateral {
     pub token: Token,
 }
 
+/// One request following the flash borrow inside the same transaction. This is the shape no other
+/// command can produce: the pool is observed while a flash borrow is outstanding.
+#[derive(Arbitrary, Debug)]
+pub enum BatchOp {
+    Deposit(Deposit),
+    Withdraw(Withdraw),
+    Borrow(Borrow),
+    Repay(Repay),
+    AddCollateral(DepositCollateral),
+    RemoveCollateral(WithdrawCollateral),
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct FlashBatch {
+    pub flash_token: Token,
+    // A share of what the pool can lend, so the flash itself is fundable and the requests that
+    // follow it really do observe the pool mid-flight. A random absolute amount would almost always
+    // be refused and the interesting path would never be reached.
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=100))]
+    pub flash_pct: i128,
+    pub ops: [BatchOp; 2],
+}
+
 #[derive(Arbitrary, Debug)]
 pub struct Liquidate {
     pub token: Token,
     pub repay_amount: Amount,
     pub collateral_token: Token,
     pub min_collateral_received_amount: Amount,
+}
+
+impl BatchOp {
+    fn to_request(&self, test_fixture: &TestMarketFixture) -> Request {
+        let standard = |token: Token, amount: i128| StandardRequest {
+            amount,
+            pool_address: test_fixture.get_pool_address(token),
+        };
+
+        match self {
+            BatchOp::Deposit(op) => Request::Deposit(standard(op.token, op.amount.0)),
+            BatchOp::Withdraw(op) => Request::Withdraw(standard(op.token, op.amount.0)),
+            BatchOp::Borrow(op) => Request::Borrow(standard(op.token, op.amount.0)),
+            BatchOp::Repay(op) => Request::Repay(standard(op.token, op.amount.0)),
+            BatchOp::AddCollateral(op) => Request::AddCollateral(standard(op.token, op.amount.0)),
+            BatchOp::RemoveCollateral(op) => {
+                Request::RemoveCollateral(standard(op.token, op.amount.0))
+            }
+        }
+    }
+}
+
+impl RunCommand for FlashBatch {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.flash_token);
+        let TestMarketFixture { e, contract_client, users, .. } = test_fixture;
+
+        let pool = contract_client.get_pool(&pool_address);
+        let lendable = pool.total_available - pool.take_rate_fees_sum;
+        if lendable <= 0 {
+            return;
+        }
+        let flash_amount = (lendable * self.flash_pct) / 100;
+        if flash_amount <= 0 {
+            return;
+        }
+
+        let mut requests = soroban_sdk::vec![
+            e,
+            Request::FlashBorrow(StandardRequest {
+                amount: flash_amount,
+                pool_address: pool_address.clone(),
+            }),
+        ];
+        for op in &self.ops {
+            requests.push_back(op.to_request(test_fixture));
+        }
+
+        // The supply-share rate may not fall over a batch. No `BatchOp` can socialise a loss and no
+        // liquidation occurs here, so a decrease means value moved between users.
+        let rates_before = test_fixture.j_token_rates();
+
+        let res = contract_client.try_submit_requests_batch(
+            &ObligationKey::new(users[who].clone()),
+            &requests,
+            &None,
+        );
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+
+        for (i, (before, after)) in
+            rates_before.iter().zip(test_fixture.j_token_rates().iter()).enumerate()
+        {
+            if let (Some(before), Some(after)) = (before, after) {
+                assert!(
+                    after >= before,
+                    "pool {i}: supply-share rate fell over a flash batch, {before} -> {after}"
+                );
+            }
+        }
+    }
 }
 
 impl RunCommand for PassTime {
@@ -946,10 +1085,12 @@ pub struct TestAssetSetup<'a> {
     pub token_client: TokenClient<'a>,
     pub token_address: Address,
     pub sac_client: StellarAssetClient<'a>,
+    pub issuer: StellarAssetIssuer,
 }
 
 pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
-    let token_address = e.register_stellar_asset_contract_v2(admin.clone()).address();
+    let sac = e.register_stellar_asset_contract_v2(admin.clone());
+    let token_address = sac.address();
     let sac_client = StellarAssetClient::new(e, &token_address);
     let token_client = TokenClient::new(e, &token_address);
 
@@ -959,7 +1100,7 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
         sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
     }
 
-    TestAssetSetup { token_address, token_client, sac_client }
+    TestAssetSetup { token_address, token_client, sac_client, issuer: sac.issuer() }
 }
 
 pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
