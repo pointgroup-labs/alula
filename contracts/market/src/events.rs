@@ -106,7 +106,8 @@ struct RepayEvent {
     repay_result: RepayResult,
 }
 
-#[contractevent]
+// sdk 28+ omits None fields by default; emit them as void to keep the published event shape.
+#[contractevent(sparse = false)]
 struct LiquidateEvent {
     #[topic]
     liquidator: Address,
@@ -121,7 +122,7 @@ struct LiquidateEvent {
     liquidation_result: LiquidationResult,
 }
 
-#[contractevent]
+#[contractevent(sparse = false)]
 struct RemoveCollateralEvent {
     #[topic]
     pool_address: Address,
@@ -131,7 +132,7 @@ struct RemoveCollateralEvent {
     remove_collateral_result: RemoveCollateralResult,
 }
 
-#[contractevent]
+#[contractevent(sparse = false)]
 struct WithdrawEvent {
     #[topic]
     pool_address: Address,
@@ -206,7 +207,7 @@ struct IssueCoverBadDebt {
     obligation_key: ObligationKey,
 }
 
-#[contractevent]
+#[contractevent(sparse = false)]
 struct ClaimCoverBadDebtResults {
     #[topic]
     obligation_key: ObligationKey,
