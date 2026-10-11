@@ -13,9 +13,12 @@ insurance-fund-interface = { path = "libs/insurance-fund-interface" }
 market = { path = "contracts/market" }
 moderc3156 = { path = "libs/moderc3156" }
 proxy-swap-interface = { path = "libs/proxy-swap-interface" }
-sep-40-oracle = "^1.4.0"
+sep-40-oracle = { path = "libs/sep-40-oracle" }
 soroban-fixed-point-math = "^1.5.0"
-soroban-sdk = "^25.0.0"
+soroban-sdk = "^29.0.0"
+
+[patch.crates-io]
+soroban-fixed-point-math = { git = "https://github.com/pointgroup-labs/soroban-fixed-point-math", rev = "44f1c8c73d5c07c3d673aadb8091e45c4dd38c1d" }
 
 [profile.release]
 opt-level = "z" # Optimize for size

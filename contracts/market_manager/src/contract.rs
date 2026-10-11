@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 use soroban_sdk::{
-    Address, BytesN, Env, String, contract, contractclient, contractimpl, contracttype,
+    Address, BytesN, ContractExecutable, Env, String, contract, contractclient, contractimpl,
+    contracttype,
 };
 
 use crate::{
@@ -142,8 +143,8 @@ impl MarketManager for MarketManagerContract {
             return Err(MMCError::BadUpgradeInQueuePeriod);
         }
 
-        let market_address = e.deployer().with_current_contract(salt).deploy_v2(
-            market_wasm_hash,
+        let market_address = e.deployer().with_current_contract(salt).deploy_contract(
+            ContractExecutable::Wasm(market_wasm_hash),
             (name, market_admin, oracle, insurance_fund, e.current_contract_address(), params),
         );
 
@@ -289,7 +290,7 @@ impl MarketManager for MarketManagerContract {
         }
 
         storage::remove_queued_in_manager_upgrade(&e);
-        e.deployer().update_current_contract_wasm(wasm_hash);
+        e.deployer().update_current_contract(ContractExecutable::Wasm(wasm_hash));
 
         Ok(())
     }

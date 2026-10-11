@@ -594,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "overflow has occured")]
+    #[should_panic(expected = "Error(Object, ArithDomain)")]
     fn test_bin_pow_error_cases() {
         let e = Env::default();
         // Very large exponent with base > 1: the final result overflows i128 even if I256

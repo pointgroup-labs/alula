@@ -132,7 +132,7 @@ const COLLATERAL_HEAVY_SWEEP: [usize; 9] = [3, 5, 7, 10, 15, 16, 17, 20, 25];
 /// means the shape survived the whole sweep. Pinning these both records the
 /// ceiling and proves every smaller count in the sweep — 10 included — fits.
 const EXPECTED_EVEN: [Option<usize>; 2] = [None, None];
-const EXPECTED_BORROW_HEAVY: [Option<usize>; 2] = [None, Some(20)];
+const EXPECTED_BORROW_HEAVY: [Option<usize>; 2] = [None, None];
 const EXPECTED_COLLATERAL_HEAVY: [Option<usize>; 2] = [None, None];
 
 /// Both builds of the market are swept: the natively-linked contract these
@@ -233,7 +233,7 @@ impl PositionFixture<'_> {
         // and persistent entry bumps never overrun `max_entry_ttl`.
         e.ledger().set(LedgerInfo {
             timestamp: 1590969600, // June 1, 2020
-            protocol_version: 25,
+            protocol_version: e.ledger().get().protocol_version,
             sequence_number: 1000,
             network_id: Default::default(),
             base_reserve: 10,
@@ -800,9 +800,10 @@ fn cover_bad_debt_even_split_pubnet_ceiling() {
 ///
 /// This is the shape the "two cross-contract calls per borrow position" concern
 /// points at, and here the *claim* is the expensive half, not the issue: it pays
-/// four cross-contract calls per recorded request against the issue's two, and
-/// overruns first (19 borrows: 57_629_267 memory bytes against the issue's
-/// 34_140_534).
+/// four cross-contract calls per recorded request against the issue's two (19
+/// borrows on wasm: 16_942_818 memory bytes against the issue's 12_068_396). It
+/// overran at 19 borrows (57_629_267) until protocol 28 began refunding each
+/// callee VM's linear memory when its frame pops.
 #[test]
 fn cover_bad_debt_borrow_heavy_pubnet_ceiling() {
     let ceilings = cover_bad_debt_ceilings("/bh", &POSITION_SWEEP, |total| (1, total - 1));

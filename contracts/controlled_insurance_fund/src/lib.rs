@@ -1,7 +1,8 @@
 #![no_std]
 use insurance_fund_interface::{CoverageStatus, InsuranceFund, IssueRequestResult};
 use soroban_sdk::{
-    Address, BytesN, Env, contract, contractevent, contractimpl, panic_with_error, token,
+    Address, BytesN, ContractExecutable, Env, contract, contractevent, contractimpl,
+    panic_with_error, token,
 };
 use storage::Request;
 
@@ -141,7 +142,7 @@ impl ControlledInsuranceFundContract {
 
     pub fn upgrade(e: Env, wasm_hash: BytesN<32>) {
         require_admin(&e);
-        e.deployer().update_current_contract_wasm(wasm_hash);
+        e.deployer().update_current_contract(ContractExecutable::Wasm(wasm_hash));
     }
 }
 
