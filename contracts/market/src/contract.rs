@@ -1,7 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, vec as svec,
+    Address, BytesN, ContractExecutable, Env, Map, String, Vec, contract, contractclient,
+    contractimpl, vec as svec,
 };
 
 use crate::{
@@ -434,7 +435,7 @@ impl Market for MarketContract {
         require_deployer(&e);
         require_admin(&e);
 
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        e.deployer().update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
     }
 
     fn submit_requests_batch(
