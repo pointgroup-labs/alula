@@ -679,9 +679,15 @@ impl Pool {
         Ok(self.total_borrowed)
     }
 
-    // Calculates total supply (available + total_borrowed - accumulated reserve fees)
+    // Lenders own cash plus debt less the fee claim, even when that claim exceeds the cash: clamping the cash
+    // alone overprices shares once fees outgrow it.
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        self.total_available()?.checked_add(self.total_borrowed).map_over_or_underflow()
+        let supply = self
+            .total_available
+            .checked_add(self.total_borrowed)
+            .and_then(|s| s.checked_sub(self.take_rate_fees_sum))
+            .map_over_or_underflow()?;
+        Ok(i128::max(supply, 0))
     }
 
     // Tries to get the pool from the contract's storage

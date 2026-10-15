@@ -46,9 +46,11 @@ supply_APR = 30% × 0.70 × 0.90 = 18.9%
 supply_APY ≈ 20.8%
 ```
 
-`total_supply` here means available liquidity plus outstanding borrows.
-Protocol fees that have accrued but not yet been distributed are excluded from
-available liquidity, so they aren't part of what lenders can withdraw against.
+`total_supply` here means available liquidity plus outstanding borrows, less
+protocol fees that have accrued but not yet been distributed, and `U` is capped
+at 100 %. The fees are excluded even when they exceed the pool's cash, so shares
+are always priced at what actually backs them, and lenders can withdraw only
+the cash beyond the fees.
 
 Collateral doesn't earn. Assets you add with `add_collateral` back borrowing
 and sit in a separate balance from the lendable pool. Only `deposit` mints

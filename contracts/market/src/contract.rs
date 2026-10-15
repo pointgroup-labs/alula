@@ -635,6 +635,7 @@ impl Market for MarketContract {
         }
 
         if let Ok(mut pool) = Pool::try_get(&e, &pool_address) {
+            pool.accrue_interest(&e)?;
             pool.config = queued_pool_set.new_config;
             pool.set(&e);
         } else {
