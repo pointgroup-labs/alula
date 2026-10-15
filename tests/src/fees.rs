@@ -1610,3 +1610,106 @@ fn test_take_rate_setter_pays_the_outgoing_beneficiary() {
          incoming one took {incoming_gain}"
     );
 }
+
+/// GOLD fee beneficiaries, one of them `broken`: deauthorized on the GOLD asset, so any transfer to it fails.
+fn with_gold_take_rate_fees(
+    f: &TestMarketFixture,
+    beneficiaries: soroban_sdk::Map<Address, u32>,
+    broken: &Address,
+) {
+    f.gold_issuer.set_flag(soroban_sdk::testutils::IssuerFlags::RevocableFlag);
+    f.gold_sac.set_authorized(broken, &false);
+    f.contract_client.set_take_rate_fees_beneficiaries(&f.gold_pool_address, &beneficiaries);
+
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(
+        &lender,
+        &f.gold_pool_address,
+        &(100 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
+    f.contract_client.add_collateral(
+        &borrower,
+        &f.usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    f.contract_client.borrow(
+        &borrower,
+        &f.gold_pool_address,
+        &(10 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
+    f.e.ledger().with_mut(|li| li.timestamp += 30 * 24 * 60 * 60);
+    f.contract_client.refresh_pool(&f.gold_pool_address);
+    assert!(get_pool_take_rate_fees_sum(&f.contract_client, &f.gold_pool_address) > 0);
+}
+
+/// **Highland #9: an empty bucket never reaches a beneficiary**, so one that cannot receive does not block it.
+#[test]
+fn test_an_empty_fee_bucket_skips_a_beneficiary_that_cannot_receive() {
+    let f = TestMarketFixture::new();
+    let broken = Address::generate(&f.e);
+    f.gold_issuer.set_flag(soroban_sdk::testutils::IssuerFlags::RevocableFlag);
+    f.gold_sac.set_authorized(&broken, &false);
+    f.contract_client.set_operation_fees_beneficiaries(
+        &f.gold_pool_address,
+        &smap![&f.e, (broken.clone(), BPS_FACTOR as u32)],
+    );
+    assert_eq!(get_pool_operation_fees_sum(&f.contract_client, &f.gold_pool_address), 0);
+
+    f.contract_client.distribute_pool_fees(&f.gold_pool_address);
+}
+
+/// **Highland #9: the admin can always replace a beneficiary that cannot receive.** Its unpaid share stays in
+/// the bucket and goes to the incoming map, and neither setter is blocked by it.
+#[test]
+fn test_a_beneficiary_that_cannot_receive_does_not_block_its_replacement() {
+    for via_operation_setter in [false, true] {
+        let f = TestMarketFixture::new();
+        let (broken, fresh) = (Address::generate(&f.e), Address::generate(&f.e));
+        with_gold_take_rate_fees(&f, smap![&f.e, (broken.clone(), BPS_FACTOR as u32)], &broken);
+        let owed = get_pool_take_rate_fees_sum(&f.contract_client, &f.gold_pool_address);
+        assert!(f.contract_client.try_distribute_pool_fees(&f.gold_pool_address).is_err());
+
+        let incoming = smap![&f.e, (fresh.clone(), BPS_FACTOR as u32)];
+        if via_operation_setter {
+            f.contract_client.set_operation_fees_beneficiaries(&f.gold_pool_address, &incoming);
+        }
+        f.contract_client.set_take_rate_fees_beneficiaries(&f.gold_pool_address, &incoming);
+        f.contract_client.distribute_pool_fees(&f.gold_pool_address);
+
+        assert_eq!(f.gold_token_client.balance(&broken), 0);
+        assert!(
+            f.gold_token_client.balance(&fresh) >= owed,
+            "the incoming map took over the unpaid share"
+        );
+    }
+}
+
+/// Floored shares leave their remainder in the bucket instead of in the market's balance, outside every count.
+#[test]
+fn test_fee_distribution_keeps_the_floor_remainder_in_the_bucket() {
+    let f = TestMarketFixture::new();
+    let (a, b, c, unused) = (
+        Address::generate(&f.e),
+        Address::generate(&f.e),
+        Address::generate(&f.e),
+        Address::generate(&f.e),
+    );
+    with_gold_take_rate_fees(
+        &f,
+        smap![&f.e, (a.clone(), 3_333), (b.clone(), 3_333), (c.clone(), 3_334)],
+        &unused,
+    );
+    let bucket = get_pool_take_rate_fees_sum(&f.contract_client, &f.gold_pool_address);
+    let available = f.contract_client.get_pool(&f.gold_pool_address).total_available;
+
+    f.contract_client.distribute_pool_fees(&f.gold_pool_address);
+
+    let paid: i128 = [&a, &b, &c].iter().map(|x| f.gold_token_client.balance(x)).sum();
+    let pool = f.contract_client.get_pool(&f.gold_pool_address);
+    assert_eq!(pool.take_rate_fees_sum, bucket - paid);
+    assert_eq!(pool.total_available, available - paid);
+}

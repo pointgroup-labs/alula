@@ -149,9 +149,12 @@ pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
 pub const DEFAULT_MIN_COLLATERAL_VALUE_CENTS: i128 = 500; // 5$ 
 pub const MIN_COLLATERAL_VALUE_CENTS: i128 = 0; // 0$ 
 pub const MAX_COLLATERAL_VALUE_CENTS: i128 = 10_000; // 100$
-pub const DEFAULT_MAX_POSITIONS: u32 = 20;
+pub const DEFAULT_MAX_POSITIONS: u32 = 10;
 
-pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
+// Upper bound of `max_positions`. A bad-debt cover settles every position and pushes a farm stake for each in
+// one transaction; with every position farmed at the delegated caps, ten take at most 72.6 % of the write
+// budget and twelve 87 % (`tests/src/resource_limits.rs`), so farms need no cap of their own.
+pub const MAX_RESERVES: u32 = 10;
 
 pub const DEFAULT_BAD_DEBT_LOCK_D: u64 = 12 * SECONDS_PER_HOUR; // 12 hours
 pub const MAX_BAD_DEBT_LOCK_D: u64 = 5 * SECONDS_PER_DAY; // 5 days

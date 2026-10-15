@@ -2,7 +2,7 @@ use insurance_fund_interface::{CoverageStatus, InsuranceFundClient, IssueRequest
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, Vec, map as smap,
+    Address, Env, Map, Vec, map as smap,
     token::{self, TokenClient},
 };
 
@@ -796,6 +796,7 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
     let insurance_fund = storage::get_insurance_fund(e);
     let insurance_fund_client = InsuranceFundClient::new(e, &insurance_fund);
 
+    let borrow_pools = obligation.borrows.keys();
     let mut borrow_positions_to_remove: Vec<Address> = Vec::new(e);
 
     for (pool_address, borrow_position) in obligation.borrows.iter() {
@@ -911,8 +912,27 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
         deposit_positions_to_remove.push_back(pool_address);
     }
 
-    for pool_address in deposit_positions_to_remove {
+    for pool_address in deposit_positions_to_remove.iter() {
         obligation.try_remove_deposit_position(e, &pool_address)?;
+    }
+
+    // Debt under a recorded request stays on the obligation but stops earning, like removed positions.
+    if let Some(farms_contract) = storage::get_farms_contract(e) {
+        let settled = borrow_pools
+            .iter()
+            .map(|pool| (pool, farms::FarmKind::Debt))
+            .chain(deposit_positions_to_remove.iter().map(|pool| (pool, farms::FarmKind::Supply)));
+        for (pool_address, kind) in settled {
+            let pool = Pool::try_get(e, &pool_address)?;
+            farms::refresh_pool_farm_stake(
+                e,
+                &farms_contract,
+                &obligation,
+                &obligation_key,
+                &pool,
+                kind,
+            )?;
+        }
     }
 
     if obligation.is_empty() {
@@ -1144,63 +1164,38 @@ pub fn process_swap_for_exact(
     Ok(sent_amount)
 }
 
-pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<(), MCError> {
+/// `tolerant` skips a beneficiary that cannot receive, leaving its share in the bucket; the beneficiary
+/// setters use it so a broken beneficiary can always be replaced.
+pub fn process_distribute_pool_fees(
+    e: &Env,
+    pool_address: Address,
+    tolerant: bool,
+) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, &pool_address)?;
-    let insurance_fund_addr = storage::get_insurance_fund(e);
 
-    let token_client = token::Client::new(e, &pool.token_address);
-    let market_addr = e.current_contract_address();
-
-    if pool.total_available > pool.take_rate_fees_sum {
-        // -- Distribute Take Rate Fees --
-
-        if let Some(take_rate_beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries {
-            for (beneficiary_address, share_bps) in take_rate_beneficiaries.iter() {
-                if share_bps == 0 {
-                    continue;
-                }
-                let amount = pool
-                    .take_rate_fees_sum
-                    .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
-                    .map_over_or_underflow()?;
-
-                token_client.transfer(&market_addr, &beneficiary_address, &amount);
-
-                if beneficiary_address == insurance_fund_addr {
-                    let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
-                    fund_client.add_reserves(&pool.token_address, &amount);
-                }
-            }
-
-            pool.adjust_total_available(
-                e,
-                pool.take_rate_fees_sum.checked_neg().map_over_or_underflow()?,
-            )?;
-            pool.take_rate_fees_sum = 0;
-        }
+    if pool.total_available > pool.take_rate_fees_sum
+        && let Some(beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries
+    {
+        let paid = pay_fee_beneficiaries(
+            e,
+            &pool.token_address,
+            beneficiaries,
+            pool.take_rate_fees_sum,
+            tolerant,
+        )?;
+        pool.adjust_total_available(e, paid.checked_neg().map_over_or_underflow()?)?;
+        pool.take_rate_fees_sum -= paid; // safe: paid <= take_rate_fees_sum
     }
 
-    // -- Distribute Operation Fees --
-
-    if let Some(operation_beneficiaries) = &pool.config.fee_config.operation_fee_beneficiaries {
-        for (beneficiary_address, share_bps) in operation_beneficiaries.iter() {
-            if share_bps == 0 {
-                continue;
-            }
-            let amount = pool
-                .operation_fees_sum
-                .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
-                .map_over_or_underflow()?;
-
-            token_client.transfer(&market_addr, &beneficiary_address, &amount);
-
-            if beneficiary_address == insurance_fund_addr {
-                let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
-                fund_client.add_reserves(&pool.token_address, &amount);
-            }
-        }
-
-        pool.operation_fees_sum = 0;
+    if let Some(beneficiaries) = &pool.config.fee_config.operation_fee_beneficiaries {
+        let paid = pay_fee_beneficiaries(
+            e,
+            &pool.token_address,
+            beneficiaries,
+            pool.operation_fees_sum,
+            tolerant,
+        )?;
+        pool.operation_fees_sum -= paid; // safe: paid <= operation_fees_sum
     }
 
     pool.set(e);
@@ -1210,9 +1205,54 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<()
     Ok(())
 }
 
+/// Pays each beneficiary its floored share of `bucket` and returns the total paid; the remainder stays in
+/// the bucket.
+fn pay_fee_beneficiaries(
+    e: &Env,
+    token_address: &Address,
+    beneficiaries: &Map<Address, u32>,
+    bucket: i128,
+    tolerant: bool,
+) -> Result<i128, MCError> {
+    let token_client = token::Client::new(e, token_address);
+    let market_addr = e.current_contract_address();
+    let insurance_fund_addr = storage::get_insurance_fund(e);
+
+    let mut paid = 0_i128;
+    for (beneficiary_address, share_bps) in beneficiaries.iter() {
+        let amount =
+            bucket.fixed_mul_floor(share_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
+        if amount == 0 {
+            continue;
+        }
+
+        if tolerant {
+            if token_client.try_transfer(&market_addr, &beneficiary_address, &amount).is_err() {
+                continue;
+            }
+        } else {
+            token_client.transfer(&market_addr, &beneficiary_address, &amount);
+        }
+
+        if beneficiary_address == insurance_fund_addr {
+            let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+            if tolerant {
+                // The tokens already moved; the fund in this repo counts reserves by balance.
+                let _ = fund_client.try_add_reserves(token_address, &amount);
+            } else {
+                fund_client.add_reserves(token_address, &amount);
+            }
+        }
+
+        paid = paid.checked_add(amount).map_over_or_underflow()?;
+    }
+
+    Ok(paid)
+}
+
 pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
     for pool_address in Pool::get_all(e) {
-        process_distribute_pool_fees(e, pool_address)?;
+        process_distribute_pool_fees(e, pool_address, false)?;
     }
 
     Ok(())

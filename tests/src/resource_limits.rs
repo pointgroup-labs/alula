@@ -63,6 +63,10 @@
 use controlled_insurance_fund::{
     ControlledInsuranceFundContract, ControlledInsuranceFundContractClient,
 };
+use farms::{
+    DelegatedFarmConfig, Delegation, FarmConfig, FarmsContract, FarmsContractClient,
+    OptionalOracle, RewardConfig, RewardCurvePoint, RewardScheduleCurve, RewardType,
+};
 use market::{
     constants::{
         DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS,
@@ -100,6 +104,12 @@ mod insurance_fund_wasm {
     contractimport!(file = "../wasms/controlled_insurance_fund.wasm");
 }
 
+mod farms_wasm {
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../wasms/farms.wasm");
+}
+
 // ---- Scenario sizing ----
 
 /// Collateral-only positions (each in its own pool).
@@ -119,13 +129,11 @@ const BORROW_TOTAL: i128 = 500_000;
 const LIQUIDITY_AMOUNT: i128 = 1_000_000;
 
 /// Position counts swept by the liquidation scaling tests. Ends at
-/// `MAX_RESERVES` (25), the hard ceiling `max_positions` may be set to.
-const POSITION_SWEEP: [usize; 7] = [3, 5, 7, 10, 15, 20, 25];
+/// `MAX_RESERVES` (10), the hard ceiling `max_positions` may be set to.
+const POSITION_SWEEP: [usize; 4] = [3, 5, 7, 10];
 
-/// Counts swept for the collateral-heavy bad-debt shape, the one measured path
-/// whose ceiling falls inside the sweep: the extra rows pin it exactly instead
-/// of leaving a 15-to-20 bracket.
-const COLLATERAL_HEAVY_SWEEP: [usize; 9] = [3, 5, 7, 10, 15, 16, 17, 20, 25];
+/// Counts swept for the collateral-heavy bad-debt shape.
+const COLLATERAL_HEAVY_SWEEP: [usize; 4] = [3, 5, 7, 10];
 
 /// Smallest swept position count at which one of the bad-debt cover flow's two
 /// calls overruns a pubnet limit, per shape, in `MARKET_BUILDS` order. `None`
@@ -134,6 +142,14 @@ const COLLATERAL_HEAVY_SWEEP: [usize; 9] = [3, 5, 7, 10, 15, 16, 17, 20, 25];
 const EXPECTED_EVEN: [Option<usize>; 2] = [None, None];
 const EXPECTED_BORROW_HEAVY: [Option<usize>; 2] = [None, None];
 const EXPECTED_COLLATERAL_HEAVY: [Option<usize>; 2] = [None, None];
+const EXPECTED_FARMS_BORROW_HEAVY: [Option<usize>; 2] = [None, None];
+const EXPECTED_FARMS_LIQUIDATION: [Option<usize>; 2] = [None, None];
+const EXPECTED_FARMS_SHARE_LIQUIDATION: [Option<usize>; 2] = [None, None];
+
+/// Funded rewards, and schedule points each, on every farm the farms-attached measurements set up: the
+/// caps a delegated farm allows.
+const FARM_REWARDS: usize = 4;
+const FARM_CURVE_POINTS: u64 = 4;
 
 /// Both builds of the market are swept: the natively-linked contract these
 /// tests normally drive, and the deployable wasm that actually runs on pubnet.
@@ -215,6 +231,21 @@ impl PositionFixture<'_> {
     }
 
     fn with_positions(build: MarketBuild, n_collateral: usize, n_borrow: usize) -> Self {
+        Self::build(build, n_collateral, n_borrow, false)
+    }
+
+    /// The same obligation with its collateral held as supply shares, so a liquidation moves supply
+    /// stakes as well as debt ones.
+    fn with_deposit_collateral(build: MarketBuild, n_collateral: usize, n_borrow: usize) -> Self {
+        Self::build(build, n_collateral, n_borrow, true)
+    }
+
+    fn build(
+        build: MarketBuild,
+        n_collateral: usize,
+        n_borrow: usize,
+        deposit_collateral: bool,
+    ) -> Self {
         assert!(n_collateral >= 1 && n_borrow >= 1);
         assert!(n_collateral + n_borrow <= MAX_RESERVES as usize);
 
@@ -357,7 +388,11 @@ impl PositionFixture<'_> {
         // -- Collateral positions (distinct pools) --
         let collateral_amount = COLLATERAL_TOTAL / n_collateral as i128;
         for pool in &collateral_pools {
-            contract_client.add_collateral(&borrower, pool, &collateral_amount, &None);
+            if deposit_collateral {
+                contract_client.deposit(&borrower, pool, &collateral_amount, &None);
+            } else {
+                contract_client.add_collateral(&borrower, pool, &collateral_amount, &None);
+            }
         }
 
         // -- Borrow positions (distinct pools) --
@@ -419,6 +454,99 @@ impl PositionFixture<'_> {
             StellarAssetClient::new(&self.e, pool)
                 .mint(&self.insurance_fund_client.address, &LIQUIDITY_AMOUNT);
         }
+    }
+
+    /// Farms on the given `(pool, is_supply)` slots, each paying `FARM_REWARDS` funded tokens on
+    /// `FARM_CURVE_POINTS`-point schedules (the delegated caps), with the borrower's positions enrolled.
+    fn attach_farms(
+        &self,
+        build: MarketBuild,
+        slots: &[(Address, bool)],
+    ) -> FarmsContractClient<'_> {
+        let e = &self.e;
+        let admin = Address::generate(e);
+        let farms_address = match build {
+            MarketBuild::Native => e.register(FarmsContract, (admin.clone(),)),
+            MarketBuild::Wasm => e.register(farms_wasm::WASM, (admin.clone(),)),
+        };
+        let farms = FarmsContractClient::new(e, &farms_address);
+        self.contract_client.set_farms_contract(&farms_address);
+
+        let tokens: Vec<Address> = (0..FARM_REWARDS)
+            .map(|_| {
+                let token = e.register_stellar_asset_contract_v2(admin.clone()).address();
+                StellarAssetClient::new(e, &token).mint(&admin, &i128::MAX);
+                token
+            })
+            .collect();
+
+        let mut pools = soroban_sdk::Vec::new(e);
+        for (pool, is_supply) in slots {
+            pools.push_back(pool.clone());
+            let farm_id = farms.initialize_farm(
+                &None,
+                &FarmConfig {
+                    token: pool.clone(),
+                    deposit_cap: 0,
+                    treasury_fee_bps: 0,
+                    min_harvest_delay: 0,
+                    min_stake_amount: 0,
+                    delegation: Delegation::Delegated(DelegatedFarmConfig {
+                        delegate_authority: self.contract_client.address.clone(),
+                    }),
+                    is_reward_once_enabled: false,
+                    is_harvest_permissionless: false,
+                    oracle: OptionalOracle::None,
+                },
+            );
+            farms.unfreeze_farm(&farm_id);
+            for token in &tokens {
+                let mut points = soroban_sdk::Vec::new(e);
+                for k in 0..FARM_CURVE_POINTS {
+                    points.push_back(RewardCurvePoint {
+                        ts_start: e.ledger().timestamp() + k * 24 * 60 * 60,
+                        reward_per_time_unit: 1_000,
+                    });
+                }
+                let curve = RewardScheduleCurve { points };
+                let index = farms.initialize_reward(
+                    &farm_id,
+                    &RewardConfig {
+                        reward_token: token.clone(),
+                        reward_type: RewardType::Proportional,
+                        reward_schedule_curve: curve,
+                    },
+                );
+                farms.add_rewards(&admin, &farm_id, &index, &1_000_000_000);
+            }
+            if *is_supply {
+                self.contract_client.set_pool_supply_farm(pool, &farm_id);
+            } else {
+                self.contract_client.set_pool_debt_farm(pool, &farm_id);
+            }
+        }
+        self.contract_client.refresh_farm_stakes(&self.borrower, &pools);
+        farms
+    }
+
+    /// A farm on every borrow pool: the side a borrow-heavy cover settles.
+    fn debt_farm_slots(&self) -> Vec<(Address, bool)> {
+        self.borrow_pools.iter().map(|pool| (pool.clone(), false)).collect()
+    }
+
+    /// A farm on the pool of every position: supply farms on the collateral pools, debt farms on the
+    /// borrow pools.
+    fn every_position_farm_slots(&self) -> Vec<(Address, bool)> {
+        self.collateral_pools
+            .iter()
+            .map(|pool| (pool.clone(), true))
+            .chain(self.borrow_pools.iter().map(|pool| (pool.clone(), false)))
+            .collect()
+    }
+
+    /// Farms on the two pools a liquidation of the first borrow against the first collateral touches.
+    fn liquidation_farm_slots(&self) -> Vec<(Address, bool)> {
+        vec![(self.borrow_pools[0].clone(), false), (self.collateral_pools[0].clone(), true)]
     }
 
     /// A repay that stays under the 50% close factor of the targeted borrow
@@ -593,18 +721,17 @@ fn ten_positions_stay_within_pubnet_resource_limits() {
     assert_within_pubnet_limits("borrow", positions, &m);
 }
 
-/// Cost of `liquidate` as a function of the borrower's position count — the
-/// measurement that bounds `max_positions` — for both the natively-linked
-/// contract and the deployable wasm.
+/// Cost of `liquidate` as a function of the borrower's position count, for both
+/// the natively-linked contract and the deployable wasm.
 ///
 /// The scenario's health is size-invariant by construction (fixed collateral
 /// and debt totals, evenly split), so the only thing moving between rows is the
 /// per-position sweep: interest accrual over every pool plus five full value
 /// aggregations over every position.
 ///
-/// Measured slope (wasm): ~1.49 MB, ~2.7M instructions and 5 footprint entries
-/// per position. Memory is the constraint — at `MAX_RESERVES` positions it sits
-/// at ~93% of `tx_memory_limit` while CPU is at ~18% and the footprint at ~37%.
+/// Measured slope (wasm): ~0.26 MB, ~2.1M instructions and 5 footprint entries
+/// per position. At `MAX_RESERVES` positions it takes 12% of `tx_memory_limit`,
+/// 6% of CPU and 71 of 400 footprint entries.
 #[test]
 fn liquidate_scales_within_pubnet_resource_limits() {
     report_header();
@@ -825,4 +952,208 @@ fn cover_bad_debt_collateral_heavy_pubnet_ceiling() {
     let ceilings = cover_bad_debt_ceilings("/ch", &COLLATERAL_HEAVY_SWEEP, |total| (total - 1, 1));
 
     assert_eq!(ceilings, EXPECTED_COLLATERAL_HEAVY, "collateral-heavy ceiling moved");
+}
+
+/// `issue_cover_bad_debt` pushes a stake for every position it settles, so with farms attached it is
+/// the call farms make heaviest. Measured on the borrow-heavy shape with a farm on the pool of every
+/// position, each stake going to zero across every funded reward, against the same obligation with no
+/// farms.
+///
+/// Every reward is its own entry, carrying its schedule, so each push rewrites `FARM_REWARDS + 2`
+/// entries. Every swept size fits; at `MAX_RESERVES` the cover takes 95_924 of 132_096 write bytes on
+/// wasm, the tightest dimension of any shape.
+#[test]
+fn issue_cover_with_farms_pubnet_ceiling() {
+    report_header();
+
+    let mut ceilings = Vec::with_capacity(MARKET_BUILDS.len());
+    for (build_label, build) in MARKET_BUILDS {
+        let mut first_overrun = None;
+        for total in POSITION_SWEEP {
+            let mut issue = Vec::with_capacity(2);
+            for with_farms in [false, true] {
+                let f = PositionFixture::with_positions(build, 1, total - 1);
+                if with_farms {
+                    f.attach_farms(build, &f.every_position_farm_slots());
+                }
+                f.wipe_out_collateral_prices();
+                f.fund_insurance_fund();
+                f.contract_client.issue_cover_bad_debt(&f.borrower);
+                let farms_label = if with_farms { "+farms" } else { "" };
+                issue.push(report(&f, &format!("issue/{build_label}{farms_label}"), total as u32));
+            }
+            let (plain, farmed) = (&issue[0], &issue[1]);
+            println!(
+                "farms add at {total:>3} positions ({build_label}): cpu +{}  mem +{}  write bytes \
+                 +{}",
+                farmed.cpu - plain.cpu,
+                farmed.mem - plain.mem,
+                farmed.write_bytes - plain.write_bytes,
+            );
+            if !farmed.fits_pubnet() && first_overrun.is_none() {
+                first_overrun = Some(total);
+            }
+        }
+        ceilings.push(first_overrun);
+    }
+
+    assert_eq!(ceilings, EXPECTED_FARMS_BORROW_HEAVY, "farms-attached ceiling moved");
+}
+
+/// A liquidation pushes at most three stakes (the borrower's debt and collateral pools, and the batch's
+/// own obligation), so farms add a bounded cost on top of the position sweep. Both the direct and the
+/// flash shape are measured with farms on every pool at the delegated caps. Every swept size fits: on
+/// wasm at `MAX_RESERVES` the flash shape takes 15% of memory and 43_936 write bytes.
+#[test]
+fn liquidations_with_farms_pubnet_ceiling() {
+    report_header();
+
+    let mut ceilings = Vec::with_capacity(MARKET_BUILDS.len());
+    for (build_label, build) in MARKET_BUILDS {
+        let mut first_overrun = None;
+        for total in POSITION_SWEEP {
+            let n_borrow = total / 2;
+            for flash in [false, true] {
+                let f = PositionFixture::with_positions(build, total - n_borrow, n_borrow);
+                f.attach_farms(build, &f.liquidation_farm_slots());
+                f.crash_collateral_prices();
+                let repay_amount = f.repay_amount();
+                if flash {
+                    let proxy_swap = f.e.register(MockProxySwap, ());
+                    f.e.mock_all_auths_allowing_non_root_auth();
+                    let flash_repayment = repay_amount + (repay_amount + 9_999) / 10_000;
+                    let batch = svec![
+                        &f.e,
+                        Request::FlashBorrow(StandardRequest {
+                            amount: repay_amount,
+                            pool_address: f.borrow_pools[0].clone(),
+                        }),
+                        Request::Liquidate(LiquidateRequest {
+                            borrower_obligation_key: f.borrower.clone(),
+                            borrow_pool_address: f.borrow_pools[0].clone(),
+                            collateral_pool_address: f.collateral_pools[0].clone(),
+                            repay_amount,
+                            min_demanded_collateral_amount: 0,
+                        }),
+                        Request::SwapForExactTokens(SwapForExactTokensRequest {
+                            swap_provider: proxy_swap,
+                            path: svec![
+                                &f.e,
+                                f.collateral_pools[0].clone(),
+                                f.borrow_pools[0].clone()
+                            ],
+                            max_amount_in: i128::MAX,
+                            amount_out: flash_repayment,
+                        }),
+                    ];
+                    f.contract_client.submit_requests_batch(
+                        &ObligationKey::new(f.liquidator.clone()),
+                        &batch,
+                        &None,
+                    );
+                } else {
+                    f.contract_client.liquidate(
+                        &f.liquidator,
+                        &f.borrower,
+                        &f.borrow_pools[0],
+                        &f.collateral_pools[0],
+                        &repay_amount,
+                        &0,
+                    );
+                }
+                let shape = if flash { "flash-liq" } else { "liquidate" };
+                let m = report(&f, &format!("{shape}/{build_label}+farms"), total as u32);
+                if !m.fits_pubnet() && first_overrun.is_none() {
+                    first_overrun = Some(total);
+                }
+            }
+        }
+        ceilings.push(first_overrun);
+    }
+
+    assert_eq!(ceilings, EXPECTED_FARMS_LIQUIDATION, "farms-attached liquidation ceiling moved");
+}
+
+/// A batched liquidation of collateral held as supply shares moves three stakes: the borrower's debt,
+/// the borrower's supply, and the supply credited to the batch's own obligation. Every swept size fits:
+/// on wasm at `MAX_RESERVES` it takes 16% of memory and 44_668 write bytes.
+#[test]
+fn share_collateral_liquidation_with_farms_pubnet_ceiling() {
+    report_header();
+
+    let mut ceilings = Vec::with_capacity(MARKET_BUILDS.len());
+    for (build_label, build) in MARKET_BUILDS {
+        let mut first_overrun = None;
+        for total in POSITION_SWEEP {
+            let n_borrow = total / 2;
+            let f = PositionFixture::with_deposit_collateral(build, total - n_borrow, n_borrow);
+            f.attach_farms(build, &f.liquidation_farm_slots());
+            f.crash_collateral_prices();
+            let liquidator = ObligationKey::new(f.liquidator.clone());
+            let batch = svec![
+                &f.e,
+                Request::Liquidate(LiquidateRequest {
+                    borrower_obligation_key: f.borrower.clone(),
+                    borrow_pool_address: f.borrow_pools[0].clone(),
+                    collateral_pool_address: f.collateral_pools[0].clone(),
+                    repay_amount: f.repay_amount(),
+                    min_demanded_collateral_amount: 0,
+                }),
+            ];
+            f.contract_client.submit_requests_batch(&liquidator, &batch, &None);
+            let m = report(&f, &format!("share-liq/{build_label}+farms"), total as u32);
+
+            let seized = f.contract_client.get_user_obligation(&liquidator).deposits;
+            assert!(!seized.is_empty(), "the batch credited no supply shares to move a stake");
+            if !m.fits_pubnet() && first_overrun.is_none() {
+                first_overrun = Some(total);
+            }
+        }
+        ceilings.push(first_overrun);
+    }
+
+    assert_eq!(
+        ceilings, EXPECTED_FARMS_SHARE_LIQUIDATION,
+        "share-collateral liquidation ceiling moved"
+    );
+}
+
+/// The largest obligation's cover pushes every farm it touches in the same transaction, with a farm on
+/// every position's pool: no stake is left for a resync, and no farm cap is needed.
+#[test]
+fn the_largest_cover_zeroes_every_farm_stake_at_once() {
+    let total = MAX_RESERVES as usize;
+    let f = PositionFixture::with_positions(MarketBuild::Wasm, 1, total - 1);
+    let farms = f.attach_farms(MarketBuild::Wasm, &f.every_position_farm_slots());
+    f.wipe_out_collateral_prices();
+    f.fund_insurance_fund();
+    f.contract_client.issue_cover_bad_debt(&f.borrower);
+    let m = f.last_invocation_cost();
+    assert_within_pubnet_limits("issue-cover/wasm+farms", total as u32, &m);
+
+    let delegatee = farms_interface::Delegatee {
+        owner: f.borrower.user.clone(),
+        seed: f.borrower.seed.clone(),
+    };
+    for (pool, _) in f.debt_farm_slots() {
+        let farm_id = f.contract_client.get_pool_data(&pool).pool.farm_debt.unwrap();
+        assert_eq!(farms.get_delegatee_state(&delegatee, &farm_id).active_stake, 0);
+    }
+}
+
+/// No farm cap: both sides of every pool can be farmed.
+#[test]
+fn a_market_farms_both_sides_of_every_pool() {
+    let f = PositionFixture::with_positions(MarketBuild::Native, 4, 4);
+    let slots: Vec<(Address, bool)> = f
+        .borrow_pools
+        .iter()
+        .chain(&f.collateral_pools)
+        .flat_map(|pool| [(pool.clone(), true), (pool.clone(), false)])
+        .collect();
+    f.attach_farms(MarketBuild::Native, &slots);
+    for (pool, _) in &slots {
+        let data = f.contract_client.get_pool_data(pool).pool;
+        assert!(data.farm_supply.is_some() && data.farm_debt.is_some());
+    }
 }

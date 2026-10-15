@@ -1085,3 +1085,39 @@ fn test_min_collateral_deduction_scales_with_position_count() {
          close-LTV collateral below the debt. Got: {split_pos_result:?}"
     );
 }
+
+/// A liquidator is not seeded into a pool it borrows from: a deposit and a borrow in one pool could be
+/// neither liquidated, since a same-pool liquidation is refused, nor covered as bad debt.
+#[test]
+fn test_a_liquidator_is_not_seeded_into_a_pool_it_borrows_from() {
+    let f = TestMarketFixture::new();
+    let [lp, borrower, liquidator] = [0, 1, 2].map(|i| ObligationKey::new(f.users[i].clone()));
+    f.contract_client.deposit(&lp, &f.gold_pool_address, &1_000_000_000, &None);
+    f.contract_client.deposit(&lp, &f.usdc_pool_address, &1_000_000_000, &None);
+
+    // The borrower backs a GOLD loan with USDC supply shares, which a liquidation seizes as shares.
+    f.contract_client.deposit(&borrower, &f.usdc_pool_address, &100_000_000, &None);
+    f.contract_client.borrow(&borrower, &f.gold_pool_address, &i128::MAX, &None);
+    f.contract_client.add_collateral(&liquidator, &f.btc_pool_address, &100_000_000, &None);
+    f.contract_client.borrow(&liquidator, &f.usdc_pool_address, &1_000_000, &None);
+
+    f.oracle_client.set_price_stable(&soroban_sdk::vec![
+        &f.e,
+        2_00000000000000,
+        1_00000000000000,
+        1_00000000000000
+    ]);
+    f.e.ledger().with_mut(|li| li.timestamp += 1);
+
+    assert_eq!(
+        f.contract_client.try_liquidate(
+            &liquidator.user,
+            &borrower,
+            &f.gold_pool_address,
+            &f.usdc_pool_address,
+            &1_000_000,
+            &0
+        ),
+        Err(Ok(MCError::BorrowPositionForAssetExists))
+    );
+}

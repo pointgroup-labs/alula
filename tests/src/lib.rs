@@ -5,6 +5,7 @@ mod borrow;
 mod deposit;
 mod farm_faults;
 mod farms_highland;
+mod farms_sync;
 mod fees;
 mod fuzz;
 mod initialize;

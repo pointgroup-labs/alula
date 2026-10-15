@@ -1225,6 +1225,8 @@ impl Obligation {
         collateral_pool: &Pool,
         j_tokens_amount: i128,
     ) -> Result<(), MCError> {
+        // A deposit beside a borrow in one pool could be neither liquidated nor covered.
+        self.require_no_borrow_position_exists(&collateral_pool.pool_address)?;
         let mut deposit_position = self
             .deposits
             .get(collateral_pool.pool_address.clone())

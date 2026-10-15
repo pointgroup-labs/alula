@@ -117,8 +117,9 @@ pub trait Market {
     // * `pool_address` - address of a pool, for which the beneficiaries list is set
     // * `beneficiaries` - a list of beneficiaries' addresses and their shares(in basis points)
     //
-    // Empties *both* buckets, not its own: it routes through `process_distribute_pool_fees`, which pays
-    // take-rate and operation unconditionally.
+    // Pays out *both* buckets, not its own: it routes through `process_distribute_pool_fees`, which pays
+    // take-rate and operation unconditionally. A beneficiary that cannot receive keeps its share in the
+    // bucket, so it passes to the incoming map.
     fn set_operation_fees_beneficiaries(
         e: Env,
         pool_address: Address,
@@ -405,12 +406,18 @@ pub trait Market {
     // * `pool_address` - Address of the pool
     fn clear_pool_farms(e: Env, pool_address: Address) -> Result<(), MCError>;
 
-    // Refreshes farm stakes for a user's obligation (permissionless)
-    // Syncs all farm stakes for the user's deposit and borrow positions.
+    // Re-pushes the farm stakes of an obligation on the given pools (permissionless)
+    //
+    // An absent obligation pushes zero, so a removed position can still be synced.
     //
     // # Arguments
-    // * `user` - User whose farms to refresh
-    fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError>;
+    // * `obligation_key` - Obligation whose stakes to push
+    // * `pools` - Pools whose supply and debt farms to push
+    fn refresh_farm_stakes(
+        e: Env,
+        obligation_key: ObligationKey,
+        pools: Vec<Address>,
+    ) -> Result<(), MCError>;
 
     // Upgrades the lending contract
     //
@@ -659,7 +666,7 @@ impl Market for MarketContract {
         // interest reaches the bucket once the map already names the incoming beneficiary.
         pool.set(&e);
 
-        process_distribute_pool_fees(&e, pool_address.clone())?;
+        process_distribute_pool_fees(&e, pool_address.clone(), true)?;
         pool.refresh(&e)?;
 
         let mut new_config = pool.config;
@@ -686,7 +693,7 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, pool_address.clone())?;
+        process_distribute_pool_fees(&e, pool_address.clone(), true)?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         let mut new_config = pool.config;
@@ -848,7 +855,7 @@ impl Market for MarketContract {
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
-        process_distribute_pool_fees(&e, pool_address)
+        process_distribute_pool_fees(&e, pool_address, false)
     }
 
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError> {
@@ -977,17 +984,18 @@ impl Market for MarketContract {
         farms::clear_pool_farms(&e, &pool_address)
     }
 
-    fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
+    fn refresh_farm_stakes(
+        e: Env,
+        obligation_key: ObligationKey,
+        pools: Vec<Address>,
+    ) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
         };
 
-        let obligation_key = ObligationKey::new(user);
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
-
-        Ok(())
+        farms::refresh_farm_stakes(&e, &farms_contract, &obligation_key, &pools)
     }
 }
 
