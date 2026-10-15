@@ -168,7 +168,7 @@ An owned market can queue updates; an ungoverned market's config is immutable.
 | `set_pool_supply_farm` | `pool_address, farm_id: BytesN<32>` | Reward j-token (supply) holders. |
 | `set_pool_debt_farm` | `pool_address, farm_id: BytesN<32>` | Reward d-token (debt) holders. |
 | `clear_pool_farms` | `pool_address` | Remove a pool's farm config. |
-| `refresh_obligation_farms` | `user: Address` | Permissionless. Re-syncs a user's farm stakes with their current positions. |
+| `refresh_farm_stakes` | `obligation_key: ObligationKey, pools: Vec<Address>` | Permissionless. Re-pushes both farms of each pool; an absent obligation pushes zero. |
 
 ---
 
