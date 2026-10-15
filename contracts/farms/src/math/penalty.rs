@@ -1,4 +1,5 @@
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::SorobanFixedPoint;
+use soroban_sdk::Env;
 
 use crate::{
     constants::BPS_FACTOR,
@@ -14,6 +15,7 @@ use crate::{
 ///
 /// Rounding uses ceil (protocol-favorable) to prevent dust-amount penalty evasion.
 pub fn calculate_early_withdrawal_penalty(
+    e: &Env,
     farm: &Farm,
     delegatee_state: &DelegateeState,
     amount: i128,
@@ -46,13 +48,13 @@ pub fn calculate_early_withdrawal_penalty(
     let time_remaining = lock_end - current_ts;
     let total_duration = cfg.locking_duration;
 
-    let effective_penalty_bps = cfg
-        .early_withdrawal_penalty_bps
-        .fixed_mul_ceil(time_remaining as i128, total_duration as i128)
-        .map_over_or_underflow()?;
+    let effective_penalty_bps = cfg.early_withdrawal_penalty_bps.fixed_mul_ceil(
+        e,
+        &(time_remaining as i128),
+        &(total_duration as i128),
+    );
 
-    let penalty =
-        amount.fixed_mul_ceil(effective_penalty_bps, BPS_FACTOR).map_over_or_underflow()?;
+    let penalty = amount.fixed_mul_ceil(e, &effective_penalty_bps, &BPS_FACTOR);
 
     let net_amount = amount.checked_sub(penalty).map_over_or_underflow()?;
 

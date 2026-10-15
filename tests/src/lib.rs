@@ -4,6 +4,7 @@ mod batch_liquidate_seed;
 mod borrow;
 mod deposit;
 mod farm_faults;
+mod farms_highland;
 mod fees;
 mod fuzz;
 mod initialize;
