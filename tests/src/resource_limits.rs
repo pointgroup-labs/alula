@@ -430,9 +430,7 @@ impl PositionFixture<'_> {
         self.reprice_collateral(DUST_COLLATERAL_PRICE);
     }
 
-    /// Borrow assets stay at $1. The extra ledger second evicts the market's
-    /// per-timestamp oracle price cache (`market::oracle`), which would otherwise
-    /// keep serving the pre-crash prices.
+    /// Borrow assets stay at $1.
     fn reprice_collateral(&self, collateral_price: i128) {
         let unit_price = 10_i128.pow(ORACLE_PRICE_DECIMALS);
         let mut prices = soroban_sdk::Vec::new(&self.e);
@@ -729,9 +727,9 @@ fn ten_positions_stay_within_pubnet_resource_limits() {
 /// per-position sweep: interest accrual over every pool plus five full value
 /// aggregations over every position.
 ///
-/// Measured slope (wasm): ~0.26 MB, ~2.1M instructions and 5 footprint entries
+/// Measured slope (wasm): ~0.23 MB, ~1.9M instructions and 3 footprint entries
 /// per position. At `MAX_RESERVES` positions it takes 12% of `tx_memory_limit`,
-/// 6% of CPU and 71 of 400 footprint entries.
+/// 6% of CPU and 51 of 400 footprint entries.
 #[test]
 fn liquidate_scales_within_pubnet_resource_limits() {
     report_header();
@@ -944,7 +942,7 @@ fn cover_bad_debt_borrow_heavy_pubnet_ceiling() {
 ///
 /// Collateral positions used to be the expensive ones: the threshold was
 /// re-derived inside the per-deposit loop, and the `decimals()` behind it is the
-/// one oracle read with no per-ledger cache — ~2.8 MB per deposit on wasm against
+/// one oracle read the market does not cache — ~2.8 MB per deposit on wasm against
 /// ~1.7 MB for a borrow. Hoisting it out cut this shape ~40% (10 positions:
 /// 63.06% → 39.43% of memory) and removed it as the binding path entirely.
 #[test]
@@ -960,7 +958,7 @@ fn cover_bad_debt_collateral_heavy_pubnet_ceiling() {
 /// farms.
 ///
 /// Every reward is its own entry, carrying its schedule, so each push rewrites `FARM_REWARDS + 2`
-/// entries. Every swept size fits; at `MAX_RESERVES` the cover takes 95_924 of 132_096 write bytes on
+/// entries. Every swept size fits; at `MAX_RESERVES` the cover takes 95_752 of 132_096 write bytes on
 /// wasm, the tightest dimension of any shape.
 #[test]
 fn issue_cover_with_farms_pubnet_ceiling() {
@@ -1003,7 +1001,7 @@ fn issue_cover_with_farms_pubnet_ceiling() {
 /// A liquidation pushes at most three stakes (the borrower's debt and collateral pools, and the batch's
 /// own obligation), so farms add a bounded cost on top of the position sweep. Both the direct and the
 /// flash shape are measured with farms on every pool at the delegated caps. Every swept size fits: on
-/// wasm at `MAX_RESERVES` the flash shape takes 15% of memory and 43_936 write bytes.
+/// wasm at `MAX_RESERVES` the flash shape takes 14% of memory and 42_216 write bytes.
 #[test]
 fn liquidations_with_farms_pubnet_ceiling() {
     report_header();
@@ -1076,7 +1074,7 @@ fn liquidations_with_farms_pubnet_ceiling() {
 
 /// A batched liquidation of collateral held as supply shares moves three stakes: the borrower's debt,
 /// the borrower's supply, and the supply credited to the batch's own obligation. Every swept size fits:
-/// on wasm at `MAX_RESERVES` it takes 16% of memory and 44_668 write bytes.
+/// on wasm at `MAX_RESERVES` it takes 16% of memory and 42_948 write bytes.
 #[test]
 fn share_collateral_liquidation_with_farms_pubnet_ceiling() {
     report_header();

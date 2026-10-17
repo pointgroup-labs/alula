@@ -600,7 +600,8 @@ impl Pool {
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
         let total_supply = self.total_supply()?;
         let total_available_adjusted = self.total_available()?;
-        let oracle_asset_price = oracle::get_asset_price(e, &self.token_address)?;
+        let oracle_asset_price =
+            oracle::get_asset_price(e, &mut oracle::Prices::new(e), &self.token_address)?;
 
         Ok(PoolData {
             pool: self,
@@ -705,20 +706,6 @@ impl Pool {
 
     pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
-    }
-
-    pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        let deposited_tokens = self.compute_tokens_from_j_tokens_floor(e, self.total_j_tokens)?;
-        let collateral_sum =
-            deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
-
-        oracle::get_asset_value_floor(e, collateral_sum, &self.token_address, self.token_decimals)
-    }
-
-    pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
-        let debt = self.total_debt()?;
-
-        oracle::get_asset_value_ceil(e, debt, &self.token_address, self.token_decimals)
     }
 
     // Refreshes the pool with the contract's storage data

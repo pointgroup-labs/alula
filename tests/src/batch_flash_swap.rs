@@ -815,3 +815,58 @@ fn test_two_flash_borrows_in_one_batch_are_refused() {
     assert_eq!(market_before(&usdc_pool_address), usdc_before, "usdc balance moved");
     assert_eq!(market_before(&gold_pool_address), gold_before, "gold balance moved");
 }
+
+/// A swap provider that, mid-batch, moves the oracle: the stand-in for any callback that changes oracle
+/// state, such as applying a matured router change.
+#[contract]
+pub struct OracleMovingSwap;
+
+#[contractimpl]
+impl OracleMovingSwap {
+    pub fn __constructor(e: Env, oracle: Address, prices: Vec<i128>) {
+        e.storage().instance().set(&0_u32, &oracle);
+        e.storage().instance().set(&1_u32, &prices);
+    }
+
+    pub fn swap_exact(e: Env, _user: Address, _path: Vec<Address>, _in: i128, _min: i128) -> i128 {
+        let oracle: Address = e.storage().instance().get(&0_u32).unwrap();
+        let prices: Vec<i128> = e.storage().instance().get(&1_u32).unwrap();
+        sep_40_oracle::testutils::MockPriceOracleClient::new(&e, &oracle).set_price_stable(&prices);
+        0
+    }
+}
+
+/// A batch prices each request after the last external call: a swap that moves the oracle cannot leave the
+/// next borrow valuing collateral at the pre-swap price.
+#[test]
+fn test_a_borrow_after_a_swap_in_the_batch_is_priced_after_the_swap() {
+    let f = TestMarketFixture::new();
+    let (lp, user) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lp, &f.usdc_pool_address, &1_000_000_000, &None);
+    f.contract_client.deposit(&lp, &f.btc_pool_address, &1_000_000_000, &None);
+    f.contract_client.add_collateral(&user, &f.gold_pool_address, &100_000_000, &None);
+
+    // Feed order is GOLD, BTC, USDC; GOLD loses 99 % inside the swap.
+    let crashed: Vec<i128> = svec![&f.e, 1_000000000000, 1_00000000000000, 1_00000000000000];
+    let provider = f.e.register(OracleMovingSwap, (f.oracle.clone(), crashed));
+    let borrow = |pool: &Address, amount: i128| {
+        Request::Borrow(StandardRequest { pool_address: pool.clone(), amount })
+    };
+    let batch = svec![
+        &f.e,
+        borrow(&f.usdc_pool_address, 1_000_000),
+        Request::SwapExactTokens(SwapExactTokensRequest {
+            swap_provider: provider,
+            path: svec![&f.e, f.usdc_pool_address.clone(), f.btc_pool_address.clone()],
+            amount_in: 0,
+            min_amount_out: 0,
+        }),
+        borrow(&f.btc_pool_address, 5_000_000),
+    ];
+
+    assert_eq!(
+        f.contract_client.try_submit_requests_batch(&user, &batch, &None),
+        Err(Ok(MCError::UnhealthyOperation))
+    );
+}

@@ -175,7 +175,7 @@ fn set_prices(f: &TestMarketFixture, percent: [i128; 3]) {
         price(percent[1]),
         price(percent[2])
     ]);
-    f.pass_time(1); // invalidate the market's per-ledger price cache
+    f.pass_time(1);
 }
 
 fn random_batch(

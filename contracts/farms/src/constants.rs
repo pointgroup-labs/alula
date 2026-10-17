@@ -5,7 +5,7 @@ pub const MAX_FARM_NUM_REWARDS: u32 = 10;
 
 // A stake push rewrites every reward of the farm with its schedule, and a bad-debt cover pushes to every
 // farm its positions sit in: at these caps, covering the largest obligation with every position farmed
-// uses 72.6% of a transaction's write bytes.
+// uses 72.5% of a transaction's write bytes.
 pub const MAX_DELEGATED_FARM_REWARDS: u32 = 4;
 pub const MAX_DELEGATED_CURVE_POINTS: u32 = 4;
 pub const MAX_TREASURY_FEE_BPS: i128 = 2_000; // 20%

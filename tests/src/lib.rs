@@ -916,7 +916,9 @@ pub fn compute_user_obligation_debt_value(
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
 
-    e.as_contract(&contract_client.address, || obligation.compute_debt_value(e).unwrap())
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e, &mut market::oracle::Prices::new(e)).unwrap()
+    })
 }
 
 pub fn compute_user_obligation_collateral_value(
@@ -926,7 +928,9 @@ pub fn compute_user_obligation_collateral_value(
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
 
-    e.as_contract(&contract_client.address, || obligation.compute_collateral_value(e).unwrap())
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e, &mut market::oracle::Prices::new(e)).unwrap()
+    })
 }
 
 // - Inner struct accessors -

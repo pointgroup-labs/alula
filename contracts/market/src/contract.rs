@@ -323,9 +323,6 @@ pub trait Market {
     //
     // # Arguments
     // * `pool_address` - address of asset which price is returned
-    //
-    // This getter writes: it advances the price cache, as `get_market_data` does. Within a ledger the
-    // cached price is then served unvalidated.
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError>;
 
     // Returns the user's obligation which includes data about all of their deposits and borrows
@@ -738,7 +735,8 @@ impl Market for MarketContract {
         user.require_auth();
         storage::extend_instance(&e);
 
-        process_borrow(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_borrow(&e, &mut oracle::Prices::new(&e), &user, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn add_collateral(
@@ -764,8 +762,15 @@ impl Market for MarketContract {
         user.require_auth();
         storage::extend_instance(&e);
 
-        process_remove_collateral(&e, &user, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
+        process_remove_collateral(
+            &e,
+            &mut oracle::Prices::new(&e),
+            &user,
+            &pool_address,
+            amount,
+            &referrer,
+        )?
+        .execute_transfers(&e)
     }
 
     fn repay(
@@ -794,6 +799,7 @@ impl Market for MarketContract {
         liquidator.require_auth();
         process_liquidate(
             &e,
+            &mut oracle::Prices::new(&e),
             // No seed at this entry point: the seizure lands on the liquidator's plain obligation.
             &ObligationKey::new(liquidator),
             &borrower,
@@ -815,7 +821,8 @@ impl Market for MarketContract {
         user.require_auth();
         storage::extend_instance(&e);
 
-        process_withdraw(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_withdraw(&e, &mut oracle::Prices::new(&e), &user, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn simulate_withdraw(
@@ -872,7 +879,7 @@ impl Market for MarketContract {
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        oracle::get_asset_price(&e, &pool.token_address)
+        oracle::get_asset_price(&e, &mut oracle::Prices::new(&e), &pool.token_address)
     }
 
     fn get_user_obligation(e: Env, user: ObligationKey) -> Result<Obligation, MCError> {

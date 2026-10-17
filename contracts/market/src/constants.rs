@@ -152,7 +152,7 @@ pub const MAX_COLLATERAL_VALUE_CENTS: i128 = 10_000; // 100$
 pub const DEFAULT_MAX_POSITIONS: u32 = 10;
 
 // Upper bound of `max_positions`. A bad-debt cover settles every position and pushes a farm stake for each in
-// one transaction; with every position farmed at the delegated caps, ten take at most 72.6 % of the write
+// one transaction; with every position farmed at the delegated caps, ten take at most 72.5 % of the write
 // budget and twelve 87 % (`tests/src/resource_limits.rs`), so farms need no cap of their own.
 pub const MAX_RESERVES: u32 = 10;
 

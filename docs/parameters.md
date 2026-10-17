@@ -385,7 +385,8 @@ none of them affect lending LPs.
 The market's `oracle` address is fixed at deployment (§7). Any price older than
 6 minutes is rejected, as is any price timestamped in the future, so a stalled
 feed halts price-dependent operations rather than letting them run on stale
-data.
+data. A price is read at most once per call and never reused by a later
+transaction, even in the same ledger.
 
 If the market points at the Aggregated Oracle, that contract takes a median
 across several SEP-40 feeds and adds a deviation check on top.

@@ -16,6 +16,7 @@ use crate::{
         require_positive,
     },
     obligation::{Obligation, ObligationKey, WithdrawResult},
+    oracle::Prices,
     pool::{Pool, PoolConfig},
     request::{
         LiquidateRequest, Request, RequestTransfers, StandardRequest, SwapExactTokensRequest,
@@ -40,6 +41,8 @@ pub fn process_submit_requests_batch(
         smap![&e],
         None,
     );
+    // Shared by the requests between external calls; a swap or token callback may move oracle state.
+    let mut prices = Prices::new(e);
 
     for request in requests {
         match request {
@@ -57,6 +60,7 @@ pub fn process_submit_requests_batch(
             Request::Borrow(standard_request) => {
                 let new_transfers = process_borrow(
                     e,
+                    &mut prices,
                     obligation_key,
                     &standard_request.pool_address,
                     standard_request.amount,
@@ -68,6 +72,7 @@ pub fn process_submit_requests_batch(
             Request::Withdraw(standard_request) => {
                 let new_transfers = process_withdraw(
                     e,
+                    &mut prices,
                     obligation_key,
                     &standard_request.pool_address,
                     standard_request.amount,
@@ -101,6 +106,7 @@ pub fn process_submit_requests_batch(
             Request::RemoveCollateral(standard_request) => {
                 let new_transfers = process_remove_collateral(
                     e,
+                    &mut prices,
                     obligation_key,
                     &standard_request.pool_address,
                     standard_request.amount,
@@ -115,6 +121,7 @@ pub fn process_submit_requests_batch(
                 let new_transfers =
                     process_flash_borrow(e, &obligation_key.user, standard_request)?;
                 transfers.merge(new_transfers)?;
+                prices = Prices::new(e);
             }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 swap_provider,
@@ -132,6 +139,7 @@ pub fn process_submit_requests_batch(
                     amount_in,
                     min_amount_out,
                 )?;
+                prices = Prices::new(e);
             }
             Request::SwapForExactTokens(SwapForExactTokensRequest {
                 swap_provider,
@@ -149,6 +157,7 @@ pub fn process_submit_requests_batch(
                     max_amount_in,
                     amount_out,
                 )?;
+                prices = Prices::new(e);
             }
             Request::Liquidate(LiquidateRequest {
                 borrower_obligation_key,
@@ -158,9 +167,11 @@ pub fn process_submit_requests_batch(
                 min_demanded_collateral_amount,
             }) => {
                 transfers.flush_transfers(e)?;
+                prices = Prices::new(e);
 
                 let liquidation_transfers = process_liquidate(
                     e,
+                    &mut prices,
                     obligation_key,
                     &borrower_obligation_key,
                     &borrow_pool_address,
@@ -169,6 +180,7 @@ pub fn process_submit_requests_batch(
                     min_demanded_collateral_amount,
                 )?;
                 liquidation_transfers.execute_transfers(e)?;
+                prices = Prices::new(e);
             }
         };
     }
@@ -318,6 +330,7 @@ pub fn process_deposit<'a>(
 
 pub fn process_borrow<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
@@ -336,7 +349,7 @@ pub fn process_borrow<'a>(
     pool.require_bad_debt_unlocked(e)?;
     pool.accrue_interest(e)?;
 
-    let borrow_result = obligation.borrow(e, &pool, amount, referrer)?;
+    let borrow_result = obligation.borrow(e, prices, &pool, amount, referrer)?;
     pool.borrow(e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
@@ -458,6 +471,7 @@ pub fn process_repay<'a>(
 
 pub fn process_remove_collateral<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
@@ -471,7 +485,8 @@ pub fn process_remove_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, referrer)?;
+    let remove_collateral_result =
+        obligation.remove_collateral(e, prices, &pool, amount, referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
 
     pool.set(e);
@@ -545,6 +560,7 @@ pub fn process_flash_borrow<'a>(
 
 pub fn process_withdraw<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
@@ -559,7 +575,7 @@ pub fn process_withdraw<'a>(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_bad_debt_unlocked(e)?;
 
-    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
+    let withdraw_result = obligation.withdraw(e, prices, &pool, amount, referrer)?;
     pool.withdraw(e, &withdraw_result)?;
 
     // Auto-refresh supply farm stake before potentially removing obligation
@@ -604,6 +620,7 @@ pub fn process_simulate_withdraw(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
+    let mut prices = Prices::new(e);
     require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
@@ -613,7 +630,7 @@ pub fn process_simulate_withdraw(
     let pool = Pool::try_get(e, pool_address)?;
     pool.require_bad_debt_unlocked(e)?;
 
-    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
+    let withdraw_result = obligation.withdraw(e, &mut prices, &pool, amount, referrer)?;
 
     Ok(withdraw_result)
 }
@@ -658,8 +675,10 @@ pub fn process_flash_loan(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn process_liquidate<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     // The caller's key, not just its address: a batch's seed must reach the seizure, or the seized
     // shares land where the rest of the batch cannot spend them.
     liquidator_obligation_key: &ObligationKey,
@@ -692,6 +711,7 @@ pub fn process_liquidate<'a>(
 
     let liquidation_result = obligation.liquidate(
         e,
+        prices,
         &borrow_pool,
         &collateral_pool,
         repay_amount,
@@ -787,10 +807,11 @@ pub fn process_liquidate<'a>(
 }
 
 pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {
+    let mut prices = Prices::new(e);
     let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
-    obligation.require_no_liquidatable_collateral_exists(e)?;
+    obligation.require_no_liquidatable_collateral_exists(e, &mut prices)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
     let insurance_fund = storage::get_insurance_fund(e);
