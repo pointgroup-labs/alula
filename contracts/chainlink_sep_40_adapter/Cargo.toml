@@ -1,0 +1,18 @@
+[package]
+name = "chainlink_sep_40_adapter"
+version = "1.0.0"
+edition = { workspace = true }
+license = { workspace = true }
+description = "Immutable SEP-40 view of Chainlink Data Feeds on Stellar."
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+sep-40-oracle = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

@@ -11,8 +11,8 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
-DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter chainlink_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
+DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter chainlink_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
 MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
 
 # External dependencies
@@ -114,6 +114,7 @@ build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))
 	$(call build_contract,soroswap_sep_40_adapter,$(WASM_DIR))
 	$(call build_contract,redstone_sep_40_adapter,$(WASM_DIR))
+	$(call build_contract,chainlink_sep_40_adapter,$(WASM_DIR))
 	$(call build_contract,soroswap_swap_provider,$(WASM_DIR))
 	$(call build_contract,aqua_swap_provider,$(WASM_DIR))
 	$(call build_contract,controlled_insurance_fund,$(WASM_DIR))
@@ -127,6 +128,7 @@ build: build/prepare ## Build all contracts
 build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,soroswap_sep_40_adapter,$(DEPLOY_DIR))
 	$(call build_contract,redstone_sep_40_adapter,$(DEPLOY_DIR))
+	$(call build_contract,chainlink_sep_40_adapter,$(DEPLOY_DIR))
 	$(call build_contract,soroswap_swap_provider,$(DEPLOY_DIR))
 	$(call build_contract,aqua_swap_provider,$(DEPLOY_DIR))
 	$(call build_contract,controlled_insurance_fund,$(DEPLOY_DIR))
@@ -139,6 +141,7 @@ build/deploy: build/prepare ## Build for deployment
 build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,soroswap_sep_40_adapter)
 	$(call optimize_contract,redstone_sep_40_adapter)
+	$(call optimize_contract,chainlink_sep_40_adapter)
 	$(call optimize_contract,soroswap_swap_provider)
 	$(call optimize_contract,aqua_swap_provider)
 	$(call optimize_contract,controlled_insurance_fund)
