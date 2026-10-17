@@ -7,6 +7,7 @@ pub enum DataKey {
     Prices,
     Resolution,
     Decimals,
+    Failing,
 }
 
 #[contract]
@@ -18,6 +19,11 @@ impl MockOracleContract {
         e.storage().instance().set(&DataKey::BaseAsset, &base_asset);
         e.storage().instance().set(&DataKey::Decimals, &decimals);
         e.storage().instance().set(&DataKey::Resolution, &resolution);
+    }
+
+    /// Makes `lastprice` and `resolution` panic, like a source whose code was replaced.
+    pub fn set_failing(e: Env, failing: bool) {
+        e.storage().instance().set(&DataKey::Failing, &failing);
     }
 
     pub fn set_price(e: Env, asset: Asset, price: i128, timestamp: u64) {
@@ -49,6 +55,7 @@ impl PriceFeedTrait for MockOracleContract {
     }
 
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
+        assert!(!is_failing(&e), "source failure");
         let prices_map: Map<Asset, PriceData> =
             e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
 
@@ -56,6 +63,7 @@ impl PriceFeedTrait for MockOracleContract {
     }
 
     fn resolution(e: Env) -> u32 {
+        assert!(!is_failing(&e), "source failure");
         e.storage().instance().get(&DataKey::Resolution).unwrap()
     }
 
@@ -66,6 +74,10 @@ impl PriceFeedTrait for MockOracleContract {
     fn prices(_e: Env, _asset: Asset, _records: u32) -> Option<Vec<PriceData>> {
         unimplemented!()
     }
+}
+
+fn is_failing(e: &Env) -> bool {
+    e.storage().instance().get(&DataKey::Failing).unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------

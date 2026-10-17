@@ -29,7 +29,7 @@ use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 // The real market WASM, imported so `deploy` can actually instantiate
 // a market in-test. Without this the host raises
 // `Storage, MissingValue` on the deploy site, because `deploy`
-// internally calls `Deployer::deploy_v2(market_wasm_hash, ...)` which
+// internally calls `deploy_contract(Wasm(market_wasm_hash), ...)` which
 // looks up the previously-uploaded WASM by hash.
 mod market {
     use soroban_sdk::contractimport;

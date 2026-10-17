@@ -1,7 +1,7 @@
 // use aggregated_oracle::PriceFeedClient;
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::SorobanFixedPoint;
-use soroban_sdk::{Address, Env, I256};
+use soroban_sdk::{Address, Env, I256, Map};
 
 use crate::{
     constants::*,
@@ -9,6 +9,10 @@ use crate::{
     math_utils::MathUtils,
     storage::{self},
 };
+
+/// Prices read so far in this invocation. It starts empty at each entry point and never reaches storage,
+/// so a price is reused within one call and never by a later transaction in the same ledger.
+pub type Prices = Map<Address, i128>;
 
 // Fetches the latest price for a given asset from the oracle contract.
 // Validates that the price is non-negative and not stale.
@@ -21,12 +25,12 @@ use crate::{
 // # Returns
 // * `Ok(i128)` - The latest price of the asset if available and valid.
 // * `Err(MCError)` - An error if the price is not available, stale
-pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
-    let current_timestamp = e.ledger().timestamp();
-
-    if let Some((price, cached_timestamp)) = storage::get_cached_price(e, token_address)
-        && cached_timestamp == current_timestamp
-    {
+pub fn get_asset_price(
+    e: &Env,
+    prices: &mut Prices,
+    token_address: &Address,
+) -> Result<i128, MCError> {
+    if let Some(price) = prices.get(token_address.clone()) {
         return Ok(price);
     }
 
@@ -48,7 +52,7 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
         return Err(MCError::OracleStalePrice);
     }
 
-    storage::set_cached_price(e, token_address, price_data.price, current_timestamp);
+    prices.set(token_address.clone(), price_data.price);
 
     Ok(price_data.price)
 }
@@ -70,11 +74,12 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
 /// * `Err(MCError)` - An error if the price is unavailable, stale, or if a math overflow occurs
 pub fn get_asset_value_floor(
     e: &Env,
+    prices: &mut Prices,
     amount: i128,
     token_address: &Address,
     token_decimals: u32,
 ) -> Result<i128, MCError> {
-    let price = I256::from_i128(e, get_asset_price(e, token_address)?);
+    let price = I256::from_i128(e, get_asset_price(e, prices, token_address)?);
     let amount = I256::from_i128(e, amount);
 
     let numerator = price.mul(&amount);
@@ -100,11 +105,12 @@ pub fn get_asset_value_floor(
 /// * `Err(MCError)` - An error if the price is unavailable, stale, or if a math overflow occurs
 pub fn get_asset_value_ceil(
     e: &Env,
+    prices: &mut Prices,
     amount: i128,
     token_address: &Address,
     token_decimals: u32,
 ) -> Result<i128, MCError> {
-    let price = I256::from_i128(e, get_asset_price(e, token_address)?);
+    let price = I256::from_i128(e, get_asset_price(e, prices, token_address)?);
     let amount = I256::from_i128(e, amount);
 
     let numerator = price.mul(&amount);
@@ -132,11 +138,12 @@ pub fn get_asset_value_ceil(
 /// * `Err(MCError)` - An error if the price is unavailable, stale, or if a math overflow occurs
 pub fn get_asset_amount_floor(
     e: &Env,
+    prices: &mut Prices,
     value: i128,
     token_address: &Address,
     token_decimals: u32,
 ) -> Result<i128, MCError> {
-    let price = I256::from_i128(e, get_asset_price(e, token_address)?);
+    let price = I256::from_i128(e, get_asset_price(e, prices, token_address)?);
     let value_i256 = I256::from_i128(e, value);
 
     let token_scale = I256::from_i128(e, 10_i128.pow(token_decimals));

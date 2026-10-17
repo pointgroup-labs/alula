@@ -27,8 +27,8 @@ use market_manager::{
     error::MMCError,
 };
 use soroban_sdk::{
-    Address, BytesN, Env, String,
-    testutils::{Address as _, Ledger as _},
+    Address, BytesN, Env, IntoVal, String,
+    testutils::{Address as _, Ledger as _, MockAuth, MockAuthInvoke},
 };
 
 mod market_wasm {
@@ -66,6 +66,8 @@ struct Setup<'a> {
     /// A second market deployed via the manager, used to assert per-market
     /// queue isolation.
     market_b: Address,
+    manager_admin: Address,
+    market_admin: Address,
     /// A hash equal to the market's current code. Reusing the current
     /// wasm as the "new" wasm is a no-op upgrade — fine for testing the
     /// queue/apply plumbing without needing to compile a second
@@ -111,7 +113,50 @@ fn setup<'a>() -> Setup<'a> {
         &TEST_UPGRADE_IN_QUEUE_SECONDS,
     );
 
-    Setup { e, manager, market_a, market_b, new_wasm_hash: market_wasm_hash }
+    Setup {
+        e,
+        manager,
+        market_a,
+        market_b,
+        manager_admin: admin,
+        market_admin,
+        new_wasm_hash: market_wasm_hash,
+    }
+}
+
+fn authorize_apply(
+    e: &Env,
+    signer: &Address,
+    manager: &Address,
+    market: &Address,
+    hash: &BytesN<32>,
+) {
+    e.mock_auths(&[MockAuth {
+        address: signer,
+        invoke: &MockAuthInvoke {
+            contract: manager,
+            fn_name: "apply_market_upgrade",
+            args: (market.clone(),).into_val(e),
+            sub_invokes: &[MockAuthInvoke {
+                contract: market,
+                fn_name: "upgrade",
+                args: (hash.clone(),).into_val(e),
+                sub_invokes: &[],
+            }],
+        },
+    }]);
+}
+
+fn authorize_market_upgrade(e: &Env, signer: &Address, market: &Address, hash: &BytesN<32>) {
+    e.mock_auths(&[MockAuth {
+        address: signer,
+        invoke: &MockAuthInvoke {
+            contract: market,
+            fn_name: "upgrade",
+            args: (hash.clone(),).into_val(e),
+            sub_invokes: &[],
+        },
+    }]);
 }
 
 fn advance_past_queue_window(e: &Env) {
@@ -219,7 +264,7 @@ fn apply_for_unknown_market_is_rejected() {
 
 #[test]
 fn per_market_queues_are_independent() {
-    let Setup { e, manager, market_a, market_b, new_wasm_hash } = setup();
+    let Setup { e, manager, market_a, market_b, new_wasm_hash, .. } = setup();
 
     // Queue only on market_a; market_b must see no queue.
     manager.queue_in_market_upgrade(&market_a, &new_wasm_hash);
@@ -242,4 +287,51 @@ fn per_market_queues_are_independent() {
     // poison the per-key shape).
     manager.queue_in_market_upgrade(&market_b, &new_wasm_hash);
     assert!(manager.get_queued_in_market_upgrade(&market_b).is_some());
+}
+
+#[test]
+fn a_market_upgrade_needs_both_its_manager_and_its_admin() {
+    let Setup { e, manager, market_a, market_admin, new_wasm_hash, .. } = setup();
+    let market = market_wasm::Client::new(&e, &market_a);
+
+    authorize_market_upgrade(&e, &manager.address, &market_a, &new_wasm_hash);
+    assert!(market.try_upgrade(&new_wasm_hash).is_err());
+
+    authorize_market_upgrade(&e, &market_admin, &market_a, &new_wasm_hash);
+    assert!(market.try_upgrade(&new_wasm_hash).is_err());
+}
+
+#[test]
+fn apply_needs_the_market_admins_authorization() {
+    let Setup { e, manager, market_a, manager_admin, market_admin, new_wasm_hash, .. } = setup();
+
+    manager.queue_in_market_upgrade(&market_a, &new_wasm_hash);
+    advance_past_queue_window(&e);
+
+    e.mock_auths(&[]);
+    assert!(manager.try_apply_market_upgrade(&market_a).is_err());
+
+    authorize_apply(&e, &manager_admin, &manager.address, &market_a, &new_wasm_hash);
+    assert!(manager.try_apply_market_upgrade(&market_a).is_err());
+
+    authorize_apply(&e, &market_admin, &manager.address, &market_a, &new_wasm_hash);
+    manager.apply_market_upgrade(&market_a);
+    assert!(manager.get_queued_in_market_upgrade(&market_a).is_none());
+}
+
+#[test]
+fn queue_needs_only_the_manager_admin() {
+    let Setup { e, manager, market_a, manager_admin, new_wasm_hash, .. } = setup();
+
+    e.mock_auths(&[MockAuth {
+        address: &manager_admin,
+        invoke: &MockAuthInvoke {
+            contract: &manager.address,
+            fn_name: "queue_in_market_upgrade",
+            args: (market_a.clone(), new_wasm_hash.clone()).into_val(&e),
+            sub_invokes: &[],
+        },
+    }]);
+    manager.queue_in_market_upgrade(&market_a, &new_wasm_hash);
+    assert!(manager.get_queued_in_market_upgrade(&market_a).is_some());
 }

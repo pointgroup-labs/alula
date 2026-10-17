@@ -7,7 +7,7 @@ use crate::{
     error::MCError,
     events,
     math_utils::MathUtils,
-    oracle,
+    oracle::{self, Prices},
     pool::{Pool, PoolFeeConfig},
     storage,
 };
@@ -229,7 +229,7 @@ impl Obligation {
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
     // obligation with floor rounding
-    pub fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_collateral_value(&self, e: &Env, prices: &mut Prices) -> Result<i128, MCError> {
         let mut value_sum = 0i128;
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -240,6 +240,7 @@ impl Obligation {
 
             let new_value_term = Self::compute_pool_collateral_value_scaled(
                 e,
+                prices,
                 &pool,
                 &deposit_position,
                 BPS_FACTOR,
@@ -255,10 +256,12 @@ impl Obligation {
     pub fn compute_max_healthy_debt_added_amount(
         &self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
     ) -> Result<i128, MCError> {
         self.compute_max_health_factor_decreasing_amount(
             e,
+            prices,
             pool,
             pool.config.health_config.liability_factor_bps,
         )
@@ -270,10 +273,12 @@ impl Obligation {
     pub fn compute_max_healthy_collateral_removed_amount(
         &self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
     ) -> Result<i128, MCError> {
         self.compute_max_health_factor_decreasing_amount(
             e,
+            prices,
             pool,
             pool.config.health_config.open_ltv_bps,
         )
@@ -285,19 +290,25 @@ impl Obligation {
     fn compute_max_health_factor_decreasing_amount(
         &self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
         let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
-            self.compute_collateral_value_scaled_w_open_ltvs(e)?;
-        let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
+            self.compute_collateral_value_scaled_w_open_ltvs(e, prices)?;
+        let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e, prices)?;
 
         let max_amount = if collateral_value_scaled <= debt_value_scaled {
             // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
             // any health factor decreasing operation is prohibited
             0
+        } else if scalar_bps == 0 {
+            // The asset is scaled out of the health computation, so moving it cannot lower the health
+            // factor: the amount is unbounded. `open_ltv_bps` of 0 is a valid supply-only pool, and
+            // without this the divisor below is `asset_price * 0` and the host traps.
+            i128::MAX
         } else {
-            let asset_price: i128 = oracle::get_asset_price(e, &pool.token_address)?;
+            let asset_price: i128 = oracle::get_asset_price(e, prices, &pool.token_address)?;
 
             let value_left = collateral_value_scaled - debt_value_scaled; // safe
             let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
@@ -332,7 +343,11 @@ impl Obligation {
 
     // Computes the current debt assets summed value per
     // obligation, scaling each value with the appropriate `liability_factor_bps` value
-    fn compute_debt_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, MCError> {
+    fn compute_debt_value_scaled_w_liability_factors(
+        &self,
+        e: &Env,
+        prices: &mut Prices,
+    ) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, borrow_position) in self.borrows.iter() {
@@ -344,6 +359,7 @@ impl Obligation {
 
             let new_value_term = Self::compute_pool_debt_value_scaled(
                 e,
+                prices,
                 &pool,
                 &borrow_position,
                 pool.config.health_config.liability_factor_bps,
@@ -357,7 +373,7 @@ impl Obligation {
 
     // Computes the current debt assets summed value per
     // obligation
-    pub fn compute_debt_value(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_debt_value(&self, e: &Env, prices: &mut Prices) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, borrow_position) in self.borrows.iter() {
@@ -367,8 +383,13 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
-            let new_value_term =
-                Self::compute_pool_debt_value_scaled(e, &pool, &borrow_position, BPS_FACTOR)?;
+            let new_value_term = Self::compute_pool_debt_value_scaled(
+                e,
+                prices,
+                &pool,
+                &borrow_position,
+                BPS_FACTOR,
+            )?;
 
             value_sum = value_sum.checked_add(new_value_term).map_over_or_underflow()?;
         }
@@ -382,6 +403,7 @@ impl Obligation {
     fn compute_collateral_value_scaled_w_close_ltvs(
         &self,
         e: &Env,
+        prices: &mut Prices,
     ) -> Result<(i128, u32), MCError> {
         let mut value_sum = 0_i128;
         let mut positions_with_non_zero_close_ltv_count = 0u32;
@@ -398,6 +420,7 @@ impl Obligation {
             }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
                 e,
+                prices,
                 &pool,
                 &deposit_position,
                 pool.config.health_config.close_ltv_bps,
@@ -412,7 +435,11 @@ impl Obligation {
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
     // obligation, scaling each value with the appropriate `open_ltv_bps` value.
     // As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
-    fn compute_collateral_value_scaled_w_open_ltvs(&self, e: &Env) -> Result<(i128, u32), MCError> {
+    fn compute_collateral_value_scaled_w_open_ltvs(
+        &self,
+        e: &Env,
+        prices: &mut Prices,
+    ) -> Result<(i128, u32), MCError> {
         let mut value_sum = 0i128;
         let mut positions_with_non_zero_close_ltv_count = 0u32;
 
@@ -428,6 +455,7 @@ impl Obligation {
             }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
                 e,
+                prices,
                 &pool,
                 &deposit_position,
                 pool.config.health_config.open_ltv_bps,
@@ -442,6 +470,7 @@ impl Obligation {
     // with provided `scalar_bps` value
     fn compute_pool_collateral_value_scaled(
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         deposit_position: &DepositPosition,
         scalar_bps: i128,
@@ -451,13 +480,14 @@ impl Obligation {
         let supply = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
         let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
 
-        Self::compute_asset_value_scaled_floor(e, total_collateral_tokens, pool, scalar_bps)
+        Self::compute_asset_value_scaled_floor(e, prices, total_collateral_tokens, pool, scalar_bps)
     }
 
     // Computes obligation's debt pool's asset value scaled
     // with provided `scalar_bps` value
     fn compute_pool_debt_value_scaled(
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         borrow_position: &BorrowPosition,
         scalar_bps: i128,
@@ -465,16 +495,17 @@ impl Obligation {
         let &BorrowPosition { d_tokens, .. } = borrow_position;
         let debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
 
-        Self::compute_asset_value_scaled_ceil(e, debt, pool, scalar_bps)
+        Self::compute_asset_value_scaled_ceil(e, prices, debt, pool, scalar_bps)
     }
 
     fn compute_asset_value_scaled_floor(
         e: &Env,
+        prices: &mut Prices,
         amount: i128,
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let price = I256::from_i128(e, oracle::get_asset_price(e, &pool.token_address)?);
+        let price = I256::from_i128(e, oracle::get_asset_price(e, prices, &pool.token_address)?);
         let amount = I256::from_i128(e, amount);
 
         let numerator = amount.mul(&price);
@@ -488,11 +519,12 @@ impl Obligation {
 
     fn compute_asset_value_scaled_ceil(
         e: &Env,
+        prices: &mut Prices,
         amount: i128,
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let price = I256::from_i128(e, oracle::get_asset_price(e, &pool.token_address)?);
+        let price = I256::from_i128(e, oracle::get_asset_price(e, prices, &pool.token_address)?);
         let amount = I256::from_i128(e, amount);
 
         let numerator = amount.mul(&price);
@@ -552,12 +584,13 @@ impl Obligation {
     pub fn borrow(
         &mut self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         original_amount: i128,
         referrer: &Option<Address>,
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
-            self.compute_max_healthy_debt_added_amount(e, pool)?;
+            self.compute_max_healthy_debt_added_amount(e, prices, pool)?;
         if max_healthy_borrow_added_amount <= 0 {
             return Err(MCError::UnhealthyOperation);
         }
@@ -567,9 +600,16 @@ impl Obligation {
             let max_prserving_ur_cap_borrow =
                 pool.compute_available_utilization_ratio_capped_borrow(e)?;
 
-            max_healthy_borrow_added_amount.min(max_prserving_ur_cap_borrow)
+            // The utilization cap is derived from the pool's supply, which still counts the assets
+            // an in-flight flash borrow holds; only the rest can actually be paid out.
+            max_healthy_borrow_added_amount
+                .min(max_prserving_ur_cap_borrow)
+                .min(pool.reducible_available(e)?)
         } else {
             pool.require_borrow_preserves_ur_cap(e, original_amount)?;
+            if original_amount > pool.reducible_available(e)? {
+                return Err(MCError::NotEnoughPoolFunds);
+            }
             if original_amount > max_healthy_borrow_added_amount {
                 return Err(MCError::UnhealthyOperation);
             }
@@ -652,6 +692,7 @@ impl Obligation {
     pub fn withdraw(
         &mut self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         provided_amount: i128,
         referrer: &Option<Address>,
@@ -665,21 +706,22 @@ impl Obligation {
         let amount_capped_to_deposit = all_deposit.min(provided_amount);
 
         let deposit_decrease = if self.borrow_exists() {
-            let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+            let max_healthy =
+                self.compute_max_healthy_collateral_removed_amount(e, prices, pool)?;
 
             if provided_amount == i128::MAX {
-                max_healthy.min(all_deposit).min(pool.total_available()?)
+                max_healthy.min(all_deposit).min(pool.payable_available(e)?)
             } else if amount_capped_to_deposit > max_healthy {
                 return Err(MCError::UnhealthyOperation);
             } else {
                 amount_capped_to_deposit
             }
         } else if provided_amount == i128::MAX {
-            amount_capped_to_deposit.min(pool.total_available()?)
+            amount_capped_to_deposit.min(pool.payable_available(e)?)
         } else {
             amount_capped_to_deposit
         };
-        pool.require_total_available(deposit_decrease)?;
+        pool.require_total_available(e, deposit_decrease)?;
 
         let is_all_withdrawn = deposit_decrease == all_deposit;
 
@@ -772,6 +814,7 @@ impl Obligation {
     pub fn remove_collateral(
         &mut self,
         e: &Env,
+        prices: &mut Prices,
         pool: &Pool,
         original_amount: i128,
         referrer: &Option<Address>,
@@ -783,7 +826,7 @@ impl Obligation {
 
         let collateral_decrease = if self.borrow_exists() {
             let max_possible_collateral_removed_amount =
-                self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+                self.compute_max_healthy_collateral_removed_amount(e, prices, pool)?;
 
             original_amount
                 .min(max_possible_collateral_removed_amount)
@@ -921,6 +964,7 @@ impl Obligation {
     pub fn liquidate(
         &mut self,
         e: &Env,
+        prices: &mut Prices,
         borrow_pool: &Pool,
         collateral_pool: &Pool,
         repay_amount: i128,
@@ -939,8 +983,8 @@ impl Obligation {
             obligation_debt_value_w_liability_factors,
             (obligation_collateral_value_w_close_ltvs, positions_with_non_zero_close_ltv_count),
         ) = (
-            self.compute_debt_value_scaled_w_liability_factors(e)?,
-            self.compute_collateral_value_scaled_w_close_ltvs(e)?,
+            self.compute_debt_value_scaled_w_liability_factors(e, prices)?,
+            self.compute_collateral_value_scaled_w_close_ltvs(e, prices)?,
         );
 
         let min_collateral_value_requirement = compute_min_collateral_threshold_scaled(e)?
@@ -954,7 +998,7 @@ impl Obligation {
         }
 
         let (obligation_debt_value, obligation_collateral_value) =
-            (self.compute_debt_value(e)?, self.compute_collateral_value(e)?);
+            (self.compute_debt_value(e, prices)?, self.compute_collateral_value(e, prices)?);
         let unparameterized_ltv_bps = obligation_debt_value
             .fixed_div_ceil(obligation_collateral_value, BPS_FACTOR)
             .map_over_or_underflow()?;
@@ -976,6 +1020,7 @@ impl Obligation {
         let liquidated_amount = repay_amount.min(position_debt);
         let liquidated_value = oracle::get_asset_value_floor(
             e,
+            prices,
             liquidated_amount,
             &borrow_pool.token_address,
             borrow_pool.token_decimals,
@@ -993,6 +1038,7 @@ impl Obligation {
         let redeemed_collateral_amount_with_max_incentive = {
             let collateral_amount = oracle::get_asset_amount_floor(
                 e,
+                prices,
                 liquidated_value,
                 &collateral_pool.token_address,
                 collateral_pool.token_decimals,
@@ -1045,6 +1091,7 @@ impl Obligation {
 
                 oracle::get_asset_amount_floor(
                     e,
+                    prices,
                     strict_max_collateral_received_value,
                     &collateral_pool.token_address,
                     collateral_pool.token_decimals,
@@ -1064,6 +1111,7 @@ impl Obligation {
         let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe
         let collateral_value_left = oracle::get_asset_value_floor(
             e,
+            prices,
             collateral_left,
             &collateral_pool.token_address,
             collateral_pool.token_decimals,
@@ -1213,6 +1261,8 @@ impl Obligation {
         collateral_pool: &Pool,
         j_tokens_amount: i128,
     ) -> Result<(), MCError> {
+        // A deposit beside a borrow in one pool could be neither liquidated nor covered.
+        self.require_no_borrow_position_exists(&collateral_pool.pool_address)?;
         let mut deposit_position = self
             .deposits
             .get(collateral_pool.pool_address.clone())
@@ -1224,7 +1274,11 @@ impl Obligation {
         Ok(())
     }
 
-    pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
+    pub fn require_no_liquidatable_collateral_exists(
+        &self,
+        e: &Env,
+        prices: &mut Prices,
+    ) -> Result<(), MCError> {
         let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
 
         for (pool_address, deposit_position) in self.deposits.iter() {
@@ -1241,6 +1295,7 @@ impl Obligation {
                 .map_over_or_underflow()?;
             let collateral_value = oracle::get_asset_value_floor(
                 e,
+                prices,
                 all_collateral,
                 &pool.token_address,
                 pool.token_decimals,

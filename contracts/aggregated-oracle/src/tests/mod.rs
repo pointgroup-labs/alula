@@ -11,7 +11,7 @@ use soroban_sdk::{
 use crate::{
     constants::{BPS_FACTOR, PERIODIC_UPDATE_GRACE_PERIOD},
     contract::{AggregatedOracleContract, AggregatedOracleContractClient},
-    storage::{DataKey, OracleConfigInput},
+    storage::{Breaker, DataKey, OracleConfigInput},
     tests::mock_oracle::{
         MockOracleContract, MockOracleContractClient, MockPushOracleContract,
         MockPushOracleContractClient,
@@ -182,7 +182,7 @@ fn test_max_deviation_check() {
         assert!(
             e.storage()
                 .instance()
-                .get::<DataKey, PriceData>(&DataKey::PreviousMedianLastprice(xlm_address.clone()))
+                .get::<DataKey, Breaker>(&DataKey::Breaker(xlm_address.clone()))
                 .is_none()
         );
 
@@ -209,14 +209,13 @@ fn test_max_deviation_check() {
     // -- Verify that the previous lastprice is set --
 
     e.as_contract(&contract_id, || {
-        let previous_median = e
-            .storage()
-            .instance()
-            .get::<DataKey, PriceData>(&DataKey::PreviousMedianLastprice(xlm_address))
-            .unwrap();
+        let breaker =
+            e.storage().instance().get::<DataKey, Breaker>(&DataKey::Breaker(xlm_address)).unwrap();
 
-        assert_eq!(previous_median.price, lastprice_1.price);
-        assert_eq!(previous_median.timestamp, lastprice_1.timestamp);
+        for reference in [breaker.anchor, breaker.last] {
+            assert_eq!(reference.price, lastprice_1.price);
+            assert_eq!(reference.timestamp, e.ledger().timestamp());
+        }
 
         for oracle_config_input in &oracle_config_inputs {
             let address = oracle_config_input.address;
@@ -998,3 +997,187 @@ fn assert_first_event_is_price_deviation(e: &Env, expected_contract: &Address) {
 }
 
 mod mock_oracle;
+
+const USD_PRICE: i128 = 100 * 10_i128.pow(ORACLES_DECIMALS);
+
+/// One push source pricing `asset`, registered with `max_dev_bps` over `window` seconds.
+fn breaker_fixture<'a>(
+    max_dev_bps: u32,
+    window: u64,
+) -> (Env, Asset, MockPushOracleContractClient<'a>, AggregatedOracleContractClient<'a>) {
+    let e = get_default_env();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+    let token = Address::generate(&e);
+    let asset = Asset::Stellar(token.clone());
+    let (_, push_client, push_config) = deploy_push_oracle(&e, &base_asset);
+    push_client.set_price(&asset, &USD_PRICE, &e.ledger().timestamp());
+    let (_, client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        AGGREGATED_ORACLE_MAX_AGE,
+        svec![&e, push_config],
+    );
+    client.add_asset(&Symbol::new(&e, "TKN"), &token, &max_dev_bps, &window);
+    (e, asset, push_client, client)
+}
+
+fn push(
+    e: &Env,
+    source: &MockPushOracleContractClient,
+    asset: &Asset,
+    bps_above: i128,
+    after_s: u64,
+) {
+    e.ledger().with_mut(|li| li.timestamp += after_s);
+    let price = USD_PRICE + USD_PRICE * bps_above / BPS_FACTOR;
+    source.set_price(asset, &price, &e.ledger().timestamp());
+}
+
+/// **Highland #3:** accepted reads no longer move the baseline, so steps under the limit cannot walk the
+/// price past it inside one window.
+#[test]
+fn test_breaker_refuses_a_walk_of_small_steps_within_one_window() {
+    let (e, asset, source, client) = breaker_fixture(200, 3_600);
+    assert!(client.lastprice(&asset).is_some());
+
+    push(&e, &source, &asset, 150, 60);
+    assert!(client.lastprice(&asset).is_some(), "150 bps from the anchor is inside the limit");
+
+    push(&e, &source, &asset, 300, 60);
+    assert!(
+        client.lastprice(&asset).is_none(),
+        "300 bps from the anchor, though only ~148 from the last read"
+    );
+}
+
+/// The anchor rolls after one window, yet a jump from the last accepted read is still refused while that
+/// read is inside the window; after a full idle window the next read re-anchors.
+#[test]
+fn test_breaker_anchor_rolls_but_the_last_read_still_guards() {
+    let (e, asset, source, client) = breaker_fixture(200, 3_600);
+    assert!(client.lastprice(&asset).is_some());
+
+    push(&e, &source, &asset, 150, 3_000);
+    assert!(client.lastprice(&asset).is_some());
+
+    push(&e, &source, &asset, 1_000, 601);
+    assert!(client.lastprice(&asset).is_none(), "the anchor expired, the read 601 s ago did not");
+
+    push(&e, &source, &asset, 1_000, 3_600);
+    assert!(client.lastprice(&asset).is_some(), "both reads are a full window old");
+}
+
+/// **Highland #6:** the window runs on ledger time. With periodic sources 300 s old the old breaker stamped
+/// its baseline 300 s in the past and lapsed early.
+#[test]
+fn test_breaker_window_runs_on_ledger_time_with_periodic_sources() {
+    let e = get_default_env();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+    let token = Address::generate(&e);
+    let asset = Asset::Stellar(token.clone());
+    let (_, source, config) =
+        deploy_mock_oracle(&e, ORACLES_DECIMALS, 360, &base_asset, true, true);
+    let (_, client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        AGGREGATED_ORACLE_MAX_AGE,
+        svec![&e, config],
+    );
+    client.add_asset(&Symbol::new(&e, "TKN"), &token, &200, &600);
+
+    source.set_price(&asset, &USD_PRICE, &(e.ledger().timestamp() - 300));
+    assert!(client.lastprice(&asset).is_some());
+
+    e.ledger().with_mut(|li| li.timestamp += 400);
+    source.set_price(&asset, &(USD_PRICE * 2), &(e.ledger().timestamp() - 300));
+    assert!(client.lastprice(&asset).is_none(), "400 s of ledger time is inside the 600 s window");
+}
+
+/// A source quoting another base would mix units in the median.
+#[test]
+#[should_panic(expected = "Error(Contract, #1006)")]
+fn test_constructor_refuses_a_source_quoting_another_base() {
+    let e = get_default_env();
+    let usd = Asset::Other(Symbol::new(&e, "USD"));
+    let usdc = Asset::Stellar(Address::generate(&e));
+    let (_, _, config) = deploy_mock_oracle(&e, ORACLES_DECIMALS, 360, &usdc, true, true);
+    deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &usd,
+        AGGREGATED_ORACLE_DECIMALS,
+        AGGREGATED_ORACLE_MAX_AGE,
+        svec![&e, config],
+    );
+}
+
+/// A source that fails drops out of the median instead of failing every price.
+#[test]
+fn test_a_failing_source_is_skipped() {
+    let fixture = TestFixture::new();
+    let e = &fixture.e;
+    let token = Address::generate(e);
+    let asset = Asset::Stellar(token.clone());
+    fixture.contract_client.add_asset(&Symbol::new(e, "TKN"), &token, &10_000, &0);
+    for (i, source) in fixture.oracle_clients.iter().enumerate() {
+        let ticker = Asset::Other(Symbol::new(e, "TKN"));
+        let price = USD_PRICE * (i as i128 + 1);
+        source.set_price(&asset, &price, &e.ledger().timestamp());
+        source.set_price(&ticker, &price, &e.ledger().timestamp());
+    }
+    fixture.oracle_clients[2].set_failing(&true);
+
+    let price = fixture.contract_client.lastprice(&asset).expect("two sources still answer");
+    assert_eq!(price.price, 150 * 10_i128.pow(AGGREGATED_ORACLE_DECIMALS));
+}
+
+/// A cached source price is held to the same age ceiling as a fresh one.
+#[test]
+fn test_a_cached_source_price_past_the_max_age_is_not_used() {
+    let e = get_default_env();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+    let token = Address::generate(&e);
+    let asset = Asset::Stellar(token.clone());
+    let (_, source, config) =
+        deploy_mock_oracle(&e, ORACLES_DECIMALS, 3_600, &base_asset, true, true);
+    let (_, client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        AGGREGATED_ORACLE_MAX_AGE,
+        svec![&e, config],
+    );
+    client.add_asset(&Symbol::new(&e, "TKN"), &token, &10_000, &0);
+    source.set_price(&asset, &USD_PRICE, &e.ledger().timestamp());
+    assert!(client.lastprice(&asset).is_some());
+
+    e.ledger().with_mut(|li| li.timestamp += AGGREGATED_ORACLE_MAX_AGE + 40);
+    assert!(client.lastprice(&asset).is_none(), "the cached price is older than the max age");
+}
+
+/// A price that scales down to zero is not a price.
+#[test]
+fn test_a_price_that_scales_to_zero_is_excluded() {
+    let e = get_default_env();
+    let base_asset = Asset::Other(Symbol::new(&e, "USD"));
+    let token = Address::generate(&e);
+    let asset = Asset::Stellar(token.clone());
+    let (_, source, config) = deploy_mock_oracle(&e, 18, 360, &base_asset, true, true);
+    let (_, client) = deploy_aggregated_oracle(
+        &e,
+        &Address::generate(&e),
+        &base_asset,
+        AGGREGATED_ORACLE_DECIMALS,
+        AGGREGATED_ORACLE_MAX_AGE,
+        svec![&e, config],
+    );
+    client.add_asset(&Symbol::new(&e, "TKN"), &token, &10_000, &0);
+    source.set_price(&asset, &5, &e.ledger().timestamp());
+
+    assert!(client.lastprice(&asset).is_none());
+}

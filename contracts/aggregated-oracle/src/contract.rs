@@ -65,9 +65,9 @@ impl AggregatedOracleContract {
 
         storage::set_admin(&e, &admin);
         storage::set_decimals(&e, decimals);
-        storage::set_base_asset(&e, base_asset);
+        storage::set_base_asset(&e, base_asset.clone());
         storage::set_periodic_oracles_price_max_age(&e, periodic_oracles_price_max_age);
-        register_oracles(&e, oracles);
+        register_oracles(&e, &base_asset, oracles);
 
         storage::extend_instance(&e);
     }
@@ -159,7 +159,7 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
 // ---- Helpers ----
 
 /// Retrieves oracles' info and registers it in the contract's instance storage
-fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>) {
+fn register_oracles(e: &Env, base_asset: &Asset, input_oracles_configs: Vec<OracleConfigInput>) {
     let mut oracles_to_register = Vec::<OracleConfig>::new(e);
 
     for input_config in input_oracles_configs {
@@ -167,6 +167,10 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>) {
             input_config;
 
         let oracle_client = PriceFeedClient::new(e, &address);
+
+        if !same_asset(&oracle_client.base(), base_asset) {
+            panic_with_error!(e, AOCError::SourceBaseMismatch);
+        }
 
         let decimals = oracle_client.decimals();
 
@@ -177,6 +181,14 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>) {
     }
 
     storage::set_oracles(e, oracles_to_register);
+}
+
+fn same_asset(a: &Asset, b: &Asset) -> bool {
+    match (a, b) {
+        (Asset::Stellar(a), Asset::Stellar(b)) => a == b,
+        (Asset::Other(a), Asset::Other(b)) => a == b,
+        _ => false,
+    }
 }
 
 fn require_admin(e: &Env) {
@@ -202,24 +214,24 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
     let res_lastprice = compute_median(e, token_address)?;
 
-    if let Some(previous_median_lastprice) =
-        storage::get_previous_median_lastprice(e, token_address)
-    {
-        let PriceData { price: previous_median_price, timestamp: previous_median_timestamp } =
-            previous_median_lastprice.clone();
-        let asset_data =
-            storage::get_asset(e, token_address).expect("Asset must exist at this point");
+    let asset_data = storage::get_asset(e, token_address).expect("Asset must exist at this point");
+    let window = asset_data.max_dev_consecutive_diff_secs;
+    let in_window = |p: &PriceData| current_timestamp.saturating_sub(p.timestamp) <= window;
+    let breaker = storage::get_breaker(e, token_address);
 
-        let time_diff = current_timestamp.saturating_sub(previous_median_timestamp);
-
-        if time_diff <= asset_data.max_dev_consecutive_diff_secs {
-            let abs_price_diff = res_lastprice.price.checked_sub(previous_median_price)?.abs();
-
-            let div_bps = abs_price_diff.fixed_div_ceil(previous_median_price, BPS_FACTOR)?;
+    // Checking the anchor alone would let accepted steps walk the price; the last read keeps the check
+    // alive when the anchor rolls over.
+    if let Some(breaker) = &breaker {
+        for reference in [&breaker.anchor, &breaker.last] {
+            if !in_window(reference) {
+                continue;
+            }
+            let abs_price_diff = res_lastprice.price.checked_sub(reference.price)?.abs();
+            let div_bps = abs_price_diff.fixed_div_ceil(reference.price, BPS_FACTOR)?;
             if div_bps > asset_data.max_dev_bps as i128 {
                 events::PriceDeviationExceedsMax {
                     asset_data,
-                    cached_price_data: previous_median_lastprice,
+                    cached_price_data: reference.clone(),
                     new_price_data: res_lastprice,
                 }
                 .publish(e);
@@ -229,7 +241,13 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         }
     }
 
-    storage::set_previous_median_lastprice(e, token_address, &res_lastprice);
+    // Ledger time, not the sources' timestamp, or the window would lapse early by their age.
+    let read = PriceData { price: res_lastprice.price, timestamp: current_timestamp };
+    let anchor = match breaker {
+        Some(breaker) if in_window(&breaker.anchor) => breaker.anchor,
+        _ => read.clone(),
+    };
+    storage::set_breaker(e, token_address, &storage::Breaker { anchor, last: read });
 
     Some(res_lastprice)
 }

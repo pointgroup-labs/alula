@@ -6,7 +6,7 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    interest_rate_model::InterestRateModel,
+    interest_rate_model::{InterestRate, InterestRateModel},
     math_utils::MathUtils,
     misc::PoolData,
     obligation::{
@@ -83,7 +83,23 @@ macro_rules! generate_adjust_method {
 impl Pool {
     generate_adjust_method!(adjust_total_j_tokens, total_j_tokens);
     generate_adjust_method!(adjust_total_borrowed, total_borrowed);
-    generate_adjust_method!(adjust_total_available, total_available);
+    // Unlike the other totals, the floor is not 0 but the amount an in-flight batch flash borrow
+    // has handed out: those assets still belong to the pool, they are only unavailable to pay out.
+    pub fn adjust_total_available(&mut self, e: &Env, amount: i128) -> Result<(), MCError> {
+        let new_amount = self.total_available.checked_add(amount).map_over_or_underflow()?;
+        let reserved = storage::get_flash_reserved(e, &self.pool_address);
+        if new_amount < reserved {
+            // Both amounts are reported net of the reservation, so the event keeps one basis.
+            events::pool_amount_becomes_negative(
+                e,
+                self.total_available.checked_sub(reserved).map_over_or_underflow()?,
+                new_amount.checked_sub(reserved).map_over_or_underflow()?,
+            );
+            return Err(MCError::InternalError);
+        }
+        self.total_available = new_amount;
+        Ok(())
+    }
     generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
     generate_adjust_method!(adjust_total_collateral, total_collateral);
     generate_adjust_method!(adjust_operation_fees_sum, operation_fees_sum);
@@ -475,8 +491,30 @@ impl Pool {
 
     // ---- `require_` circuits ----
 
-    pub fn require_total_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available()? {
+    // What the pool can actually pay out right now: its available assets less anything an in-flight
+    // batch flash borrow has handed out.
+    pub fn payable_available(&self, e: &Env) -> Result<i128, MCError> {
+        Ok(i128::max(
+            self.total_available()?
+                .checked_sub(storage::get_flash_reserved(e, &self.pool_address))
+                .map_over_or_underflow()?,
+            0,
+        ))
+    }
+
+    // How much `total_available` may still be reduced by: exactly what `adjust_total_available`
+    // permits. Unlike `payable_available` it counts the take-rate fees, as that adjustment does.
+    pub fn reducible_available(&self, e: &Env) -> Result<i128, MCError> {
+        Ok(i128::max(
+            self.total_available
+                .checked_sub(storage::get_flash_reserved(e, &self.pool_address))
+                .map_over_or_underflow()?,
+            0,
+        ))
+    }
+
+    pub fn require_total_available(&self, e: &Env, required: i128) -> Result<(), MCError> {
+        if required > self.payable_available(e)? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -562,7 +600,8 @@ impl Pool {
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
         let total_supply = self.total_supply()?;
         let total_available_adjusted = self.total_available()?;
-        let oracle_asset_price = oracle::get_asset_price(e, &self.token_address)?;
+        let oracle_asset_price =
+            oracle::get_asset_price(e, &mut oracle::Prices::new(e), &self.token_address)?;
 
         Ok(PoolData {
             pool: self,
@@ -641,9 +680,15 @@ impl Pool {
         Ok(self.total_borrowed)
     }
 
-    // Calculates total supply (available + total_borrowed - accumulated reserve fees)
+    // Lenders own cash plus debt less the fee claim, even when that claim exceeds the cash: clamping the cash
+    // alone overprices shares once fees outgrow it.
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        self.total_available()?.checked_add(self.total_borrowed).map_over_or_underflow()
+        let supply = self
+            .total_available
+            .checked_add(self.total_borrowed)
+            .and_then(|s| s.checked_sub(self.take_rate_fees_sum))
+            .map_over_or_underflow()?;
+        Ok(i128::max(supply, 0))
     }
 
     // Tries to get the pool from the contract's storage
@@ -661,20 +706,6 @@ impl Pool {
 
     pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
-    }
-
-    pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        let deposited_tokens = self.compute_tokens_from_j_tokens_floor(e, self.total_j_tokens)?;
-        let collateral_sum =
-            deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
-
-        oracle::get_asset_value_floor(e, collateral_sum, &self.token_address, self.token_decimals)
-    }
-
-    pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
-        let debt = self.total_debt()?;
-
-        oracle::get_asset_value_ceil(e, debt, &self.token_address, self.token_decimals)
     }
 
     // Refreshes the pool with the contract's storage data
@@ -945,13 +976,21 @@ impl PoolConfig {
             fee_config,
             ir_reactivity_constant,
             target_utilization_ratio_bps,
+            interest_rate_model,
             ..
         } = self;
 
+        // A cooldown with no scarcity fee is silently disarmed: the clock is only stamped inside
+        // `if withdraw_scarcity_fee_bps > 0`, which is never true when the maximum is zero.
+        let cooldown_without_a_fee = health_config.withdraw_scarcity_cooldown_s > 0
+            && fee_config.withdraw_max_scarcity_fee_bps == 0;
+
         if health_config.validate().is_err()
             || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
+            || interest_rate_model.validate().is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
             || !is_valid_bps_percent(*target_utilization_ratio_bps)
+            || cooldown_without_a_fee
         {
             return Err(MCError::InvalidLoanPoolConfig);
         }

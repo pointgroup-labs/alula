@@ -39,6 +39,39 @@ impl Default for KinkedIRConfig {
 }
 
 impl InterestRate for KinkedIRConfig {
+    /// Validates the kinked interest rate configuration.
+    /// Ensures that:
+    /// - Utilization ratios for kink points are non-negative, in non-descending order, and do not
+    ///   exceed 100%
+    /// - APRs for kink points are non-negative and in non-descending order
+    fn validate(&self) -> Result<(), &'static str> {
+        let &Self {
+            base_apr_bps,
+            kink1_ur_bps,
+            kink1_apr_bps,
+            kink2_ur_bps,
+            kink2_apr_bps,
+            max_apr_bps,
+        } = self;
+
+        if kink1_ur_bps <= 0 || kink1_ur_bps >= kink2_ur_bps || kink2_ur_bps >= BPS_FACTOR {
+            return Err("Utilization ratios for kink points must be positive, strictly \
+                        increasing and strictly less than 100%");
+        }
+
+        if 0 > base_apr_bps
+            || base_apr_bps > kink1_apr_bps
+            || kink1_apr_bps > kink2_apr_bps
+            || kink2_apr_bps > max_apr_bps
+            || max_apr_bps > MAX_APR_BPS
+        {
+            return Err("APRs for kink points must be non-negative, in non-descending order, and \
+                        max_apr_bps must not exceed MAX_APR_BPS");
+        }
+
+        Ok(())
+    }
+
     fn compute_borrow_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         if utilization_ratio_bps < self.kink1_ur_bps {
             self.compute_pre_kink1_apr(utilization_ratio_bps)
@@ -74,39 +107,6 @@ impl KinkedIRConfig {
         }
 
         config
-    }
-
-    /// Validates the kinked interest rate configuration.
-    /// Ensures that:
-    /// - Utilization ratios for kink points are non-negative, in non-descending order, and do not
-    ///   exceed 100%
-    /// - APRs for kink points are non-negative and in non-descending order
-    fn validate(&self) -> Result<(), &str> {
-        let &Self {
-            base_apr_bps,
-            kink1_ur_bps,
-            kink1_apr_bps,
-            kink2_ur_bps,
-            kink2_apr_bps,
-            max_apr_bps,
-        } = self;
-
-        if kink1_ur_bps <= 0 || kink1_ur_bps >= kink2_ur_bps || kink2_ur_bps >= BPS_FACTOR {
-            return Err("Utilization ratios for kink points must be positive, strictly \
-                        increasing and strictly less than 100%");
-        }
-
-        if 0 > base_apr_bps
-            || base_apr_bps > kink1_apr_bps
-            || kink1_apr_bps > kink2_apr_bps
-            || kink2_apr_bps > max_apr_bps
-            || max_apr_bps > MAX_APR_BPS
-        {
-            return Err("APRs for kink points must be non-negative, in non-descending order, and \
-                        max_apr_bps must not exceed MAX_APR_BPS");
-        }
-
-        Ok(())
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the first kink utilization ratio

@@ -2,6 +2,8 @@
 
 use market::{
     constants::*,
+    error::MCError,
+    interest_rate_model::kinked::KinkedIRConfig,
     obligation::ObligationKey,
     pool::{Pool, PoolConfig, PoolFeeConfig, PoolHealthConfig},
 };
@@ -266,19 +268,17 @@ fn test_apy_gte_apr_active_reactivity() {
         &None,
     );
 
-    // 40% utilization -- below the 65% default target.
-    // When util < target: utilization_diff < 0, so the modifier INCREASES each accrual.
-    // Use short time steps so interest accrual doesn't compound the borrowed amount enough
-    // to push utilization past the target (which would reverse the modifier direction).
+    // 80% utilization -- above the 65% default target, so the modifier rises each accrual, and the
+    // interest only pushes utilization further above it.
     contract_client.borrow(
         &ObligationKey::new(debtor.clone()),
         &usdc_pool_address,
-        &(DEFAULT_DEPOSIT_AMOUNT * 4 / 10),
+        &(DEFAULT_DEPOSIT_AMOUNT * 8 / 10),
         &None,
     );
 
-    // Many short refreshes: each one nudges the modifier upward without materially
-    // shifting the utilization ratio via interest compounding.
+    // Fifty days of stress: the modifier climbs to its ceiling and the year's APY saturates rather than
+    // failing the view.
     for _ in 0..50 {
         e.ledger().with_mut(|li| li.timestamp += SECONDS_PER_DAY);
         contract_client.refresh_pool(&usdc_pool_address);
@@ -369,11 +369,12 @@ fn test_interest_rate_reactivity() {
     e.ledger().with_mut(|li| li.timestamp += 100);
     contract_client.refresh_pool(&usdc_pool_address);
 
-    let decreased_modifier = e.as_contract(&contract_id, || {
+    // Above the target the modifier rises, so borrowing gets dearer while the pool is short of cash.
+    let raised_modifier = e.as_contract(&contract_id, || {
         Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier_bps
     });
 
-    assert!(decreased_modifier < initial_modifier);
+    assert!(raised_modifier > initial_modifier);
 
     contract_client.repay(
         &ObligationKey::new(debtor.clone()),
@@ -387,9 +388,196 @@ fn test_interest_rate_reactivity() {
     e.ledger().with_mut(|li| li.timestamp += 100);
     contract_client.refresh_pool(&usdc_pool_address);
 
-    let increased_modifier = e.as_contract(&contract_id, || {
+    let lowered_modifier = e.as_contract(&contract_id, || {
         Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier_bps
     });
 
-    assert!(increased_modifier > initial_modifier);
+    assert!(lowered_modifier < initial_modifier);
+}
+
+/// A pool set carrying an invalid interest-rate model must be refused when it is queued. Accrual runs
+/// inside deposit, withdraw, repay, borrow and liquidate, so a model that cannot compute an APR takes
+/// the pool out of service entirely.
+#[test]
+fn test_invalid_interest_rate_model_is_refused() {
+    let TestMarketFixture { contract_client, btc_pool_address, .. } = TestMarketFixture::new();
+
+    let with_model = |model: KinkedIRConfig| market::pool::PoolConfig {
+        interest_rate_model: market::interest_rate_model::InterestRateModel::Kinked(model),
+        ..Default::default()
+    };
+    let default_model = KinkedIRConfig::default();
+
+    // Accrual rejects a negative APR, so once such a set is applied every money operation on the
+    // pool fails with `InvalidInputAmount`.
+    let negative_apr =
+        with_model(KinkedIRConfig { base_apr_bps: -1000, kink1_apr_bps: -500, ..default_model });
+    // Refused too, although both are harmless at runtime: equal kinks make the middle branch
+    // unreachable, and a descending slope only lowers the rate.
+    let equal_kinks =
+        with_model(KinkedIRConfig { kink1_ur_bps: 5000, kink2_ur_bps: 5000, ..default_model });
+    let descending =
+        with_model(KinkedIRConfig { kink1_apr_bps: 9000, kink2_apr_bps: 100, ..default_model });
+
+    for (label, config) in [
+        ("negative APRs", negative_apr),
+        ("equal kinks", equal_kinks),
+        ("descending APRs", descending),
+    ] {
+        let queued = contract_client.try_queue_in_pool_set(&btc_pool_address, &config);
+        assert_eq!(
+            queued,
+            Err(Ok(MCError::InvalidLoanPoolConfig)),
+            "{label}: an unusable interest-rate model was accepted"
+        );
+    }
+}
+
+/// The APY view saturates where `u32` bps runs out, and nowhere earlier: 129 703 bps of APR still
+/// compounds to a year that fits, 129 704 bps no longer does.
+#[test]
+fn test_the_apy_saturates_exactly_where_u32_bps_runs_out() {
+    use market::accrual::{Accrual, AccrualModel};
+
+    let e = soroban_sdk::Env::default();
+    let increase_bps = |apr: i128| {
+        AccrualModel::Compounded.compute_multiplier(&e, apr, SECONDS_IN_YEAR).unwrap()
+            / (SCALED_FIXED_POINT_DENOMINATOR / BPS_FACTOR)
+            - BPS_FACTOR
+    };
+    assert!(increase_bps(129_703) <= u32::MAX as i128);
+    assert!(increase_bps(129_704) > u32::MAX as i128);
+    const { assert!(market::interest_rate::APY_SATURATING_APR_BPS > 129_703) };
+}
+
+/// Three pools fully lent with their modifier at the ceiling: at 129 800 bps of APR, just past where a
+/// year stops fitting `u32` bps and below the early return; on the default curve, 4 000 %; and at
+/// `MAX_APR_BPS`, 200 000 %, whose year cannot even be compounded. The market's data view still answers,
+/// every APY saturated, every pool listed.
+#[test]
+fn test_market_data_survives_a_pool_past_the_apy_ceiling() {
+    let f = TestMarketFixture::new();
+    let pools = [
+        (&f.btc_pool_address, Some(12_980)),
+        (&f.usdc_pool_address, None),
+        (&f.gold_pool_address, Some(MAX_APR_BPS)),
+    ];
+    for (address, max_apr_bps) in pools {
+        f.e.as_contract(&f.contract_id, || {
+            let mut pool = Pool::try_get(&f.e, address).unwrap();
+            pool.total_available = 0;
+            pool.take_rate_fees_sum = 0;
+            pool.total_borrowed = 1_000_000_000;
+            pool.total_d_tokens = 1_000_000_000;
+            pool.interest_rate_modifier_bps = MAX_IR_MODIFIER;
+            if let Some(max_apr_bps) = max_apr_bps {
+                let market::interest_rate_model::InterestRateModel::Kinked(curve) =
+                    &mut pool.config.interest_rate_model;
+                curve.max_apr_bps = max_apr_bps;
+            }
+            market::storage::set_pool(&f.e, address, &pool);
+        });
+    }
+
+    let data = f.contract_client.get_market_data();
+    assert_eq!(data.pools_data.len(), f.contract_client.get_all_pools().len());
+    for (address, _) in pools {
+        let stressed = data.pools_data.iter().find(|p| &p.pool.pool_address == address);
+        assert_eq!(stressed.expect("a stressed pool was dropped").apy.borrow_bps, u32::MAX);
+    }
+}
+
+/// **B18:** once take-rate fees outgrow a pool's cash, lenders still own cash plus debt less the fees, so a
+/// deposit buys shares at that backing instead of overpaying for the earlier lenders and the fee bucket.
+#[test]
+fn test_a_deposit_into_a_pool_whose_fees_exceed_its_cash_is_priced_at_its_backing() {
+    let f = TestMarketFixture::new();
+    let (lender, borrower, newcomer) = (
+        ObligationKey::new(f.users[0].clone()),
+        ObligationKey::new(f.users[1].clone()),
+        ObligationKey::new(f.users[2].clone()),
+    );
+    let usdc = &f.usdc_pool_address;
+    f.contract_client.deposit(&lender, usdc, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    f.contract_client.add_collateral(
+        &borrower,
+        &f.gold_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    f.contract_client.borrow(&borrower, usdc, &i128::MAX, &None);
+    f.e.ledger().with_mut(|li| li.timestamp += 365 * 24 * 60 * 60);
+    f.contract_client.refresh_pool(usdc);
+    let pool = f.contract_client.get_pool(usdc);
+    assert!(
+        pool.take_rate_fees_sum > pool.total_available,
+        "the fees-over-cash state was not reached"
+    );
+
+    let backing = |p: &Pool| p.total_available + p.total_borrowed - p.take_rate_fees_sum;
+    let before = f.contract_client.get_pool(usdc);
+    f.contract_client.deposit(&newcomer, usdc, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let after = f.contract_client.get_pool(usdc);
+
+    // The newcomer's shares, valued at what actually backs them, are worth the deposit within one share.
+    let shares = after.total_j_tokens - before.total_j_tokens;
+    let worth = shares * backing(&after) / after.total_j_tokens;
+    let one_share = backing(&after) / after.total_j_tokens + 1;
+    assert!(
+        worth >= DEFAULT_DEPOSIT_AMOUNT - one_share,
+        "a {DEFAULT_DEPOSIT_AMOUNT} deposit bought shares backed by {worth}"
+    );
+}
+
+/// A pool whose fees outgrew its whole backing after a write-off still has debt: it is fully utilized, not
+/// idle, so its remaining borrowers keep paying the top of the curve.
+#[test]
+fn test_a_pool_with_debt_but_no_net_backing_is_fully_utilized() {
+    let f = TestMarketFixture::new();
+    let usdc = &f.usdc_pool_address;
+    f.e.as_contract(&f.contract_id, || {
+        let mut pool = Pool::try_get(&f.e, usdc).unwrap();
+        (pool.total_available, pool.total_borrowed, pool.take_rate_fees_sum) = (0, 20, 50);
+        market::storage::set_pool(&f.e, usdc, &pool);
+    });
+
+    assert_eq!(f.contract_client.get_pool(usdc).compute_utilization_ratio_bps(), Ok(BPS_FACTOR));
+}
+
+/// **B20:** the curve in force until a queued set applies prices that interval; the incoming curve only
+/// prices what follows. Accruing just before `apply_pool_set` must change nothing.
+#[test]
+fn test_apply_pool_set_prices_the_past_at_the_outgoing_curve() {
+    let run = |accrue_first: bool| -> i128 {
+        let f = TestMarketFixture::new();
+        let (lender, borrower) =
+            (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+        let usdc = &f.usdc_pool_address;
+        f.contract_client.deposit(&lender, usdc, &(10 * DEFAULT_DEPOSIT_AMOUNT), &None);
+        f.contract_client.add_collateral(
+            &borrower,
+            &f.gold_pool_address,
+            &(100 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        f.contract_client.borrow(&borrower, usdc, &(5 * DEFAULT_DEPOSIT_AMOUNT), &None);
+
+        let mut steeper = f.contract_client.get_pool(usdc).config;
+        let market::interest_rate_model::InterestRateModel::Kinked(curve) =
+            &mut steeper.interest_rate_model;
+        (curve.base_apr_bps, curve.kink1_apr_bps, curve.kink2_apr_bps, curve.max_apr_bps) =
+            (5_000, 20_000, 40_000, 80_000);
+        f.contract_client.queue_in_pool_set(usdc, &steeper);
+        let period = f.contract_client.get_global_state().update_in_queue_period;
+        f.e.ledger().with_mut(|li| li.timestamp += period);
+
+        if accrue_first {
+            f.contract_client.refresh_pool(usdc);
+        }
+        f.contract_client.apply_pool_set(usdc);
+        f.contract_client.refresh_pool(usdc);
+        f.contract_client.get_pool(usdc).total_borrowed
+    };
+
+    assert_eq!(run(false), run(true));
 }

@@ -1,6 +1,7 @@
 use farms_interface::Delegatee;
 use soroban_sdk::{
-    Address, Bytes, BytesN, Env, Vec, contract, contractclient, contractimpl, token,
+    Address, Bytes, BytesN, ContractExecutable, Env, Vec, contract, contractclient, contractimpl,
+    token,
 };
 
 use crate::{
@@ -192,6 +193,13 @@ pub trait Farms {
         farm_id: BytesN<32>,
     ) -> Result<i128, FCError>;
 
+    /// Takes a deposit back out of warm-up before it activates (non-delegated mode)
+    fn withdraw_pending_deposit(
+        e: Env,
+        delegatee: Delegatee,
+        farm_id: BytesN<32>,
+    ) -> Result<i128, FCError>;
+
     /// Harvests rewards for a specific reward token
     fn harvest(
         e: Env,
@@ -245,7 +253,7 @@ impl Farms for FarmsContract {
         let global_config = GlobalConfig::try_get(&e)?;
         global_config.require_admin();
 
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        e.deployer().update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
 
         Ok(())
     }
@@ -614,7 +622,6 @@ impl Farms for FarmsContract {
 
         let mut farm = Farm::try_get(&e, &farm_id)?;
         farm.require_delegate_authority()?;
-        farm.require_not_frozen()?;
 
         let mut is_new_user = false;
         let mut delegatee_state =
@@ -622,6 +629,12 @@ impl Farms for FarmsContract {
                 is_new_user = true;
                 DelegateeState::new(&e)
             });
+
+        // A frozen farm refuses new stake but takes a decrease: a delegatee that leaves while it is
+        // frozen must stop earning, not keep a stake nothing backs.
+        if new_stake >= delegatee_state.active_stake {
+            farm.require_not_frozen()?;
+        }
 
         processors::set_stake_delegated(
             &e,
@@ -698,12 +711,15 @@ impl Farms for FarmsContract {
         storage::extend_instance(&e);
         delegatee.owner.require_auth();
 
-        let farm = Farm::try_get(&e, &farm_id)?;
+        let mut farm = Farm::try_get(&e, &farm_id)?;
         let mut delegatee_state = DelegateeState::try_get(&e, &farm_id, &delegatee)?;
 
         let farm_token = farm.token();
         let withdrawn_amount = delegatee_state.withdraw_unstaked(&e, &farm)?;
+        farm.total_pending_withdrawals =
+            farm.total_pending_withdrawals.checked_sub(withdrawn_amount).map_over_or_underflow()?;
 
+        farm.set(&e);
         delegatee_state.set(&e, &farm_id, &delegatee);
 
         token::Client::new(&e, &farm_token).transfer(
@@ -715,6 +731,34 @@ impl Farms for FarmsContract {
         events::withdraw_unstaked(&e, farm_id, delegatee, withdrawn_amount);
 
         Ok(withdrawn_amount)
+    }
+
+    fn withdraw_pending_deposit(
+        e: Env,
+        delegatee: Delegatee,
+        farm_id: BytesN<32>,
+    ) -> Result<i128, FCError> {
+        storage::extend_instance(&e);
+        delegatee.owner.require_auth();
+
+        let mut farm = Farm::try_get(&e, &farm_id)?;
+        let mut delegatee_state = DelegateeState::try_get(&e, &farm_id, &delegatee)?;
+
+        let amount = processors::withdraw_pending_deposit(&mut farm, &mut delegatee_state)?;
+
+        let farm_token = farm.token();
+        farm.set(&e);
+        delegatee_state.set(&e, &farm_id, &delegatee);
+
+        token::Client::new(&e, &farm_token).transfer(
+            &e.current_contract_address(),
+            &delegatee.owner,
+            &amount,
+        );
+
+        events::withdraw_pending_deposit(&e, farm_id, delegatee, amount);
+
+        Ok(amount)
     }
 
     fn harvest(

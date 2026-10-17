@@ -1,6 +1,6 @@
 use soroban_sdk::{Vec, contracttype};
 
-use crate::{constants::*, error::FCError, utils::MathUtils};
+use crate::{constants::*, error::FCError};
 
 #[contracttype]
 #[derive(Clone)]
@@ -68,12 +68,12 @@ impl RewardScheduleCurve {
             let overlap_start = from_ts.max(point.ts_start);
             let overlap_end = to_ts.min(segment_end);
 
+            // Saturating: the caller caps the result at `rewards_available`, so an extreme rate pays out
+            // the funded budget instead of failing every refresh and freezing the farm.
             if overlap_start < overlap_end {
                 let duration = (overlap_end - overlap_start) as i128;
-                let duration_rewards =
-                    duration.checked_mul(point.reward_per_time_unit).map_over_or_underflow()?;
-                total_rewards =
-                    total_rewards.checked_add(duration_rewards).map_over_or_underflow()?;
+                total_rewards = total_rewards
+                    .saturating_add(duration.saturating_mul(point.reward_per_time_unit));
             }
         }
 
