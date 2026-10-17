@@ -10,4 +10,5 @@ pub enum RS40ACError {
     NoPendingAdmin = 12,
     FeedForTokenAlreadyInUse = 13,
     TokenForFeedAlreadyInUse = 14,
+    BadFeedDecimals = 15,
 }

@@ -13,3 +13,6 @@ doctest = false
 [dependencies]
 sep-40-oracle = { workspace = true }
 soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
