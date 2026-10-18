@@ -1539,6 +1539,8 @@ fn compute_withdraw_scarcity_fee_bps(
     };
 
     // Calculate the exact withdrawal amount to reach utilization ratio limit
+    // Supply can sit below debt once take-rate fees outgrow cash: both terms below floor at zero, or a
+    // negative allowance refuses even a zero payout.
     let up_to_utilization_ratio_limit_withdrawal =
         if current_utilization_ratio_bps <= utilization_limit_bps && utilization_limit_bps > 0 {
             let safe_supply = pool
@@ -1546,7 +1548,7 @@ fn compute_withdraw_scarcity_fee_bps(
                 .fixed_div_ceil(utilization_limit_bps, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
-            pool_total_supply - safe_supply // safe
+            (pool_total_supply - safe_supply).max(0) // safe
         } else {
             0
         };
@@ -1554,7 +1556,7 @@ fn compute_withdraw_scarcity_fee_bps(
     // Validate Scarcity Limits
     if new_utilization_ratio_bps > utilization_limit_bps {
         let supply_after_safe = pool_total_supply - up_to_utilization_ratio_limit_withdrawal; // safe
-        let available_liquidity_at_threshold = supply_after_safe - pool.total_borrowed; // safe
+        let available_liquidity_at_threshold = (supply_after_safe - pool.total_borrowed).max(0); // safe
 
         // The amount of the remaining available liquidity allowed to be withdrawn
         // if utilization ratio exceeds the utilization ratio limit
