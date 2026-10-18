@@ -1225,53 +1225,57 @@ mod dust_close {
 
     use crate::TestMarketFixture;
 
-    // Fees past cash put supply below debt; the scarcity brake must still let a zero-token position close.
+    // Fees past cash put supply below debt; the scarcity brake must still let a zero-token position close,
+    // at the default utilization limit and at 100%, where each floors a different term.
     #[test]
     fn test_dust_withdraw_closes_when_fees_exceed_cash() {
         let TestMarketFixture { e, contract_id, .. } = TestMarketFixture::new();
-        e.as_contract(&contract_id, || {
-            let address = Address::generate(&e);
-            let mut pool = Pool {
-                pool_address: address.clone(),
-                token_address: address.clone(),
-                token_symbol: String::from_str(&e, "S"),
-                token_decimals: 7,
-                total_borrowed: 1_000,
-                total_d_tokens: 0,
-                total_j_tokens: 10_000_000,
-                total_available: 100,
-                total_collateral: 0,
-                name: String::from_str(&e, "N"),
-                config: PoolConfig::default(),
-                last_accrual_timestamp: 0,
-                borrow_apr_bps: 0,
-                supply_apr_bps: 0,
-                operation_fees_sum: 0,
-                take_rate_fees_sum: 200,
-                interest_rate_modifier_bps: 0,
-                farm_supply: None,
-                farm_debt: None,
-                bad_debt_lock_d: 0,
-                bad_debt_request_count: 0,
-            };
-            pool.config.health_config.withdraw_scarcity_limit_bps = BPS_FACTOR;
-            assert!(pool.total_supply().unwrap() < pool.total_borrowed);
+        for limit in [PoolConfig::default().health_config.utilization_ratio_limit_bps, BPS_FACTOR] {
+            e.as_contract(&contract_id, || {
+                let address = Address::generate(&e);
+                let mut pool = Pool {
+                    pool_address: address.clone(),
+                    token_address: address.clone(),
+                    token_symbol: String::from_str(&e, "S"),
+                    token_decimals: 7,
+                    total_borrowed: 1_000,
+                    total_d_tokens: 0,
+                    total_j_tokens: 10_000_000,
+                    total_available: 100,
+                    total_collateral: 0,
+                    name: String::from_str(&e, "N"),
+                    config: PoolConfig::default(),
+                    last_accrual_timestamp: 0,
+                    borrow_apr_bps: 0,
+                    supply_apr_bps: 0,
+                    operation_fees_sum: 0,
+                    take_rate_fees_sum: 200,
+                    interest_rate_modifier_bps: 0,
+                    farm_supply: None,
+                    farm_debt: None,
+                    bad_debt_lock_d: 0,
+                    bad_debt_request_count: 0,
+                };
+                pool.config.health_config.withdraw_scarcity_limit_bps = BPS_FACTOR;
+                pool.config.health_config.utilization_ratio_limit_bps = limit;
+                assert!(pool.total_supply().unwrap() < pool.total_borrowed);
 
-            let mut obligation = Obligation::new(&e);
-            obligation.deposits.set(
-                address.clone(),
-                DepositPosition {
-                    j_tokens: 1,
-                    collateral: 0,
-                    originally_deposited: 3,
-                    last_scarcity_withdraw_ts: 0,
-                },
-            );
-            obligation.positions_count = 1;
+                let mut obligation = Obligation::new(&e);
+                obligation.deposits.set(
+                    address.clone(),
+                    DepositPosition {
+                        j_tokens: 1,
+                        collateral: 0,
+                        originally_deposited: 3,
+                        last_scarcity_withdraw_ts: 0,
+                    },
+                );
+                obligation.positions_count = 1;
 
-            let outcome = obligation.withdraw(&e, &mut Prices::new(&e), &pool, 1, &None);
-            assert_eq!(outcome.unwrap().withdrawer_to_receive, 0);
-            assert!(obligation.deposits.get(address).is_none());
-        });
+                let outcome = obligation.withdraw(&e, &mut Prices::new(&e), &pool, 1, &None);
+                assert_eq!(outcome.unwrap().withdrawer_to_receive, 0);
+                assert!(obligation.deposits.get(address).is_none());
+            });
+        }
     }
 }
