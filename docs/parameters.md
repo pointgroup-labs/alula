@@ -46,9 +46,11 @@ supply_APR = 30% × 0.70 × 0.90 = 18.9%
 supply_APY ≈ 20.8%
 ```
 
-`total_supply` here means available liquidity plus outstanding borrows.
-Protocol fees that have accrued but not yet been distributed are excluded from
-available liquidity, so they aren't part of what lenders can withdraw against.
+`total_supply` here means available liquidity plus outstanding borrows, less
+protocol fees that have accrued but not yet been distributed, and `U` is capped
+at 100 %. The fees are excluded even when they exceed the pool's cash, so shares
+are always priced at what actually backs them, and lenders can withdraw only
+the cash beyond the fees.
 
 Collateral doesn't earn. Assets you add with `add_collateral` back borrowing
 and sit in a separate balance from the lendable pool. Only `deposit` mints
@@ -131,7 +133,9 @@ either.
 `take_rate_beneficiaries`, `operation_fee_beneficiaries` and `referrers` are
 address-to-share maps that decide where fees go. The first two have to sum to
 exactly 100%, referrer shares to at most 100%. Sending a share to the insurance
-fund is how the buffer in §6 gets funded.
+fund is how the buffer in §6 gets funded. A beneficiary that cannot receive
+blocks `distribute_pool_fees` until the admin replaces it; the setters skip it,
+and its share stays in the bucket for the new map.
 
 ---
 
@@ -209,10 +213,8 @@ zero, so every withdrawal from a pool carrying any debt reverts with
 flag, but it can starve them to nothing through those two parameters — under
 the usual 12-hour pool-config timelock.
 
-A pool with a farm attached (§9) has a second such path. Withdrawing refreshes
-the farm stake, and the farms contract refuses that call while the farm is
-frozen, so the withdrawal reverts with it. The farm admin is therefore also a
-party that can hold up exits from the pool.
+A farm attached to the pool (§9) is not such a path: the market ignores a
+refused stake push, so a frozen or failing farm cannot hold up an exit.
 
 ### Market status
 
@@ -231,8 +233,8 @@ liquidation work at every freeze level, and the test suite asserts this
 directly (`tests/src/update.rs`). Freezing a market stops it taking on new
 risk; it doesn't hold your funds.
 
-Two things outside the status system can pause withdrawals: the bad-debt lock
-below, and a frozen incentive farm attached to the pool (§9).
+One thing outside the status system can pause withdrawals: the bad-debt lock
+below.
 
 The insurance fund can freeze the market on its own authority, as a circuit
 breaker. It can't set or clear the `…ByAdmin` variants, which only the market
@@ -262,7 +264,7 @@ in everything above.
 
 | Parameter                    | Meaning                                                        | Default        | Bounds                |
 |------------------------------|----------------------------------------------------------------|----------------|-----------------------|
-| `max_positions`              | Max simultaneous positions per obligation                      | `20`           | `2..=25`              |
+| `max_positions`              | Max simultaneous positions per obligation                      | `10`           | `2..=10`              |
 | `min_collateral_value_cents` | Dust floor each borrow-backing collateral position must retain | `500` ($5)     | `0..=10000` ($100)    |
 | `bad_debt_lock_d`            | Lock duration set on a pool when a bad-debt claim opens        | `43200` (12 h) | `0..=432000` (5 days) |
 
@@ -277,7 +279,7 @@ including the admin.
 | `insurance_fund`         | Insurance fund contract address                       | any                            |
 | `name`                   | Market name                                           | any                            |
 | `insolvency_ltv_bps`     | LTV above which a liquidation is treated as insolvent | `9500..=10000`, default `9850` |
-| `update_in_queue_period` | Governance timelock for all config changes            | not range-checked              |
+| `update_in_queue_period` | Governance timelock for all config changes            | 60 s to 10 years               |
 | `is_owned`               | Whether the market has governance at all              | —                              |
 
 `is_owned = false` makes the market immutable. Every path that changes
@@ -290,10 +292,10 @@ so a stalled feed stops price-dependent operations instead of letting them run
 on old data.
 
 `update_in_queue_period` is worth a look before you supply. It's the delay on
-every economic change, it's chosen freely at deployment, and the contract
-doesn't enforce a minimum. The test suite uses 24 hours throughout, but that's
-a convention rather than a rule. Read the deployed value from
-`get_global_state()`.
+every economic change, and it's chosen at deployment. The contract only
+requires 60 s to 10 years, and 60 s is too short to react to. The test suite
+uses 24 hours throughout, but that's a convention rather than a rule. Read the
+deployed value from `get_global_state()`.
 
 ---
 
@@ -340,12 +342,12 @@ numbers `get_apy()` returns.
 
 | Parameter                   | Meaning                                                      | Bounds                     |
 |-----------------------------|--------------------------------------------------------------|----------------------------|
-| `reward_token`              | Token paid out; up to 10 per farm                            | `≤ 10` rewards             |
-| `reward_type`               | `Proportional` (split by stake) or `Constant`                | —                          |
-| `reward_schedule_curve`     | Emission schedule: `(ts_start, reward_per_time_unit)` points | `1..=20` points, ascending |
+| `reward_token`              | Token paid out                                               | `≤ 4` per market farm, `≤ 10` standalone |
+| `reward_type`               | `Proportional` (split by stake); `Constant` is refused       | —                          |
+| `reward_schedule_curve`     | Emission schedule: `(ts_start, reward_per_time_unit)` points | `1..=4` market, `1..=20` standalone |
 | `treasury_fee_bps`          | Cut of rewards taken by the farm treasury                    | `0..=2000` (20%)           |
-| `deposit_cap`               | Cap on total staked                                          | `≥ 0`                      |
-| `min_stake_amount`          | Minimum stake to participate                                 | `≥ 0`                      |
+| `deposit_cap`               | Cap on total staked plus deposits in warm-up                 | `≥ 0`                      |
+| `min_stake_amount`          | Minimum stake, and the least a partial unstake may leave     | `≥ 0`                      |
 | `min_harvest_delay`         | Minimum gap between harvests                                 | `≤ 86400` (24 h)           |
 | `is_harvest_permissionless` | Whether anyone can trigger a harvest                         | —                          |
 | `is_reward_once_enabled`    | One-shot reward mode                                         | —                          |
@@ -356,16 +358,25 @@ with `set_reward_schedule` and pull unfunded rewards back out with
 rate, not a promise.
 
 The farm admin is a different key from the market admin, and farms can be
-frozen. The Market syncs stake with no fallback if that call fails, so a frozen
-farm makes every stake-touching operation on the pool revert, withdrawal
-included. This is the one way someone other than the market admin can block
-exits, so it's worth finding out who holds the farm admin key before supplying
-to a pool that has incentives on it.
+frozen. The Market ignores a stake push the farm refuses, so a frozen farm
+cannot block deposits or withdrawals; the affected stakes go stale until
+`refresh_farm_stakes(obligation_key, pools)` re-pushes them (anyone can call it,
+and an obligation that no longer exists pushes zero). Debt in a position settled
+as bad debt stops earning in the attached farms when the cover is issued.
+Detaching or replacing a farm leaves its stakes earning, so end its rewards
+first: set its schedule to a zero rate and withdraw what is unused.
+
+Any pool can be farmed on its supply side, its debt side or both. An obligation
+holds one position per pool and at most ten, so a bad-debt cover pushes at most
+ten stakes and settles them all within the same transaction.
 
 The farm contract also has locking parameters: `locking_duration` (up to 365
 days), `deposit_warmup_period`, `withdrawal_cooldown_period` and
-`early_withdrawal_penalty_bps`. These only apply to non-delegated farms. Farms
-attached to a market are always delegated, so none of them affect lending LPs.
+`early_withdrawal_penalty_bps`. These only apply to non-delegated (standalone
+staking) farms. The lock, penalty and cooldown cannot change while anything is
+staked, warming up or cooling down, nor the warm-up period while a deposit is
+warming up; such a deposit can be taken back with `withdraw_pending_deposit`. Farms attached to a market are always delegated, so
+none of them affect lending LPs.
 
 ---
 
@@ -374,18 +385,19 @@ attached to a market are always delegated, so none of them affect lending LPs.
 The market's `oracle` address is fixed at deployment (§7). Any price older than
 6 minutes is rejected, as is any price timestamped in the future, so a stalled
 feed halts price-dependent operations rather than letting them run on stale
-data.
+data. A price is read at most once per call and never reused by a later
+transaction, even in the same ledger.
 
 If the market points at the Aggregated Oracle, that contract takes a median
 across several SEP-40 feeds and adds a deviation check on top.
 
-| Parameter                        | Meaning                                                               | Bounds                      | Changeable            |
-|----------------------------------|-----------------------------------------------------------------------|-----------------------------|-----------------------|
-| `oracles`                        | Source feeds aggregated into a median                                 | `1..=10`                    | fixed at construction |
-| `base_asset`, `decimals`         | Quote asset and price precision                                       | —                           | fixed at construction |
-| `periodic_oracles_price_max_age` | Staleness ceiling for cadence-based feeds                             | `60..=43200` (1 min – 12 h) | fixed at construction |
-| `max_dev_bps`                    | Max move between two consecutive medians before the price is rejected | per asset                   | fixed at registration |
-| `max_dev_consecutive_diff_secs`  | Window over which that deviation check applies                        | per asset                   | fixed at registration |
+| Parameter                        | Meaning                                                                | Bounds                      | Changeable            |
+|----------------------------------|------------------------------------------------------------------------|-----------------------------|-----------------------|
+| `oracles`                        | Source feeds aggregated into a median                                  | `1..=10`                    | fixed at construction |
+| `base_asset`, `decimals`         | Quote asset and price precision                                        | —                           | fixed at construction |
+| `periodic_oracles_price_max_age` | Staleness ceiling for cadence-based feeds                              | `60..=43200` (1 min – 12 h) | fixed at construction |
+| `max_dev_bps`                    | Max move from the window's first accepted median, or from the last one | per asset                   | fixed at registration |
+| `max_dev_consecutive_diff_secs`  | Window, in ledger time, over which both reference medians apply        | per asset                   | fixed at registration |
 
 Both deviation parameters are written once, by `add_asset`, and there is no way
 to change them afterwards: re-registering an asset fails with
@@ -393,8 +405,15 @@ to change them afterwards: re-registering an asset fails with
 call. Correcting either value means deploying a new oracle and repointing the
 market at it. Get them right before the first `add_asset`.
 
+Every source must quote `base_asset`, checked at construction. A source that
+fails or answers with a price that scales to zero is skipped, like one that does
+not know the asset.
+
 The deviation check cuts both ways. If the median moves more than `max_dev_bps`
-inside `max_dev_consecutive_diff_secs`, the oracle returns no price at all.
+from either reference inside `max_dev_consecutive_diff_secs`, the oracle returns
+no price at all, until both references age out: at most one window after the
+last accepted read. Accepted reads do not move the window's first reference, so
+small steps cannot walk the price past the limit.
 That stops a manipulated feed from driving liquidations, and it also stops
 liquidations during a real, fast crash, which is exactly when bad debt forms.
 Worth checking on any specific deployment, along with the source count: at
@@ -443,8 +462,7 @@ Before supplying, read these on-chain and check they match what you were told:
    it.
 9. The number of oracle sources and `max_dev_bps`: whether a single feed can
    move your market, and how easily the circuit breaker halts liquidations.
-10. Whether the pool has a farm attached, and who holds the farm admin key. A
-    frozen farm blocks withdrawals on that pool.
+10. Whether the pool has a farm attached, and who holds the farm admin key.
 11. Anything pending via `get_queued_pool_set()` /
     `get_market_queued_in_update()`.
 

@@ -13,6 +13,10 @@ pub trait InterestRate {
     /// `Ok(borrow_apr)` if no overflow occurs. `Err(MCError::OverOrUnderflow)`
     /// otherwise
     fn compute_borrow_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError>;
+
+    /// Validates the model's parameters. Accrual runs inside every money operation, so a model that
+    /// cannot produce a usable APR takes the pool out of service until a new config is applied.
+    fn validate(&self) -> Result<(), &'static str>;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

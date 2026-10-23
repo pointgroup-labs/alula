@@ -31,6 +31,7 @@ jobs:
           - aggregated_oracle
           - controlled_insurance_fund
           - redstone_sep_40_adapter
+          - chainlink_sep_40_adapter
           - aqua_swap_provider
           - soroswap_swap_provider
           - farms

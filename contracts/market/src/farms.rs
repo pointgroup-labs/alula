@@ -4,7 +4,7 @@
 //! when their positions change (deposit, withdraw, borrow, repay, liquidate).
 
 use farms_interface::FarmsClient;
-use soroban_sdk::{Address, BytesN, Env};
+use soroban_sdk::{Address, BytesN, Env, Vec};
 
 use crate::{
     error::MCError,
@@ -23,6 +23,28 @@ pub enum FarmKind {
 
 /// Syncs a user's stake with the farms contract for a specific pool.
 /// No-op if no farm is configured for the pool/kind
+/// Supply farms pay on j-tokens; debt farms on d-tokens, except debt under a bad-debt request, which no
+/// longer earns.
+fn farm_stake(obligation: &Obligation, pool_address: &Address, kind: FarmKind) -> i128 {
+    match kind {
+        FarmKind::Supply => {
+            obligation.deposits.get(pool_address.clone()).map(|d| d.j_tokens).unwrap_or(0)
+        }
+        FarmKind::Debt => {
+            let under_bad_debt = obligation
+                .insurance_fund_requests_ids
+                .keys()
+                .iter()
+                .any(|(pool, _)| pool == *pool_address);
+            if under_bad_debt {
+                0
+            } else {
+                obligation.borrows.get(pool_address.clone()).map(|b| b.d_tokens).unwrap_or(0)
+            }
+        }
+    }
+}
+
 pub fn refresh_pool_farm_stake(
     e: &Env,
     farms_contract: &Address,
@@ -40,36 +62,39 @@ pub fn refresh_pool_farm_stake(
         return Ok(());
     };
 
-    let stake = match kind {
-        FarmKind::Supply => {
-            obligation.deposits.get(pool.pool_address.clone()).map(|d| d.j_tokens).unwrap_or(0)
-        }
-        FarmKind::Debt => {
-            obligation.borrows.get(pool.pool_address.clone()).map(|b| b.d_tokens).unwrap_or(0)
-        }
-    };
+    let stake = farm_stake(obligation, &pool.pool_address, kind);
 
-    FarmsClient::new(e, farms_contract).set_stake_delegated(
-        &obligation_key.into(),
-        farm_id,
-        &stake,
-    );
+    // Fallible on purpose: a refusing farm would otherwise abort every deposit and withdraw on the
+    // pool, trapping lenders' funds. A stale stake traps nothing.
+    if FarmsClient::new(e, farms_contract)
+        .try_set_stake_delegated(&obligation_key.into(), farm_id, &stake)
+        .is_err()
+    {
+        events::farm_stake_push_failed(
+            e,
+            pool.pool_address.clone(),
+            farm_id.clone(),
+            obligation_key.clone(),
+            stake,
+        );
+    }
 
     Ok(())
 }
 
-/// Refreshes all farms for all pools in an obligation.
-/// Returns count of (supply_farms, debt_farms) refreshed
-pub fn refresh_all_obligation_farms(
+/// Re-pushes both farms of each listed pool; an absent obligation pushes zero.
+pub fn refresh_farm_stakes(
     e: &Env,
     farms_contract: &Address,
     obligation_key: &ObligationKey,
-) -> Result<(u32, u32), MCError> {
-    let obligation = Obligation::try_get(e, obligation_key)?;
+    pools: &Vec<Address>,
+) -> Result<(), MCError> {
+    let obligation =
+        storage::get_obligation(e, obligation_key).unwrap_or_else(|| Obligation::new(e));
     let mut num_supply_farms = 0u32;
     let mut num_debt_farms = 0u32;
 
-    for pool_address in obligation.deposits.keys() {
+    for pool_address in pools.iter() {
         let pool = Pool::try_get(e, &pool_address)?;
         if pool.farm_supply.is_some() {
             refresh_pool_farm_stake(
@@ -82,10 +107,6 @@ pub fn refresh_all_obligation_farms(
             )?;
             num_supply_farms += 1;
         }
-    }
-
-    for pool_address in obligation.borrows.keys() {
-        let pool = Pool::try_get(e, &pool_address)?;
         if pool.farm_debt.is_some() {
             refresh_pool_farm_stake(
                 e,
@@ -101,7 +122,7 @@ pub fn refresh_all_obligation_farms(
 
     events::obligation_farms_refreshed(e, &obligation_key.user, num_supply_farms, num_debt_farms);
 
-    Ok((num_supply_farms, num_debt_farms))
+    Ok(())
 }
 
 /// Refreshes a pool's farm stake if farms contract is configured.

@@ -6,3 +6,6 @@ mod error;
 pub mod events;
 mod redstone;
 mod storage;
+
+#[cfg(test)]
+mod tests;

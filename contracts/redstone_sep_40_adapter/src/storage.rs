@@ -3,6 +3,14 @@ use soroban_sdk::{Address, Env, Vec, contracttype, panic_with_error};
 
 use crate::{constants::*, error::RS40ACError};
 
+/// A token's RedStone feed, with the decimals it reported when it was added.
+#[contracttype]
+#[derive(Clone)]
+pub struct Feed {
+    pub address: Address,
+    pub decimals: u32,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -12,7 +20,7 @@ pub enum DataKey {
     Resolution,
     /// Vec<Asset>: all registered assets
     Assets,
-    /// Forward: token address → RedStone price feed contract address
+    /// Forward: token address → its `Feed`
     Feed(Address),
     /// Reverse: price feed contract address → token address (duplicate-feed guard)
     FeedToken(Address),
@@ -48,20 +56,20 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
         .unwrap_or_else(|| panic_with_error!(e, RS40ACError::InternalError))
 }
 
-pub fn set_feed(e: &Env, token_address: &Address, price_feed: &Address) {
+pub fn set_feed(e: &Env, token_address: &Address, feed: &Feed) {
     let fwd = DataKey::Feed(token_address.clone());
-    e.storage().persistent().set(&fwd, price_feed);
+    e.storage().persistent().set(&fwd, feed);
     extend_persistent(e, &fwd);
 
-    let rev = DataKey::FeedToken(price_feed.clone());
+    let rev = DataKey::FeedToken(feed.address.clone());
     e.storage().persistent().set(&rev, token_address);
     extend_persistent(e, &rev);
 }
 
-pub fn get_feed(e: &Env, token_address: &Address) -> Option<Address> {
+pub fn get_feed(e: &Env, token_address: &Address) -> Option<Feed> {
     let key = DataKey::Feed(token_address.clone());
 
-    let feed: Option<Address> = e.storage().persistent().get(&key);
+    let feed: Option<Feed> = e.storage().persistent().get(&key);
     if feed.is_some() {
         extend_persistent(e, &key);
     }

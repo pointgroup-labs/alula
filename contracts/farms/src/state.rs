@@ -1,12 +1,12 @@
 use farms_interface::Delegatee;
-use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype, map as smap, vec as svec};
+use soroban_fixed_point_math::SorobanFixedPoint;
+use soroban_sdk::{Address, BytesN, Env, I256, Map, Vec, contracttype, map as smap, vec as svec};
 
 use crate::{
     constants::*,
     error::FCError,
-    math::reward_curve::RewardScheduleCurve,
-    processors::{self, calculate_pending_reward, effective_stake},
+    math::{reward_curve::RewardScheduleCurve, scaled},
+    processors::{self, effective_stake},
     storage,
     utils::MathUtils,
 };
@@ -71,6 +71,9 @@ pub struct Farm {
     pub rewards: Vec<Address>,
     pub current_slashed_amount: i128,
     pub cumulative_slashed_amount: i128,
+    /// Warm-up deposits and cooldown withdrawals the farm holds outside `total_staked`.
+    pub total_pending_deposits: i128,
+    pub total_pending_withdrawals: i128,
 }
 
 impl Farm {
@@ -86,6 +89,8 @@ impl Farm {
             proposed_admin: None,
             current_slashed_amount: 0,
             cumulative_slashed_amount: 0,
+            total_pending_deposits: 0,
+            total_pending_withdrawals: 0,
         }
     }
 
@@ -146,13 +151,9 @@ impl Farm {
                 };
 
                 if denominator > 0 {
-                    let rps_delta = rewards_to_issue
-                        .fixed_div_floor(denominator, SCALE_FACTOR)
-                        .map_over_or_underflow()?;
                     reward_info.accum_rewards_per_share_sc = reward_info
                         .accum_rewards_per_share_sc
-                        .checked_add(rps_delta)
-                        .map_over_or_underflow()?;
+                        .add(&scaled::rps_delta(e, rewards_to_issue, denominator));
                 }
 
                 reward_info.rewards_available = reward_info
@@ -163,10 +164,9 @@ impl Farm {
                     .rewards_issued_unclaimed
                     .checked_add(rewards_to_issue)
                     .map_over_or_underflow()?;
-                reward_info.rewards_issued_cumulative = reward_info
-                    .rewards_issued_cumulative
-                    .checked_add(rewards_to_issue)
-                    .map_over_or_underflow()?;
+                // A lifetime total that refills can carry past i128; it only reports.
+                reward_info.rewards_issued_cumulative =
+                    reward_info.rewards_issued_cumulative.saturating_add(rewards_to_issue);
             }
 
             reward_info.last_issuance_ts = current_ts;
@@ -178,9 +178,9 @@ impl Farm {
 
     /// Computes a snapshot of each reward's accumulated RPS as if `refresh_rewards`
     /// had been called, but without persisting any changes to storage.
-    pub fn simulate_refresh_rewards(&self, e: &Env) -> Result<Map<Address, i128>, FCError> {
+    pub fn simulate_refresh_rewards(&self, e: &Env) -> Result<Map<Address, I256>, FCError> {
         let current_ts = e.ledger().timestamp();
-        let mut rps_snapshot: Map<Address, i128> = smap![e];
+        let mut rps_snapshot: Map<Address, I256> = smap![e];
 
         for reward_token in self.rewards.iter() {
             let reward_info = RewardInfo::try_get(e, &self.id, &reward_token)?;
@@ -197,10 +197,7 @@ impl Farm {
                 };
 
                 if denominator > 0 {
-                    let rps_delta = rewards_to_issue
-                        .fixed_div_floor(denominator, SCALE_FACTOR)
-                        .map_over_or_underflow()?;
-                    accum_rps = accum_rps.checked_add(rps_delta).map_over_or_underflow()?;
+                    accum_rps = accum_rps.add(&scaled::rps_delta(e, rewards_to_issue, denominator));
                 }
             }
 
@@ -227,7 +224,14 @@ impl Farm {
         match (&self.config.delegation, &new_config.delegation) {
             (Delegation::Delegated(_), Delegation::Delegated(_)) => {}
             (Delegation::NonDelegated(old), Delegation::NonDelegated(new)) => {
-                let has_active_stakes = self.total_staked != 0;
+                let has_active_stakes = self.total_staked != 0
+                    || self.total_pending_deposits != 0
+                    || self.total_pending_withdrawals != 0;
+                if self.total_pending_deposits != 0
+                    && old.deposit_warmup_period != new.deposit_warmup_period
+                {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
                 let locking_params_changed = old.locking_ts != new.locking_ts
                     || old.locking_duration != new.locking_duration
                     || !matches!(
@@ -266,7 +270,7 @@ impl Farm {
         e: &Env,
         reward_config: &RewardConfig,
     ) -> Result<u32, FCError> {
-        self.require_can_initialize_reward(&reward_config.reward_token)?;
+        self.require_can_initialize_reward(reward_config)?;
 
         let reward_index = self.rewards.len();
         self.rewards.push_back(reward_config.reward_token.clone());
@@ -277,8 +281,17 @@ impl Farm {
         Ok(reward_index)
     }
 
-    fn require_can_initialize_reward(&self, reward_token: &Address) -> Result<(), FCError> {
-        if self.rewards.len() >= MAX_FARM_NUM_REWARDS {
+    fn require_can_initialize_reward(&self, reward_config: &RewardConfig) -> Result<(), FCError> {
+        // Each staker counts once and a position is one owner-and-seed pair, free to split, so an equal
+        // share per staker is capturable.
+        if matches!(reward_config.reward_type, RewardType::Constant) {
+            return Err(FCError::InvalidConfig);
+        }
+        self.require_curve_fits(&reward_config.reward_schedule_curve)?;
+        let reward_token = &reward_config.reward_token;
+        let max_rewards =
+            if self.is_delegated() { MAX_DELEGATED_FARM_REWARDS } else { MAX_FARM_NUM_REWARDS };
+        if self.rewards.len() >= max_rewards {
             return Err(FCError::MaxFarmNumRewardsReached);
         }
         if self.rewards.contains(reward_token) {
@@ -320,6 +333,17 @@ impl Farm {
 
     pub fn token(&self) -> Address {
         self.config.token.clone()
+    }
+
+    fn is_delegated(&self) -> bool {
+        matches!(self.config.delegation, Delegation::Delegated(_))
+    }
+
+    pub fn require_curve_fits(&self, curve: &RewardScheduleCurve) -> Result<(), FCError> {
+        if self.is_delegated() && curve.points.len() > MAX_DELEGATED_CURVE_POINTS {
+            return Err(FCError::InvalidRewardScheduleCurve);
+        }
+        Ok(())
     }
 
     pub fn non_delegated_config(&self) -> Result<&NonDelegatedFarmConfig, FCError> {
@@ -392,7 +416,9 @@ impl FarmConfig {
             if !(0..=BPS_FACTOR).contains(&nd.early_withdrawal_penalty_bps) {
                 return Err(FCError::InvalidConfig);
             }
-            if nd.locking_duration > MAX_LOCKING_DURATION {
+            let expiry_overflows = matches!(nd.locking_mode, LockingMode::WithExpiry)
+                && nd.locking_ts.checked_add(nd.locking_duration).is_none();
+            if nd.locking_duration > MAX_LOCKING_DURATION || expiry_overflows {
                 return Err(FCError::InvalidConfig);
             }
             if nd.deposit_warmup_period > MAX_DEPOSIT_WARMUP_PERIOD {
@@ -467,7 +493,7 @@ pub struct RewardInfo {
     pub reward_type: RewardType,
     pub rewards_issued_unclaimed: i128,
     pub rewards_issued_cumulative: i128,
-    pub accum_rewards_per_share_sc: i128,
+    pub accum_rewards_per_share_sc: I256,
     pub accumulated_treasury_fees: i128,
     pub reward_schedule_curve: RewardScheduleCurve,
 }
@@ -482,7 +508,7 @@ impl RewardInfo {
             rewards_available: 0,
             rewards_issued_unclaimed: 0,
             rewards_issued_cumulative: 0,
-            accum_rewards_per_share_sc: 0,
+            accum_rewards_per_share_sc: scaled::zero(e),
             accumulated_treasury_fees: 0,
             reward_type: reward_config.reward_type,
             reward_schedule_curve: reward_config.reward_schedule_curve.clone(),
@@ -504,8 +530,7 @@ impl RewardInfo {
 
         self.rewards_issued_unclaimed =
             self.rewards_issued_unclaimed.checked_add(amount).map_over_or_underflow()?;
-        self.rewards_issued_cumulative =
-            self.rewards_issued_cumulative.checked_add(amount).map_over_or_underflow()?;
+        self.rewards_issued_cumulative = self.rewards_issued_cumulative.saturating_add(amount);
         self.rewards_available =
             self.rewards_available.checked_sub(amount).map_over_or_underflow()?;
 
@@ -520,6 +545,7 @@ impl RewardInfo {
         curve: &RewardScheduleCurve,
     ) -> Result<(), FCError> {
         curve.require_valid()?;
+        farm.require_curve_fits(curve)?;
 
         farm.refresh_rewards(e)?;
         *self = RewardInfo::try_get(e, &farm.id, reward_token)?;
@@ -557,7 +583,8 @@ pub struct DelegateeState {
 
     pub pending_withdrawal_ts: u64,
     pub pending_withdrawal_stake: i128,
-    pub rewards_tallies: Map<Address, i128>,
+    /// Each reward's index at this position's last settlement.
+    pub rewards_tallies: Map<Address, I256>,
     pub rewards_unclaimed: Map<Address, i128>,
 
     pub last_stake_ts: u64,
@@ -624,28 +651,27 @@ impl DelegateeState {
         &self,
         e: &Env,
         farm: &Farm,
-        rps_snapshot: &Map<Address, i128>,
+        rps_snapshot: &Map<Address, I256>,
     ) -> Result<Vec<(Address, i128)>, FCError> {
         let mut res = svec![e];
 
         for reward_token in farm.rewards.iter() {
             let reward_info = RewardInfo::try_get(e, &farm.id, &reward_token)?;
-            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+            let checkpoint =
+                self.rewards_tallies.get(reward_token.clone()).unwrap_or(scaled::zero(e));
 
             let accum_rps = rps_snapshot
                 .get(reward_token.clone())
                 .unwrap_or(reward_info.accum_rewards_per_share_sc);
 
             let stake = effective_stake(self.active_stake, reward_info.reward_type);
-            let pending_from_rps = calculate_pending_reward(stake, accum_rps, user_tally)?;
+            let pending_from_rps = scaled::earned(e, stake, &accum_rps, &checkpoint)?;
 
             let unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
             let total = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
 
             let net = if farm.config.treasury_fee_bps > 0 && total > 0 {
-                let fee = total
-                    .fixed_mul_ceil(farm.config.treasury_fee_bps, BPS_FACTOR)
-                    .map_over_or_underflow()?;
+                let fee = total.fixed_mul_ceil(e, &farm.config.treasury_fee_bps, &BPS_FACTOR);
                 total.checked_sub(fee).map_over_or_underflow()?
             } else {
                 total
@@ -662,12 +688,10 @@ impl DelegateeState {
             let reward_info = RewardInfo::try_get(e, &farm.id, &reward_token)?;
 
             let stake = effective_stake(self.active_stake, reward_info.reward_type);
-            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
-            let pending = calculate_pending_reward(
-                stake,
-                reward_info.accum_rewards_per_share_sc,
-                user_tally,
-            )?;
+            let checkpoint =
+                self.rewards_tallies.get(reward_token.clone()).unwrap_or(scaled::zero(e));
+            let pending =
+                scaled::earned(e, stake, &reward_info.accum_rewards_per_share_sc, &checkpoint)?;
 
             if pending > 0 {
                 let current_unclaimed =
@@ -678,10 +702,7 @@ impl DelegateeState {
                 self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
             }
 
-            let new_tally = stake
-                .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-                .map_over_or_underflow()?;
-            self.rewards_tallies.set(reward_token, new_tally);
+            self.rewards_tallies.set(reward_token, reward_info.accum_rewards_per_share_sc);
         }
 
         Ok(())

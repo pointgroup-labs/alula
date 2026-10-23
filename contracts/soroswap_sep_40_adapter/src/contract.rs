@@ -1,5 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
-use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractimpl, panic_with_error};
+use soroban_sdk::{
+    Address, BytesN, ContractExecutable, Env, Vec, contract, contractimpl, panic_with_error,
+};
 
 use crate::{constants::*, error::SS40ACError, storage, swap};
 
@@ -24,7 +26,7 @@ impl SoroswapSep40AdapterContract {
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_admin(&e);
 
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        e.deployer().update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
     }
 }
 

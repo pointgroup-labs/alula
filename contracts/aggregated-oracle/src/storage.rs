@@ -12,8 +12,8 @@ pub enum DataKey {
     BaseAsset,
     Assets,
     Oracles,
-    PreviousMedianLastprice(Address), // Address - asset's token address
-    OraclePriceDataCached(Address),   // Address - oracle's contract address
+    Breaker(Address),               // Address - asset's token address
+    OraclePriceDataCached(Address), // Address - oracle's contract address
 }
 
 #[contracttype]
@@ -71,17 +71,19 @@ pub fn get_base_asset(e: &Env) -> Asset {
     e.storage().instance().get(&DataKey::BaseAsset).expect("Base asset must've been set")
 }
 
-pub fn set_previous_median_lastprice(
-    e: &Env,
-    token_address: &Address,
-    median_lastprice: &PriceData,
-) {
-    e.storage()
-        .instance()
-        .set(&DataKey::PreviousMedianLastprice(token_address.clone()), median_lastprice)
+/// The deviation breaker's reference points, both stamped with ledger time: `anchor` is the first read of
+/// the current window, `last` the latest accepted read.
+#[contracttype]
+pub struct Breaker {
+    pub anchor: PriceData,
+    pub last: PriceData,
 }
-pub fn get_previous_median_lastprice(e: &Env, token_address: &Address) -> Option<PriceData> {
-    e.storage().instance().get(&DataKey::PreviousMedianLastprice(token_address.clone()))
+
+pub fn set_breaker(e: &Env, token_address: &Address, breaker: &Breaker) {
+    e.storage().instance().set(&DataKey::Breaker(token_address.clone()), breaker)
+}
+pub fn get_breaker(e: &Env, token_address: &Address) -> Option<Breaker> {
+    e.storage().instance().get(&DataKey::Breaker(token_address.clone()))
 }
 
 pub fn add_asset(

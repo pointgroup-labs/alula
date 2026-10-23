@@ -3,10 +3,33 @@ import type { ObligationArray } from '../types'
 import Decimal from 'decimal.js'
 import { bigintToNumber, bpsToNumber } from './format'
 
-export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number, ltvType?: 'open' | 'close') {
+/**
+ * A USD total that is only readable once the caller has handled the unpriced case.
+ * A leg whose pool is missing from `poolsData` or carries no oracle price cannot be
+ * valued, and dropping a debt leg shrinks the total into a safer-looking number, so
+ * `usd` is absent rather than approximate. This package compiles with
+ * `strictNullChecks: false`, where a `number | null` return would still let a caller
+ * read the number unchecked; the discriminated union refuses at compile time.
+ */
+export type UsdTotal
+  = | { priced: true, usd: number }
+    | { priced: false, unpricedPools: string[] }
+
+function findUnpricedPools(positions: Array<[string, unknown]>, poolsData: PoolData[]): string[] {
+  return positions
+    .filter(([poolAddress]) => !poolsData?.find(data => data.pool.pool_address === poolAddress)?.oracle_asset_price)
+    .map(([poolAddress]) => poolAddress)
+}
+
+export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number, ltvType?: 'open' | 'close'): UsdTotal {
   const deposits = [...obligation?.deposits]
   if (!deposits || deposits.length === 0) {
-    return 0
+    return { priced: true, usd: 0 }
+  }
+
+  const unpricedPools = findUnpricedPools(deposits, poolsData)
+  if (unpricedPools.length > 0) {
+    return { priced: false, unpricedPools }
   }
 
   let userDepositsInUsd = 0
@@ -48,13 +71,18 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
     const availableInUsd = Number(userAvailable) * Number(price) * ltvMultiplier
     userDepositsInUsd += availableInUsd || 0
   }
-  return userDepositsInUsd
+  return { priced: true, usd: userDepositsInUsd }
 }
 
-export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number) {
+export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsData: PoolData[], oraclePriceDecimals: number): UsdTotal {
   const borrows = [...obligation?.borrows]
   if (!borrows || borrows.length === 0) {
-    return 0
+    return { priced: true, usd: 0 }
+  }
+
+  const unpricedPools = findUnpricedPools(borrows, poolsData)
+  if (unpricedPools.length > 0) {
+    return { priced: false, unpricedPools }
   }
 
   let userBorrowedInUsd = 0
@@ -79,7 +107,7 @@ export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsDat
     const borrowedInUsd = Number(userBorrow) * Number(price)
     userBorrowedInUsd += borrowedInUsd || 0
   }
-  return userBorrowedInUsd
+  return { priced: true, usd: userBorrowedInUsd }
 }
 
 export function calculateTotalStake(

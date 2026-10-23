@@ -158,6 +158,15 @@ struct WithdrawUnstaked {
 }
 
 #[contractevent]
+struct WithdrawPendingDeposit {
+    #[topic]
+    farm_id: BytesN<32>,
+    #[topic]
+    delegatee: Delegatee,
+    amount: i128,
+}
+
+#[contractevent]
 struct Harvest {
     #[topic]
     farm_id: BytesN<32>,
@@ -282,6 +291,10 @@ pub fn unstake(e: &Env, farm_id: BytesN<32>, delegatee: Delegatee, amount: i128)
 
 pub fn withdraw_unstaked(e: &Env, farm_id: BytesN<32>, delegatee: Delegatee, amount: i128) {
     WithdrawUnstaked { farm_id, delegatee, amount }.publish(e);
+}
+
+pub fn withdraw_pending_deposit(e: &Env, farm_id: BytesN<32>, delegatee: Delegatee, amount: i128) {
+    WithdrawPendingDeposit { farm_id, delegatee, amount }.publish(e);
 }
 
 pub fn harvest(

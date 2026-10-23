@@ -94,6 +94,7 @@ contracts/
 ├── farms/                     # Delegated staking / token incentives
 ├── soroswap_sep_40_adapter/   # Soroswap AMM → SEP-40 price adapter
 ├── redstone_sep_40_adapter/   # RedStone → SEP-40 price adapter
+├── chainlink_sep_40_adapter/  # Chainlink Data Feeds → SEP-40 price adapter
 ├── soroswap_swap_provider/    # Swap provider (leverage / collateral swaps)
 ├── aqua_swap_provider/        # Swap provider (Aqua AMM)
 ├── soroswap_router_mock/      # Test mock: swap router

@@ -1,4 +1,4 @@
-pub const REDSTONE_DECIMALS: u32 = 8;
+pub const MAX_FEED_DECIMALS: u64 = 18;
 pub const REDSTONE_TS_PER_SEC: u64 = 1_000;
 
 pub const MIN_RESOLUTION: u32 = 60; // 60 seconds

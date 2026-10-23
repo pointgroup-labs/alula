@@ -739,3 +739,39 @@ fn test_consecutive_bad_debt_requests_extend_deadline_and_increment_counter() {
             .is_ok()
     );
 }
+
+/// **A claim reports how many requests it settled.** Both outcomes return `Ok(())`, so the event
+/// is the only way a keeper tells a closing claim from one that found every request pending.
+#[test]
+fn test_a_claim_reports_how_many_requests_it_settled() {
+    use soroban_sdk::testutils::Events;
+
+    fn settled_count(fixture: &TestMarketFixture) -> u32 {
+        let events = fixture.e.events().all().filter_by_contract(&fixture.contract_id);
+        let text = std::format!("{:?}", events.events());
+        // The market's event structs are private, so the value is read out of the encoded form.
+        let at = text.rfind("settled").expect("no settled field in the claim event");
+        // Anchored past the type tag: the encoded form reads `val: U32(0)`, and skipping straight to the
+        // first digit would read the 32 out of `U32`.
+        let tail = &text[at..];
+        let val_at = tail.find("U32(").expect("settled was not encoded as a u32");
+        let digits: std::string::String =
+            tail[val_at + 4..].chars().take_while(|c| c.is_ascii_digit()).collect();
+        digits.parse().expect("settled carried no number")
+    }
+
+    // Still pending: nothing can be closed.
+    let (fixture, borrower, _lp) = setup_bad_debt_with_recorded_coverage();
+    fixture.contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
+    assert_eq!(
+        settled_count(&fixture),
+        0,
+        "a claim over a pending request reported settling something"
+    );
+
+    // Approved: exactly the one request closes.
+    let balance = fixture.usdc_token_client.balance(&fixture.insurance_fund);
+    fixture.controlled_insurance_fund_client.mark_ready(&0, &balance);
+    fixture.contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
+    assert_eq!(settled_count(&fixture), 1, "a claim that closed a request reported settling none");
+}

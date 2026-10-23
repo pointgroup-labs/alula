@@ -129,172 +129,41 @@ fn test_persistent_ttl_bump() {
     });
 }
 
-// ---- Same-ledger oracle price cache ----
+// ---- No price outlives the call that read it ----
 
+/// A later call in the same ledger reads the oracle again, so an update or an invalid price published
+/// between two transactions of one ledger is seen at once instead of masked by the earlier read.
 #[test]
-fn test_price_cache_pins_value_within_ledger() {
+fn test_a_price_change_within_the_ledger_is_seen_by_the_next_call() {
     let TestMarketFixture { e, contract_client, usdc_pool_address, oracle_client, .. } =
         TestMarketFixture::new();
 
-    let pinned = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(pinned, ONE_USD);
+    assert_eq!(contract_client.get_pool_asset_oracle_price(&usdc_pool_address), ONE_USD);
 
     make_oracle_prices_uniform(&e, &oracle_client, TWO_USD);
+    assert_eq!(contract_client.get_pool_asset_oracle_price(&usdc_pool_address), TWO_USD);
 
-    // The pinned value is returned; the same-ledger update is ignored by design.
-    let second = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(second, pinned, "same-ledger read must return the pinned price, not the update");
-}
-
-#[test]
-fn test_price_cache_refreshes_on_next_ledger() {
-    let TestMarketFixture { e, contract_client, usdc_pool_address, oracle_client, .. } =
-        TestMarketFixture::new();
-
-    let first = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(first, ONE_USD);
-
-    // New ledger: bump the timestamp and publish the new price at that time.
-    e.ledger().with_mut(|li| li.timestamp += 1);
-    make_oracle_prices_uniform(&e, &oracle_client, TWO_USD);
-
-    let second = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(second, TWO_USD, "a new ledger must bypass the stale cache and observe the update");
-}
-
-#[test]
-fn test_price_cache_lives_in_temporary_storage_keyed_by_ledger_timestamp() {
-    let TestMarketFixture { e, contract_client, contract_id, usdc_pool_address, .. } =
-        TestMarketFixture::new();
-
-    let now = e.ledger().timestamp();
-    let price = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-
-    e.as_contract(&contract_id, || {
-        let key = DataKey::CachedPrice(usdc_pool_address.clone());
-
-        // Stored in temporary storage as (price, current_ledger_timestamp).
-        let cached: Option<(i128, u64)> = e.storage().temporary().get(&key);
-        assert_eq!(cached, Some((price, now)));
-
-        assert!(!e.storage().instance().has(&key));
-        assert!(!e.storage().persistent().has(&key));
-    });
-}
-
-#[test]
-fn test_price_cache_masks_invalid_price_until_next_ledger() {
-    let TestMarketFixture { e, contract_client, usdc_pool_address, oracle_client, .. } =
-        TestMarketFixture::new();
-
-    // Cache a valid price in this ledger
-    let cached = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(cached, ONE_USD);
-
-    // Oracle turns invalid within the same ledger (prints a non-positive price)
     make_oracle_prices_zero(&e, &oracle_client);
-
-    // Same ledger: the cached valid price masks the invalid oracle state.
-    let still_cached = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(still_cached, cached, "same-ledger invalid price must be masked by the cache");
-
-    // Next ledger: the cache is bypassed and the invalid price is rejected
-    e.ledger().with_mut(|li| li.timestamp += 1);
     assert_eq!(
         contract_client.try_get_pool_asset_oracle_price(&usdc_pool_address),
-        Err(Ok(MCError::NonPositiveOraclePrice)),
-        "the next ledger must re-fetch and reject the invalid price",
+        Err(Ok(MCError::NonPositiveOraclePrice))
     );
 }
 
-// ---- White-box cache validity, observed by reading storage directly ----
-
-fn read_cached_price(
-    e: &soroban_sdk::Env,
-    contract_id: &soroban_sdk::Address,
-    asset: &soroban_sdk::Address,
-) -> Option<(i128, u64)> {
-    e.as_contract(contract_id, || e.storage().temporary().get(&DataKey::CachedPrice(asset.clone())))
-}
-
+/// A borrow later in the same ledger as a collateral price drop is priced at the drop.
 #[test]
-fn test_price_cache_is_populated_by_getter_with_current_timestamp() {
-    let TestMarketFixture { e, contract_client, contract_id, usdc_pool_address, .. } =
-        TestMarketFixture::new();
+fn test_a_borrow_after_a_same_ledger_price_drop_sees_the_drop() {
+    let f = TestMarketFixture::new();
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lender, &f.usdc_pool_address, &1_000_000_000, &None);
+    f.contract_client.add_collateral(&borrower, &f.gold_pool_address, &100_000_000, &None);
+    f.contract_client.borrow(&borrower, &f.usdc_pool_address, &1_000_000, &None);
 
-    let now = e.ledger().timestamp();
-
-    // Cache starts empty: nothing in the fixture setup reads a price.
+    // GOLD loses 99 % in the same ledger: the second borrow must be priced at it.
+    f.oracle_client.set_price_stable(&soroban_sdk::vec![&f.e, ONE_USD / 100, ONE_USD, ONE_USD]);
     assert_eq!(
-        read_cached_price(&e, &contract_id, &usdc_pool_address),
-        None,
-        "cache must be empty before the first read",
-    );
-
-    // The getter is the only writer; it persists the fetched price at `now`.
-    let price = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(price, ONE_USD);
-    assert_eq!(
-        read_cached_price(&e, &contract_id, &usdc_pool_address),
-        Some((ONE_USD, now)),
-        "getter must persist (price, current_timestamp) via set_cached_price",
-    );
-}
-
-#[test]
-fn test_price_cache_hit_serves_stored_value_without_rewriting() {
-    let TestMarketFixture {
-        e, contract_client, contract_id, usdc_pool_address, oracle_client, ..
-    } = TestMarketFixture::new();
-
-    let now = e.ledger().timestamp();
-
-    // Populate the cache through the getter (the only writer).
-    assert_eq!(contract_client.get_pool_asset_oracle_price(&usdc_pool_address), ONE_USD);
-    assert_eq!(read_cached_price(&e, &contract_id, &usdc_pool_address), Some((ONE_USD, now)));
-
-    // Move the oracle within the same ledger. A hit must ignore this entirely.
-    make_oracle_prices_uniform(&e, &oracle_client, TWO_USD);
-
-    let price = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(price, ONE_USD, "entry keyed to the current timestamp must be a cache hit");
-
-    // The hit returned early, so storage still holds the original tuple.
-    assert_eq!(
-        read_cached_price(&e, &contract_id, &usdc_pool_address),
-        Some((ONE_USD, now)),
-        "a cache hit must not rewrite the stored entry",
-    );
-}
-
-#[test]
-fn test_price_cache_invalidated_when_stored_timestamp_is_stale() {
-    let TestMarketFixture {
-        e, contract_client, contract_id, usdc_pool_address, oracle_client, ..
-    } = TestMarketFixture::new();
-
-    let first_ledger = e.ledger().timestamp();
-
-    assert_eq!(contract_client.get_pool_asset_oracle_price(&usdc_pool_address), ONE_USD);
-    assert_eq!(
-        read_cached_price(&e, &contract_id, &usdc_pool_address),
-        Some((ONE_USD, first_ledger)),
-    );
-
-    // Next ledger: the stored timestamp is now stale (stored < current), and the
-    // oracle has published a new price.
-    e.ledger().with_mut(|li| li.timestamp += 1);
-    let second_ledger = e.ledger().timestamp();
-    make_oracle_prices_uniform(&e, &oracle_client, TWO_USD);
-
-    // The stale entry is bypassed; the fresh oracle price is returned...
-    let price = contract_client.get_pool_asset_oracle_price(&usdc_pool_address);
-    assert_eq!(price, TWO_USD, "a stored timestamp != now must invalidate the cache");
-
-    // ...and the getter overwrote the entry with the new (price, timestamp).
-    assert_eq!(
-        read_cached_price(&e, &contract_id, &usdc_pool_address),
-        Some((TWO_USD, second_ledger)),
-        "a miss must refresh the entry at the current timestamp",
+        f.contract_client.try_borrow(&borrower, &f.usdc_pool_address, &1_000_000, &None),
+        Err(Ok(MCError::UnhealthyOperation))
     );
 }

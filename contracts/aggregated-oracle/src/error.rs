@@ -10,4 +10,5 @@ pub enum AOCError {
     NonUniqueOraclesWhileDeploying = 1003,
     InvalidOracleConfig = 1004,
     ProposedAdminIsNotSet = 1005,
+    SourceBaseMismatch = 1006,
 }

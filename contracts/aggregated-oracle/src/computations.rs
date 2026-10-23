@@ -116,7 +116,24 @@ fn get_last_price(
     let current_timestamp = e.ledger().timestamp();
 
     let oracle_client = PriceFeedClient::new(e, &oracle_config.address);
-    let oracle_resolution = oracle_client.resolution() as u64;
+    let Ok(Ok(oracle_resolution)) = oracle_client.try_resolution() else {
+        return None;
+    };
+    let oracle_resolution = oracle_resolution as u64;
+
+    // Periodic oracles carry real timestamps and have a known update cadence, so we apply
+    // both checks: oracle_resolution catches a stuck oracle that hasn't been updated within
+    // its own tick window, and periodic_oracles_price_max_age is the protocol-level ceiling.
+    // Heartbeat oracles (e.g. Redstone) are driven by deviation/heartbeat rather than
+    // a fixed tick, so periodic_oracles_price_max_age is not meaningful for them — only
+    // oracle_resolution (the heartbeat window configured on the adapter) applies.
+    let max_allowed_age = if oracle_config.is_price_update_periodic {
+        // NB: + grace window so a reasonably-late periodic update doesn't get rejected.
+        (oracle_resolution + PERIODIC_UPDATE_GRACE_PERIOD)
+            .min(storage::get_periodic_oracles_price_max_age(e))
+    } else {
+        oracle_resolution
+    };
 
     // Periodic sources publish at a known cadence, so within one
     // `oracle_resolution` window the answer is guaranteed unchanged and
@@ -131,6 +148,7 @@ fn get_last_price(
 
         if let Some(lastprice) = cache.get(token_address.clone())
             && lastprice.timestamp + oracle_resolution > current_timestamp
+            && current_timestamp.saturating_sub(lastprice.timestamp) <= max_allowed_age
         {
             // No need to fetch the price if it hasn't been updated.
             return Some(lastprice);
@@ -149,7 +167,7 @@ fn get_last_price(
         Asset::Other(token_ticker)
     };
 
-    let price_data = oracle_client.lastprice(&asset);
+    let price_data = try_lastprice(&oracle_client, &asset);
 
     let mut price_data = if let Some(price_data) = price_data {
         price_data
@@ -170,7 +188,7 @@ fn get_last_price(
             }
         };
 
-        let Some(price_data) = oracle_client.lastprice(&another_variant_asset) else {
+        let Some(price_data) = try_lastprice(&oracle_client, &another_variant_asset) else {
             {
                 events::OracleUnawareOfPrice {
                     oracle_address: oracle_config.address.clone(),
@@ -185,22 +203,7 @@ fn get_last_price(
         price_data
     };
 
-    let periodic_oracles_price_max_age = storage::get_periodic_oracles_price_max_age(e);
-
-    // Periodic oracles carry real timestamps and have a known update cadence, so we apply
-    // both checks: oracle_resolution catches a stuck oracle that hasn't been updated within
-    // its own tick window, and periodic_oracles_price_max_age is the protocol-level ceiling.
-    // Heartbeat oracles (e.g. Redstone) are driven by deviation/heartbeat rather than
-    // a fixed tick, so periodic_oracles_price_max_age is not meaningful for them — only
-    // oracle_resolution (the heartbeat window configured on the adapter) applies.
     let age = current_timestamp.saturating_sub(price_data.timestamp);
-
-    let max_allowed_age = if oracle_config.is_price_update_periodic {
-        // NB: + grace window so a reasonably-late periodic update doesn't get rejected.
-        (oracle_resolution + PERIODIC_UPDATE_GRACE_PERIOD).min(periodic_oracles_price_max_age)
-    } else {
-        oracle_resolution
-    };
 
     let is_timestamp_invalid = current_timestamp < price_data.timestamp || age > max_allowed_age;
 
@@ -216,7 +219,12 @@ fn get_last_price(
 
         None
     } else {
-        if price_data.price <= 0 {
+        let protocol_decimals = storage::get_decimals(e);
+        let normalized_price =
+            normalize_price(price_data.price, oracle_config.decimals, protocol_decimals)?;
+
+        // After scaling: a price that rounds to zero is no price.
+        if normalized_price <= 0 {
             events::NonPositiveOraclePrice {
                 token_address: token_address.clone(),
                 oracle_address: oracle_config.address.clone(),
@@ -226,10 +234,6 @@ fn get_last_price(
 
             return None;
         }
-
-        let protocol_decimals = storage::get_decimals(e);
-        let normalized_price =
-            normalize_price(price_data.price, oracle_config.decimals, protocol_decimals)?;
 
         // Update price_data with normalized price for caching
         price_data.price = normalized_price;
@@ -243,6 +247,11 @@ fn get_last_price(
         // Return PriceData
         Some(price_data)
     }
+}
+
+/// A source that fails is treated like one that does not know the price.
+fn try_lastprice(oracle_client: &PriceFeedClient, asset: &Asset) -> Option<PriceData> {
+    oracle_client.try_lastprice(asset).ok().and_then(Result::ok).flatten()
 }
 
 /// Normalizes oracle's price to match the protocol's `decimal` configuration

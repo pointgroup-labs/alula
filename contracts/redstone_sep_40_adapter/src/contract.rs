@@ -1,7 +1,13 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
 use soroban_sdk::{Address, Env, Map, Vec, contract, contractimpl, panic_with_error, vec as svec};
 
-use crate::{constants::*, error::RS40ACError, events, redstone::RedStonePriceFeedClient, storage};
+use crate::{
+    constants::*,
+    error::RS40ACError,
+    events,
+    redstone::RedStonePriceFeedClient,
+    storage::{self, Feed},
+};
 
 #[contract]
 pub struct RedStoneSep40AdapterContract;
@@ -15,7 +21,8 @@ impl RedStoneSep40AdapterContract {
     /// * `base_asset` - asset that will be the result of the `base()` endpoint call
     /// * `decimals` - number of decimals in the output price
     /// * `resolution` - staleness threshold in seconds; prices older than this are rejected
-    /// * `feeds` - token address → RedStone price feed contract address mapping
+    /// * `feeds` - token address → RedStone price feed contract address mapping; each feed's
+    ///   `decimals()` is read once here and must be at most 18
     pub fn __constructor(
         e: Env,
         admin: Address,
@@ -39,14 +46,15 @@ impl RedStoneSep40AdapterContract {
                 panic_with_error!(&e, RS40ACError::TokenForFeedAlreadyInUse);
             }
 
-            storage::set_feed(&e, &token_address, &price_feed);
+            storage::set_feed(&e, &token_address, &read_feed(&e, price_feed));
             assets.push_back(Asset::Stellar(token_address));
         }
 
         storage::set_assets(&e, &assets);
     }
 
-    /// Adds a price feed for a token. Admin-gated. Panics if a feed for this token already exists.
+    /// Adds a price feed for a token. Admin-gated. Panics if a feed for this token already exists
+    /// or if the feed's `decimals()` does not answer at most 18.
     pub fn add_feed(e: Env, token_address: Address, price_feed: Address) {
         require_admin(&e);
         storage::extend_instance(&e);
@@ -58,7 +66,7 @@ impl RedStoneSep40AdapterContract {
             panic_with_error!(&e, RS40ACError::TokenForFeedAlreadyInUse);
         }
 
-        storage::set_feed(&e, &token_address, &price_feed);
+        storage::set_feed(&e, &token_address, &read_feed(&e, price_feed.clone()));
 
         let mut assets = storage::get_assets(&e);
         assets.push_back(Asset::Stellar(token_address.clone()));
@@ -148,8 +156,8 @@ impl PriceFeedTrait for RedStoneSep40AdapterContract {
             return None;
         };
 
-        let price_feed_address = storage::get_feed(&e, &token_address)?;
-        let client = RedStonePriceFeedClient::new(&e, &price_feed_address);
+        let feed = storage::get_feed(&e, &token_address)?;
+        let client = RedStonePriceFeedClient::new(&e, &feed.address);
 
         let entry = client.try_read_price_data().ok()?.ok()?;
 
@@ -162,12 +170,22 @@ impl PriceFeedTrait for RedStoneSep40AdapterContract {
         }
 
         let price_raw = i128::try_from(entry.price.to_u128()?).ok()?;
-        let price = rescale(price_raw, REDSTONE_DECIMALS, storage::get_decimals(&e))?;
+        let price = rescale(price_raw, feed.decimals, storage::get_decimals(&e))?;
         if price <= 0 {
             return None;
         }
 
         Some(PriceData { price, timestamp })
+    }
+}
+
+/// `price_feed` with the decimals it reports, which must be at most `MAX_FEED_DECIMALS`.
+fn read_feed(e: &Env, price_feed: Address) -> Feed {
+    match RedStonePriceFeedClient::new(e, &price_feed).try_decimals() {
+        Ok(Ok(decimals)) if decimals <= MAX_FEED_DECIMALS => {
+            Feed { address: price_feed, decimals: decimals as u32 }
+        }
+        _ => panic_with_error!(e, RS40ACError::BadFeedDecimals),
     }
 }
 

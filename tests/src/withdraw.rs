@@ -1133,3 +1133,149 @@ fn test_withdraw_all_when_borrow_exists_but_max_healthy_exceeds_deposit() {
         Err(MCError::DepositPositionDoesNotExist)
     );
 }
+
+/// A pool configured as supply-only (`open_ltv_bps = 0`) must not make a borrower's withdrawal trap.
+/// Config validation accepts 0, and the max-healthy-removal maths divides by `asset_price * open_ltv`.
+#[test]
+fn test_withdraw_from_zero_open_ltv_pool_with_a_borrow() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        users,
+        usdc_pool_address,
+        gold_pool_address,
+        btc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let lender = &users[1];
+
+    // BTC becomes supply-only: still depositable, but it backs no borrow.
+    let supply_only = market::pool::PoolConfig {
+        health_config: market::pool::PoolHealthConfig {
+            open_ltv_bps: 0,
+            close_ltv_bps: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    contract_client.queue_in_pool_set(&btc_pool_address, &supply_only);
+    let queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += queue_period);
+    contract_client.apply_pool_set(&btc_pool_address);
+
+    contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &usdc_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    // Collateral that does back the borrow, plus a deposit in the supply-only pool.
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(4 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    let result = contract_client.try_withdraw(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
+    assert!(result.is_ok(), "withdrawing an asset that backs no borrow must be allowed");
+
+    // `remove_collateral` reaches the same division through the same helper.
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    let removed = contract_client.try_remove_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &btc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
+    assert!(removed.is_ok(), "removing collateral that backs no borrow must be allowed");
+}
+
+mod dust_close {
+    use market::{
+        constants::BPS_FACTOR,
+        obligation::{DepositPosition, Obligation},
+        oracle::Prices,
+        pool::{Pool, PoolConfig},
+    };
+    use soroban_sdk::{Address, String, testutils::Address as _};
+
+    use crate::TestMarketFixture;
+
+    // Fees past cash put supply below debt; the scarcity brake must still let a zero-token position close,
+    // at the default utilization limit and at 100%, where each floors a different term.
+    #[test]
+    fn test_dust_withdraw_closes_when_fees_exceed_cash() {
+        let TestMarketFixture { e, contract_id, .. } = TestMarketFixture::new();
+        for limit in [PoolConfig::default().health_config.utilization_ratio_limit_bps, BPS_FACTOR] {
+            e.as_contract(&contract_id, || {
+                let address = Address::generate(&e);
+                let mut pool = Pool {
+                    pool_address: address.clone(),
+                    token_address: address.clone(),
+                    token_symbol: String::from_str(&e, "S"),
+                    token_decimals: 7,
+                    total_borrowed: 1_000,
+                    total_d_tokens: 0,
+                    total_j_tokens: 10_000_000,
+                    total_available: 100,
+                    total_collateral: 0,
+                    name: String::from_str(&e, "N"),
+                    config: PoolConfig::default(),
+                    last_accrual_timestamp: 0,
+                    borrow_apr_bps: 0,
+                    supply_apr_bps: 0,
+                    operation_fees_sum: 0,
+                    take_rate_fees_sum: 200,
+                    interest_rate_modifier_bps: 0,
+                    farm_supply: None,
+                    farm_debt: None,
+                    bad_debt_lock_d: 0,
+                    bad_debt_request_count: 0,
+                };
+                pool.config.health_config.withdraw_scarcity_limit_bps = BPS_FACTOR;
+                pool.config.health_config.utilization_ratio_limit_bps = limit;
+                assert!(pool.total_supply().unwrap() < pool.total_borrowed);
+
+                let mut obligation = Obligation::new(&e);
+                obligation.deposits.set(
+                    address.clone(),
+                    DepositPosition {
+                        j_tokens: 1,
+                        collateral: 0,
+                        originally_deposited: 3,
+                        last_scarcity_withdraw_ts: 0,
+                    },
+                );
+                obligation.positions_count = 1;
+
+                let outcome = obligation.withdraw(&e, &mut Prices::new(&e), &pool, 1, &None);
+                assert_eq!(outcome.unwrap().withdrawer_to_receive, 0);
+                assert!(obligation.deposits.get(address).is_none());
+            });
+        }
+    }
+}

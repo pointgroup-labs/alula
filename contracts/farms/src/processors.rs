@@ -1,10 +1,10 @@
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{Address, Env};
 
 use crate::{
-    constants::{BPS_FACTOR, SCALE_FACTOR},
+    constants::BPS_FACTOR,
     error::FCError,
-    math::penalty::calculate_early_withdrawal_penalty,
+    math::{penalty::calculate_early_withdrawal_penalty, scaled},
     oracle,
     state::{DelegateeState, Delegation, Farm, RewardInfo, RewardType},
     utils::MathUtils,
@@ -41,6 +41,8 @@ pub fn stake(
         delegatee_state.pending_deposit_stake =
             delegatee_state.pending_deposit_stake.checked_add(amount).map_over_or_underflow()?;
         delegatee_state.pending_deposit_ts = current_ts;
+        farm.total_pending_deposits =
+            farm.total_pending_deposits.checked_add(amount).map_over_or_underflow()?;
     } else {
         activate_stake(e, farm, delegatee_state, amount)?;
     }
@@ -73,6 +75,10 @@ pub fn unstake(
     if delegatee_state.active_stake < amount {
         return Err(FCError::InsufficientStake);
     }
+    // A partial exit may not leave dust behind: a dust stake alone in a farm inflates the index.
+    if !is_full_withdrawal && delegatee_state.active_stake - amount < farm.config.min_stake_amount {
+        return Err(FCError::InvalidAmount);
+    }
     if delegatee_state.pending_withdrawal_stake.is_positive() {
         return Err(FCError::PendingWithdrawalExists);
     }
@@ -84,13 +90,13 @@ pub fn unstake(
 
     let current_ts = e.ledger().timestamp();
     let (net, penalty) =
-        calculate_early_withdrawal_penalty(farm, delegatee_state, amount, current_ts)?;
+        calculate_early_withdrawal_penalty(e, farm, delegatee_state, amount, current_ts)?;
 
     if penalty.is_positive() {
         farm.current_slashed_amount =
             farm.current_slashed_amount.checked_add(penalty).map_over_or_underflow()?;
-        farm.cumulative_slashed_amount =
-            farm.cumulative_slashed_amount.checked_add(penalty).map_over_or_underflow()?;
+        // Reports only; recycled slashes can carry the lifetime total past i128.
+        farm.cumulative_slashed_amount = farm.cumulative_slashed_amount.saturating_add(penalty);
     }
 
     delegatee_state.active_stake =
@@ -107,8 +113,29 @@ pub fn unstake(
     delegatee_state.pending_withdrawal_stake =
         delegatee_state.pending_withdrawal_stake.checked_add(net).map_over_or_underflow()?;
     delegatee_state.pending_withdrawal_ts = current_ts;
+    farm.total_pending_withdrawals =
+        farm.total_pending_withdrawals.checked_add(net).map_over_or_underflow()?;
 
     Ok(net)
+}
+
+/// Takes a deposit back out of warm-up before it activates, returning the amount to transfer out.
+pub fn withdraw_pending_deposit(
+    farm: &mut Farm,
+    delegatee_state: &mut DelegateeState,
+) -> Result<i128, FCError> {
+    farm.non_delegated_config()?;
+
+    let amount = delegatee_state.pending_deposit_stake;
+    if amount == 0 {
+        return Err(FCError::NoPendingDeposit);
+    }
+    delegatee_state.pending_deposit_stake = 0;
+    delegatee_state.pending_deposit_ts = 0;
+    farm.total_pending_deposits =
+        farm.total_pending_deposits.checked_sub(amount).map_over_or_underflow()?;
+
+    Ok(amount)
 }
 
 /// Claims accrued rewards for a single reward token.
@@ -156,11 +183,12 @@ fn harvest_after_refresh(
         }
     }
 
-    let user_tally = delegatee_state.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+    let checkpoint =
+        delegatee_state.rewards_tallies.get(reward_token.clone()).unwrap_or(scaled::zero(e));
 
     let stake = effective_stake(delegatee_state.active_stake, reward_info.reward_type);
     let pending_from_rps =
-        calculate_pending_reward(stake, reward_info.accum_rewards_per_share_sc, user_tally)?;
+        scaled::earned(e, stake, &reward_info.accum_rewards_per_share_sc, &checkpoint)?;
 
     let unclaimed = delegatee_state.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
     let total_pending = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
@@ -170,9 +198,7 @@ fn harvest_after_refresh(
     }
 
     let fee = if farm.config.treasury_fee_bps > 0 {
-        total_pending
-            .fixed_mul_ceil(farm.config.treasury_fee_bps, BPS_FACTOR)
-            .map_over_or_underflow()?
+        total_pending.fixed_mul_ceil(e, &farm.config.treasury_fee_bps, &BPS_FACTOR)
     } else {
         0
     };
@@ -182,9 +208,7 @@ fn harvest_after_refresh(
         return Err(FCError::NoRewardsToHarvest);
     }
 
-    let new_tally = stake
-        .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-        .map_over_or_underflow()?;
+    let new_tally = reward_info.accum_rewards_per_share_sc.clone();
 
     reward_info.rewards_issued_unclaimed =
         reward_info.rewards_issued_unclaimed.checked_sub(total_pending).map_over_or_underflow()?;
@@ -233,6 +257,8 @@ pub fn activate_pending_stake(
     let amount = delegatee_state.pending_deposit_stake;
     delegatee_state.pending_deposit_stake = 0;
     delegatee_state.pending_deposit_ts = 0;
+    farm.total_pending_deposits =
+        farm.total_pending_deposits.checked_sub(amount).map_over_or_underflow()?;
 
     check_deposit_cap(e, farm, amount)?;
 
@@ -322,7 +348,11 @@ fn check_deposit_cap(e: &Env, farm: &Farm, additional_amount: i128) -> Result<()
         return Ok(());
     }
 
-    let new_total = farm.total_staked.checked_add(additional_amount).map_over_or_underflow()?;
+    let new_total = farm
+        .total_staked
+        .checked_add(farm.total_pending_deposits)
+        .and_then(|total| total.checked_add(additional_amount))
+        .map_over_or_underflow()?;
 
     let cap_value = if let Some(oracle_config) = farm.config.oracle.as_ref() {
         let price = oracle::get_oracle_price(e, &farm.config.token, oracle_config)?;
@@ -367,10 +397,8 @@ fn activate_stake(
     Ok(())
 }
 
-/// Recalculates the user's reward tallies for all reward tokens.
-///
-/// Sets each tally to `effective_stake × accum_rewards_per_share` so that
-/// subsequent reward calculations only count rewards accrued after this point.
+/// Checkpoints the user at each reward's current index, so that subsequent reward calculations only
+/// count rewards accrued after this point.
 fn update_tallies(
     e: &Env,
     farm: &Farm,
@@ -378,35 +406,9 @@ fn update_tallies(
 ) -> Result<(), FCError> {
     for reward_token in farm.rewards.iter() {
         let reward_info = RewardInfo::try_get(e, &farm.id, &reward_token)?;
-        let stake = effective_stake(delegatee_state.active_stake, reward_info.reward_type);
-        let new_tally = stake
-            .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-            .map_over_or_underflow()?;
-        delegatee_state.rewards_tallies.set(reward_token, new_tally);
+        delegatee_state.rewards_tallies.set(reward_token, reward_info.accum_rewards_per_share_sc);
     }
     Ok(())
-}
-
-/// Computes pending (unharvested) rewards for a user.
-///
-/// `entitled = stake × reward_per_share` (floor), then `pending = entitled - tally`.
-/// Returns 0 if the user has no stake or if the tally exceeds entitled (rounding).
-pub fn calculate_pending_reward(
-    user_stake: i128,
-    reward_per_share_scaled: i128,
-    user_tally: i128,
-) -> Result<i128, FCError> {
-    if user_stake == 0 {
-        return Ok(0);
-    }
-
-    let entitled = user_stake
-        .fixed_mul_floor(reward_per_share_scaled, SCALE_FACTOR)
-        .map_over_or_underflow()?;
-
-    let pending = entitled.checked_sub(user_tally).map_over_or_underflow()?;
-
-    Ok(pending.max(0))
 }
 
 /// Determines how many reward tokens should be emitted between the last

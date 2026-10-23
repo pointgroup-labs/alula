@@ -1,4 +1,4 @@
-import type { /* MultiplyPair, */ ObligationKey, Pool, WithdrawResult } from '@alula/market-sdk'
+import type { GlobalState, /* MultiplyPair, */ ObligationKey, Pool, PoolData, WithdrawResult } from '@alula/market-sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { DecimalsConfig, loadMarketDecimals } from '../config/decimals'
@@ -64,11 +64,30 @@ export class MarketService extends BaseClient {
    * Fetches pool data from the contract
    *
    * @param poolAddress - pool address
-   * @return A Promise of type Pool containing the current pool data
+   * @return A Promise of type PoolData containing the current pool data
    */
-  async getPoolData(poolAddress: string): Promise<Pool> {
+  async getPoolData(poolAddress: string): Promise<PoolData> {
     const result = await this.client.get_pool_data({ pool_address: poolAddress })
     return this.unwrapOk(result.result)
+  }
+
+  /**
+   * Fetches the market global state. Unlike `getMarketData` this does not read
+   * oracle prices, so it stays available when a pool asset is unpriced.
+   *
+   * @return A Promise of type GlobalState containing the current global state
+   */
+  async getGlobalState(): Promise<GlobalState> {
+    return (await this.client.get_global_state()).result
+  }
+
+  /**
+   * Fetches the oracle price precision used by the market
+   *
+   * @return A Promise of type number containing the oracle price decimals
+   */
+  async getOraclePriceDecimals(): Promise<number> {
+    return (await this.client.get_oracle_price_decimals()).result
   }
 
   /**
