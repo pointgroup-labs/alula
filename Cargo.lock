@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aggregated_oracle"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-fixed-point-math",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "aqua_swap_provider"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "proxy-swap-interface",
  "soroban-sdk",
@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "chainlink_sep_40_adapter"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
@@ -320,7 +320,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "controlled_insurance_fund"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "insurance-fund-interface",
  "soroban-sdk",
@@ -709,7 +709,7 @@ dependencies = [
 
 [[package]]
 name = "farms"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "farms-interface",
  "sep-40-oracle",
@@ -1080,7 +1080,7 @@ dependencies = [
 
 [[package]]
 name = "market"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "enum_dispatch",
  "farms-interface",
@@ -1094,7 +1094,7 @@ dependencies = [
 
 [[package]]
 name = "market_manager"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1294,7 +1294,7 @@ dependencies = [
 
 [[package]]
 name = "redstone_sep_40_adapter"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
@@ -1751,7 +1751,7 @@ dependencies = [
 
 [[package]]
 name = "soroswap_swap_provider"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "proxy-swap-interface",
  "soroban-sdk",
