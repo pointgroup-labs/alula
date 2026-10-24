@@ -117,6 +117,8 @@ libs/
 - Segregated pools and isolated markets to contain risk.
 - Liquidations execute in health-improving slices.
 
+Report vulnerabilities to [support@alula.finance](mailto:support@alula.finance) rather than opening a public issue.
+
 ## Contributing
 
 1. Fork and branch.
