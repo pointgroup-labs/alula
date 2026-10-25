@@ -581,3 +581,52 @@ fn test_apply_pool_set_prices_the_past_at_the_outgoing_curve() {
 
     assert_eq!(run(false), run(true));
 }
+
+/// The rate controller's modifier scales the charged rate: at the same utilization the stored borrow APR is
+/// `ceil(apr_at_modifier_one * modifier / 10_000)`, and debt grows faster or slower accordingly.
+#[test]
+fn test_the_rate_modifier_scales_the_charged_borrow_rate() {
+    let accrue_at = |modifier_bps: i128| {
+        let f = TestMarketFixture::new();
+        let (lender, borrower) = (&f.users[0], &f.users[1]);
+        f.contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &f.usdc_pool_address,
+            &(20 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        f.contract_client.add_collateral(
+            &ObligationKey::new(borrower.clone()),
+            &f.gold_pool_address,
+            &(40 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        f.contract_client.borrow(
+            &ObligationKey::new(borrower.clone()),
+            &f.usdc_pool_address,
+            &(10 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        f.e.as_contract(&f.contract_id, || {
+            let mut pool = Pool::try_get(&f.e, &f.usdc_pool_address).unwrap();
+            pool.interest_rate_modifier_bps = modifier_bps;
+            market::storage::set_pool(&f.e, &f.usdc_pool_address, &pool);
+        });
+        let borrowed_before = f.contract_client.get_pool(&f.usdc_pool_address).total_borrowed;
+
+        f.e.ledger().with_mut(|li| li.timestamp += 30 * 24 * 60 * 60);
+        f.contract_client.refresh_pool(&f.usdc_pool_address);
+
+        let pool = f.contract_client.get_pool(&f.usdc_pool_address);
+        (pool.borrow_apr_bps, pool.total_borrowed - borrowed_before)
+    };
+
+    let (unit_apr, unit_interest) = accrue_at(BPS_FACTOR);
+    assert!(unit_apr > 0 && unit_interest > 0);
+    for modifier_bps in [MIN_IR_MODIFIER, 5_000, 15_000, 33_333, MAX_IR_MODIFIER] {
+        let (apr, interest) = accrue_at(modifier_bps);
+        let product = unit_apr * modifier_bps;
+        assert_eq!(apr, product / BPS_FACTOR + i128::from(product % BPS_FACTOR != 0));
+        assert_eq!(interest.cmp(&unit_interest), modifier_bps.cmp(&BPS_FACTOR));
+    }
+}

@@ -1,8 +1,11 @@
 #![cfg(test)]
 
-use insurance_fund_interface::IssueRequestResult;
+use insurance_fund_interface::{CoverageStatus, IssueRequestResult};
 use market::{
-    constants::{DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR, SECONDS_PER_DAY, SECONDS_PER_HOUR},
+    constants::{
+        DEFAULT_BAD_DEBT_LOCK_D, MAX_ORACLE_PRICE_AGE_SECONDS, SECONDS_IN_YEAR, SECONDS_PER_DAY,
+        SECONDS_PER_HOUR,
+    },
     error::MCError,
     obligation::ObligationKey,
     pool::PoolConfig,
@@ -11,14 +14,15 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, contract, contractimpl, map as smap,
     testutils::{Address as _, Ledger},
+    token::TokenClient,
 };
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     compute_user_obligation_collateral_value, compute_user_obligation_debt_value,
-    get_obligation_d_tokens_as_tokens, get_obligation_j_tokens_as_tokens,
-    get_pool_take_rate_fees_sum, get_pool_total_available, get_pool_total_borrowed,
-    get_pool_total_d_tokens, get_pool_total_j_tokens,
+    get_obligation_collateral, get_obligation_d_tokens_as_tokens,
+    get_obligation_j_tokens_as_tokens, get_pool_take_rate_fees_sum, get_pool_total_available,
+    get_pool_total_borrowed, get_pool_total_d_tokens, get_pool_total_j_tokens,
 };
 
 #[test]
@@ -1265,4 +1269,189 @@ fn test_a_dust_write_off_caps_the_fee_claim_at_what_the_pool_still_holds() {
     c.withdraw(&newcomer, usdc, &i128::MAX, &None);
     assert_approx_eq_abs(f.usdc_token_client.balance(&f.users[3]) - newcomer_before, deposited, 1);
     f.assert_invariants();
+}
+
+/// An insurance fund that answers every request the same scripted way: immediately or as recorded request
+/// `SCRIPTED_REQUEST_ID` that is ready at once. Its transfer falls `shortfall` units short of what it reports.
+#[contract]
+pub struct ScriptedInsuranceFund;
+
+const SCRIPTED_REQUEST_ID: u64 = 7;
+
+#[contractimpl]
+impl ScriptedInsuranceFund {
+    pub fn __constructor(e: Env, market: Address, immediate: bool, shortfall: i128) {
+        e.storage().instance().set(&0_u32, &market);
+        e.storage().instance().set(&1_u32, &immediate);
+        e.storage().instance().set(&2_u32, &shortfall);
+    }
+
+    pub fn add_reserves(_e: Env, _token: Address, _amount: i128) {}
+
+    pub fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
+        if e.storage().instance().get(&1_u32).unwrap() {
+            Self::pay(&e, &token, amount);
+            IssueRequestResult::Immediate(amount)
+        } else {
+            e.storage().instance().set(&3_u32, &(token, amount));
+            IssueRequestResult::Recorded(SCRIPTED_REQUEST_ID)
+        }
+    }
+
+    pub fn get_status(e: Env, _request_id: u64) -> Option<CoverageStatus> {
+        let (_, amount): (Address, i128) = e.storage().instance().get(&3_u32)?;
+        Some(CoverageStatus::Ready(amount))
+    }
+
+    pub fn claim_coverage(e: Env, _request_id: u64) -> i128 {
+        let (token, amount): (Address, i128) = e.storage().instance().get(&3_u32).unwrap();
+        e.storage().instance().remove(&3_u32);
+        Self::pay(&e, &token, amount);
+        amount
+    }
+
+    pub fn cancel(_e: Env, _request_id: u64) {}
+}
+
+impl ScriptedInsuranceFund {
+    fn pay(e: &Env, token: &Address, reported: i128) {
+        let market: Address = e.storage().instance().get(&0_u32).unwrap();
+        let shortfall: i128 = e.storage().instance().get(&2_u32).unwrap();
+        TokenClient::new(e, token).transfer(
+            &e.current_contract_address(),
+            &market,
+            &(reported - shortfall),
+        );
+    }
+}
+
+const DUST_GOLD_COLLATERAL: i128 = 20 * ONE;
+const COVERED_USDC_DEBT: i128 = 6 * ONE;
+
+/// A borrower owing $6 of USDC whose only collateral is `DUST_GOLD_COLLATERAL` plain GOLD, priced down to $4:
+/// under the $5 threshold, so its debt qualifies for cover, but the debt is above it and goes to the fund.
+fn dust_collateral_borrower(f: &TestMarketFixture) -> ObligationKey {
+    set_5_usd_dust_threshold(f);
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lender, &f.usdc_pool_address, &(100 * ONE), &None);
+    f.contract_client.add_collateral(&borrower, &f.gold_pool_address, &DUST_GOLD_COLLATERAL, &None);
+    f.contract_client.borrow(&borrower, &f.usdc_pool_address, &COVERED_USDC_DEBT, &None);
+    set_dust_prices(f, gold_cents(20), 1_00000000000000);
+    borrower
+}
+
+/// Issuing cover releases a covered obligation's plain collateral to the pool's liquidity: what leaves
+/// `total_collateral` arrives in `total_available`, and the market's token balance does not move.
+#[test]
+fn test_issuing_cover_moves_the_plain_collateral_into_the_pool_liquidity() {
+    let f = TestMarketFixture::new();
+    let borrower = dust_collateral_borrower(&f);
+    let before = f.contract_client.get_pool(&f.gold_pool_address);
+    let balance_before = f.gold_token_client.balance(&f.contract_id);
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    let after = f.contract_client.get_pool(&f.gold_pool_address);
+    assert_eq!(before.total_collateral - after.total_collateral, DUST_GOLD_COLLATERAL);
+    assert_eq!(after.total_available - before.total_available, DUST_GOLD_COLLATERAL);
+    assert_eq!(f.gold_token_client.balance(&f.contract_id), balance_before);
+    assert_eq!(
+        get_obligation_collateral(&f.contract_client, &borrower.user, &f.gold_pool_address),
+        Err(MCError::DepositPositionDoesNotExist)
+    );
+}
+
+/// An immediate cover is accepted only when the fund's transfer matches the amount it reports; a matching one
+/// writes the debt off against the received tokens.
+#[test]
+fn test_an_immediate_cover_must_deliver_what_the_fund_reports() {
+    for shortfall in [0_i128, 1, 1_000] {
+        let f = TestMarketFixture::new();
+        f.e.register_at(
+            &f.insurance_fund,
+            ScriptedInsuranceFund,
+            (f.contract_id.clone(), true, shortfall),
+        );
+        f.usdc_sac.mint(&f.insurance_fund, &(10 * COVERED_USDC_DEBT));
+        let borrower = dust_collateral_borrower(&f);
+        f.contract_client.refresh_pool(&f.usdc_pool_address);
+        let debt = get_obligation_d_tokens_as_tokens(
+            &f.e,
+            &f.contract_client,
+            &borrower.user,
+            &f.usdc_pool_address,
+        )
+        .unwrap();
+        let available_before = get_pool_total_available(&f.contract_client, &f.usdc_pool_address);
+        let fund_before = f.usdc_token_client.balance(&f.insurance_fund);
+
+        let outcome = f.contract_client.try_issue_cover_bad_debt(&borrower);
+
+        if shortfall == 0 {
+            assert_eq!(outcome, Ok(Ok(())));
+            assert_eq!(fund_before - f.usdc_token_client.balance(&f.insurance_fund), debt);
+            assert_eq!(
+                get_pool_total_available(&f.contract_client, &f.usdc_pool_address)
+                    - available_before,
+                debt
+            );
+            assert_eq!(f.contract_client.get_pool(&f.usdc_pool_address).total_d_tokens, 0);
+        } else {
+            assert_eq!(outcome, Err(Ok(MCError::DependencyContractError)));
+        }
+    }
+}
+
+/// Claiming a ready request whose transfer falls short of the approved amount settles nothing: the request,
+/// the pool's lock and the debt stay in place. A matching transfer settles it.
+#[test]
+fn test_a_cover_claim_that_delivers_less_than_approved_is_not_settled() {
+    for shortfall in [0_i128, 1, 1_000] {
+        let f = TestMarketFixture::new();
+        f.e.register_at(
+            &f.insurance_fund,
+            ScriptedInsuranceFund,
+            (f.contract_id.clone(), false, shortfall),
+        );
+        f.usdc_sac.mint(&f.insurance_fund, &(10 * COVERED_USDC_DEBT));
+        let borrower = dust_collateral_borrower(&f);
+        f.contract_client.issue_cover_bad_debt(&borrower);
+        let d_tokens = get_pool_total_d_tokens(&f.contract_client, &f.usdc_pool_address);
+
+        f.contract_client.claim_cover_bad_debt_results(&borrower);
+
+        let pool = f.contract_client.get_pool(&f.usdc_pool_address);
+        let obligation = f.contract_client.try_get_user_obligation(&borrower);
+        if shortfall == 0 {
+            assert_eq!(pool.bad_debt_request_count, 0);
+            assert_eq!(pool.total_d_tokens, 0);
+            assert_eq!(obligation, Err(Ok(MCError::ObligationDoesNotExist)));
+        } else {
+            assert_eq!(pool.bad_debt_request_count, 1);
+            assert_eq!(pool.total_d_tokens, d_tokens);
+            let obligation = obligation.unwrap().unwrap();
+            assert!(obligation.borrows.contains_key(f.usdc_pool_address.clone()));
+            assert_eq!(obligation.insurance_fund_requests_ids.len(), 1);
+        }
+    }
+}
+
+/// The cover criterion values collateral at a validated price: with a stale feed, issuing cover fails
+/// with `OracleStalePrice` instead of valuing the collateral at a fallback.
+#[test]
+fn test_issuing_cover_refuses_a_stale_collateral_price() {
+    let f = TestMarketFixture::new();
+    let borrower = dust_collateral_borrower(&f);
+    let prices = soroban_sdk::vec![&f.e, gold_cents(20), 1_00000000000000, 1_00000000000000];
+    let stale_at = f.e.ledger().timestamp() - MAX_ORACLE_PRICE_AGE_SECONDS - 1;
+    f.oracle_client.set_price(&prices, &stale_at);
+
+    assert_eq!(
+        f.contract_client.try_issue_cover_bad_debt(&borrower),
+        Err(Ok(MCError::OracleStalePrice))
+    );
+
+    f.oracle_client.set_price_stable(&prices);
+    assert_eq!(f.contract_client.try_issue_cover_bad_debt(&borrower), Ok(Ok(())));
 }

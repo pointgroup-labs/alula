@@ -442,6 +442,122 @@ fn test_borrow_w_big_liability_factor() {
     assert!(borrowed < DEFAULT_COLLATERAL_AMOUNT / 2);
 }
 
+/// With a liability factor above 100 %, a later borrow weighs the existing debt by it too: the maximum total
+/// debt is `open_ltv * collateral / liability_factor` however it was reached, and the same weighting makes the
+/// position liquidatable once weighted debt passes `close_ltv * collateral`, before unweighted debt does.
+#[test]
+fn test_the_liability_factor_weighs_existing_debt() {
+    for liability_factor_bps in [12_500_i128, 15_000, 20_000] {
+        let pool_config = PoolConfig {
+            health_config: PoolHealthConfig { liability_factor_bps, ..Default::default() },
+            ..Default::default()
+        };
+        let f = TestMarketFixture::new_with_pool_config(pool_config);
+        let (borrower, lender, liquidator) = (&f.users[0], &f.users[1], &f.users[2]);
+        let borrower_key = ObligationKey::new(borrower.clone());
+        let collateral = 1_000_000_i128;
+        f.contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &f.usdc_pool_address,
+            &(10 * collateral),
+            &None,
+        );
+        f.contract_client.add_collateral(&borrower_key, &f.gold_pool_address, &collateral, &None);
+
+        f.contract_client.borrow(&borrower_key, &f.usdc_pool_address, &(collateral / 10), &None);
+        f.contract_client.borrow(&borrower_key, &f.usdc_pool_address, &i128::MAX, &None);
+
+        let debt = get_obligation_d_tokens_as_tokens(
+            &f.e,
+            &f.contract_client,
+            borrower,
+            &f.usdc_pool_address,
+        )
+        .unwrap();
+        let max_debt = collateral * DEFAULT_OPEN_LTV_BPS / liability_factor_bps;
+        assert_approx_eq_abs(debt, max_debt, 2);
+
+        // GOLD price where `close_ltv * collateral value` sits halfway between debt and weighted debt.
+        let gold_price = 1_00000000000000 * debt * (BPS_FACTOR + liability_factor_bps)
+            / (2 * DEFAULT_CLOSE_LTV_BPS * collateral);
+        f.oracle_client.set_price_stable(&soroban_sdk::vec![
+            &f.e,
+            gold_price,
+            1_00000000000000,
+            1_00000000000000
+        ]);
+
+        let outcome = f.contract_client.try_liquidate(
+            liquidator,
+            &borrower_key,
+            &f.usdc_pool_address,
+            &f.gold_pool_address,
+            &1_000,
+            &0,
+        );
+        assert!(
+            outcome.is_ok(),
+            "weighted debt above the close LTV must be liquidatable: {outcome:?}"
+        );
+    }
+}
+
+/// The borrow limit keeps `min_collateral_value_cents` per collateral position out of the borrowable value:
+/// at price 1 a max borrow is `(open_ltv * collateral value - floor) / price`, and it stays healthy.
+#[test]
+fn test_a_max_borrow_leaves_the_min_collateral_value_unborrowed() {
+    for cents in [100_i128, 500, 2_000] {
+        let f = TestMarketFixture::new();
+        let (borrower, lender, liquidator) = (&f.users[0], &f.users[1], &f.users[2]);
+        let borrower_key = ObligationKey::new(borrower.clone());
+        let period = f.contract_client.get_global_state().update_in_queue_period;
+        f.contract_client.queue_in_market_update(
+            &DEFAULT_MAX_POSITIONS,
+            &cents,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        );
+        f.e.ledger().with_mut(|li| li.timestamp += period);
+        f.contract_client.apply_market_update();
+
+        // 10^9 base units of 7-decimal GOLD at a price of 1 (14 decimals) are worth $100.
+        let collateral = 1_000_000_000_i128;
+        f.contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &f.usdc_pool_address,
+            &(10 * collateral),
+            &None,
+        );
+        f.contract_client.add_collateral(&borrower_key, &f.gold_pool_address, &collateral, &None);
+        f.contract_client.borrow(&borrower_key, &f.usdc_pool_address, &i128::MAX, &None);
+
+        let value_per_token = 10_000_000_i128; // 10^14 price / 10^7 decimals
+        let floor_value = cents * 1_00000000000000 / 100;
+        let expected = (collateral * value_per_token * DEFAULT_OPEN_LTV_BPS / BPS_FACTOR
+            - floor_value)
+            / value_per_token;
+        assert_eq!(
+            get_obligation_d_tokens_as_tokens(
+                &f.e,
+                &f.contract_client,
+                borrower,
+                &f.usdc_pool_address
+            ),
+            Ok(expected)
+        );
+        assert_eq!(
+            f.contract_client.try_liquidate(
+                liquidator,
+                &borrower_key,
+                &f.usdc_pool_address,
+                &f.gold_pool_address,
+                &1_000,
+                &0,
+            ),
+            Err(Ok(MCError::ObligationIsHealthy))
+        );
+    }
+}
+
 // -- Non SAC token borrows --
 
 #[contracttype]
