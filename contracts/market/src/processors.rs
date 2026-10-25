@@ -903,6 +903,7 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
                     e,
                     borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
                 )?;
+                pool.cap_take_rate_fees_at_backing()?;
 
                 pool.set(e);
                 borrow_positions_to_remove.push_back(pool_address);
@@ -992,6 +993,7 @@ fn settle_bad_debt_request(
     pool.adjust_total_available(e, covered_amount)?;
     pool.adjust_total_borrowed(e, total_debt.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_d_tokens(e, borrow_position.d_tokens.checked_neg().map_over_or_underflow()?)?;
+    pool.cap_take_rate_fees_at_backing()?;
 
     pool.bad_debt_request_count =
         pool.bad_debt_request_count.checked_sub(1).map_over_or_underflow()?;

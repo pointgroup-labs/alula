@@ -1,17 +1,20 @@
 #![cfg(test)]
 
+use insurance_fund_interface::IssueRequestResult;
 use market::{
-    constants::{DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR, SECONDS_PER_HOUR},
+    constants::{DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR, SECONDS_PER_DAY, SECONDS_PER_HOUR},
     error::MCError,
     obligation::ObligationKey,
+    pool::PoolConfig,
 };
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{map as smap, testutils::Ledger};
+use soroban_sdk::{Address, Env, contract, contractimpl, map as smap, testutils::Ledger};
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     compute_user_obligation_collateral_value, compute_user_obligation_debt_value,
-    get_obligation_d_tokens_as_tokens, get_pool_total_available, get_pool_total_borrowed,
+    get_obligation_d_tokens_as_tokens, get_obligation_j_tokens_as_tokens,
+    get_pool_take_rate_fees_sum, get_pool_total_available, get_pool_total_borrowed,
     get_pool_total_d_tokens, get_pool_total_j_tokens,
 };
 
@@ -774,4 +777,188 @@ fn test_a_claim_reports_how_many_requests_it_settled() {
     fixture.controlled_insurance_fund_client.mark_ready(&0, &balance);
     fixture.contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
     assert_eq!(settled_count(&fixture), 1, "a claim that closed a request reported settling none");
+}
+
+#[contract]
+struct ImmediateZeroCoverFund;
+
+#[contractimpl]
+impl ImmediateZeroCoverFund {
+    pub fn request_coverage(_e: Env, _token: Address, _amount: i128) -> IssueRequestResult {
+        IssueRequestResult::Immediate(0)
+    }
+}
+
+/// How the insurance fund answers the claim.
+#[derive(Clone, Copy, Debug)]
+enum Cover {
+    Zero,
+    Timeout,
+    ImmediateZero,
+}
+
+/// The lender runs to the fee floor, a week of accrual lifts the fee claim above the cash, then GOLD gaps
+/// to 0.001 and a liquidator takes all the collateral for 100 USDC. `users[3]` first borrows
+/// `survivor_debt` against BTC, which the crash leaves healthy.
+fn crash_after_a_run(f: &TestMarketFixture, survivor_debt: i128) {
+    let (borrower, lender, liquidator, beneficiary) =
+        (&f.users[0], &f.users[1], &f.users[2], &f.users[4]);
+    let usdc = &f.usdc_pool_address;
+    f.contract_client
+        .set_take_rate_fees_beneficiaries(usdc, &smap![&f.e, (beneficiary.clone(), 10_000)]);
+    f.contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &f.gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    f.contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        usdc,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    if survivor_debt > 0 {
+        let survivor = ObligationKey::new(f.users[3].clone());
+        f.contract_client.add_collateral(
+            &survivor,
+            &f.btc_pool_address,
+            &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        f.contract_client.borrow(&survivor, usdc, &survivor_debt, &None);
+    }
+    f.contract_client.borrow(&ObligationKey::new(borrower.clone()), usdc, &i128::MAX, &None);
+    f.contract_client.withdraw(&ObligationKey::new(lender.clone()), usdc, &i128::MAX, &None);
+
+    f.e.ledger().with_mut(|li| li.timestamp += 7 * SECONDS_PER_DAY);
+    f.contract_client.refresh_pool(usdc);
+
+    // Feed order is [GOLD, BTC, USDC].
+    f.oracle_client.set_price_stable(&soroban_sdk::vec![
+        &f.e,
+        1_00000000000,
+        1_00000000000000,
+        1_00000000000000
+    ]);
+    f.e.ledger().with_mut(|li| li.timestamp += 1);
+    f.contract_client.liquidate(
+        liquidator,
+        &ObligationKey::new(borrower.clone()),
+        usdc,
+        &f.gold_pool_address,
+        &100,
+        &0,
+    );
+}
+
+fn write_off(f: &TestMarketFixture, cover: Cover) {
+    let borrower = ObligationKey::new(f.users[0].clone());
+    if let Cover::ImmediateZero = cover {
+        let fund = f.e.register(ImmediateZeroCoverFund, ());
+        f.e.as_contract(&f.contract_id, || market::storage::set_insurance_fund(&f.e, &fund));
+        f.contract_client.issue_cover_bad_debt(&borrower);
+        return;
+    }
+    f.contract_client.issue_cover_bad_debt(&borrower);
+    match cover {
+        Cover::Zero => f.controlled_insurance_fund_client.mark_ready(&0, &0),
+        _ => f.e.ledger().with_mut(|li| li.timestamp += DEFAULT_BAD_DEBT_LOCK_D),
+    }
+    f.contract_client.claim_cover_bad_debt_results(&borrower);
+}
+
+/// **D-4:** once a write-off leaves the fee claim above everything the pool holds, the next lender's
+/// deposit must not fill the unbacked part and flow to the fee beneficiaries.
+#[test]
+fn test_a_deposit_after_a_wipe_out_is_not_paid_to_the_fee_beneficiaries() {
+    let f = TestMarketFixture::new();
+    let (lender, newcomer, beneficiary) = (
+        ObligationKey::new(f.users[1].clone()),
+        ObligationKey::new(f.users[3].clone()),
+        &f.users[4],
+    );
+    let usdc = &f.usdc_pool_address;
+    crash_after_a_run(&f, 0);
+    write_off(&f, Cover::Zero);
+    let cash = get_pool_total_available(&f.contract_client, usdc);
+    // The old shares are worth nothing; burning them is what lets a deposit mint at all.
+    f.contract_client.withdraw(&lender, usdc, &i128::MAX, &None);
+
+    let deposited = 1_000;
+    let beneficiary_before = f.usdc_token_client.balance(beneficiary);
+    f.contract_client.deposit(&newcomer, usdc, &deposited, &None);
+    f.contract_client.distribute_pool_fees(usdc);
+    let newcomer_before = f.usdc_token_client.balance(&f.users[3]);
+    f.contract_client.withdraw(&newcomer, usdc, &i128::MAX, &None);
+
+    assert_approx_eq_abs(f.usdc_token_client.balance(&f.users[3]) - newcomer_before, deposited, 1);
+    assert_eq!(f.usdc_token_client.balance(beneficiary) - beneficiary_before, cash);
+}
+
+/// Every write-off path caps the fee claim at the cash plus the remaining debt, including the fees the
+/// doomed debt accrued during the lock.
+#[test]
+fn test_a_write_off_caps_the_fee_claim_at_what_the_pool_still_holds() {
+    for cover in [Cover::Zero, Cover::Timeout, Cover::ImmediateZero] {
+        let f = TestMarketFixture::new();
+        crash_after_a_run(&f, 0);
+        write_off(&f, cover);
+        let pool = f.contract_client.get_pool(&f.usdc_pool_address);
+        assert!(pool.total_available > 0, "{cover:?}: the scenario left no cash to back the claim");
+        assert_eq!(
+            pool.take_rate_fees_sum,
+            pool.total_available + pool.total_borrowed,
+            "{cover:?}: the fee claim outlived the write-off"
+        );
+    }
+}
+
+/// A loss the remaining debt still backs leaves the fee claim whole: fees rank ahead of lenders.
+#[test]
+fn test_a_partial_loss_leaves_the_fee_claim_senior() {
+    let f = TestMarketFixture::new();
+    let (survivor, beneficiary) = (ObligationKey::new(f.users[3].clone()), &f.users[4]);
+    let usdc = &f.usdc_pool_address;
+    crash_after_a_run(&f, 10_000);
+    let claim = get_pool_take_rate_fees_sum(&f.contract_client, usdc);
+    write_off(&f, Cover::Zero);
+    let pool = f.contract_client.get_pool(usdc);
+    assert!(pool.take_rate_fees_sum > pool.total_available, "the claim does not rest on the debt");
+    assert_eq!(pool.take_rate_fees_sum, claim);
+
+    let beneficiary_before = f.usdc_token_client.balance(beneficiary);
+    f.contract_client.repay(&survivor, usdc, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    f.contract_client.distribute_pool_fees(usdc);
+    assert_eq!(f.usdc_token_client.balance(beneficiary) - beneficiary_before, claim);
+}
+
+/// With no take rate there is no claim to cap: the lender keeps the cash and a deposit stays whole.
+#[test]
+fn test_a_wipe_out_without_a_take_rate_leaves_the_cash_to_the_lender() {
+    let mut config = PoolConfig::default();
+    config.fee_config.take_rate_bps = 0;
+    let f = TestMarketFixture::new_with_pool_config(config);
+    let (lender, newcomer) =
+        (ObligationKey::new(f.users[1].clone()), ObligationKey::new(f.users[3].clone()));
+    let usdc = &f.usdc_pool_address;
+    crash_after_a_run(&f, 0);
+    write_off(&f, Cover::Zero);
+    let pool = f.contract_client.get_pool(usdc);
+    assert_eq!(pool.take_rate_fees_sum, 0);
+
+    let lender_before = f.usdc_token_client.balance(&f.users[1]);
+    f.contract_client.withdraw(&lender, usdc, &i128::MAX, &None);
+    assert_approx_eq_abs(
+        f.usdc_token_client.balance(&f.users[1]) - lender_before,
+        pool.total_available,
+        1,
+    );
+
+    let deposited = 1_000;
+    f.contract_client.deposit(&newcomer, usdc, &deposited, &None);
+    assert_eq!(
+        get_obligation_j_tokens_as_tokens(&f.e, &f.contract_client, &f.users[3], usdc),
+        Ok(deposited)
+    );
 }
