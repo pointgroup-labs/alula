@@ -35,7 +35,7 @@ jobs:
           - aqua_swap_provider
           - soroswap_swap_provider
           - farms
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@6b16426dd3a61715ddddf83a2df322a6371fe071 # v28.1.0
     with:
       release_name: ${{ github.ref_name }}
       package: ${{ matrix.package }}
