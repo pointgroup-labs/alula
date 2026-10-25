@@ -296,7 +296,8 @@ pub trait Market {
 
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
-    // Opens requests and socialises nothing; the write-off happens at settlement. While one is open,
+    // Writes off debts worth no more than `min_collateral_value_cents` at once. For the rest it opens
+    // requests and socialises nothing; the write-off happens at settlement. While one is open,
     // `withdraw`, `add_collateral` and `repay` are refused — blocking repay is deliberate, since
     // settlement recomputes the debt from the position's current `d_tokens`.
     //
@@ -722,7 +723,8 @@ impl Market for MarketContract {
         require_deposits_on_market_allowed(&e)?;
         storage::extend_instance(&e);
 
-        process_deposit(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_deposit(&e, &mut oracle::Prices::new(&e), &user, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn borrow(
@@ -749,7 +751,15 @@ impl Market for MarketContract {
         user.require_auth();
         storage::extend_instance(&e);
 
-        process_add_collateral(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_add_collateral(
+            &e,
+            &mut oracle::Prices::new(&e),
+            &user,
+            &pool_address,
+            amount,
+            &referrer,
+        )?
+        .execute_transfers(&e)
     }
 
     fn remove_collateral(

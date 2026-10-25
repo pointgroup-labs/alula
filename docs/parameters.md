@@ -251,7 +251,11 @@ When a liquidation leaves a shortfall that isn't covered, a claim opens against
 the insurance fund and the affected pool locks for `bad_debt_lock_d` seconds.
 While it's locked, deposit, withdraw, borrow and flash loan are blocked on that
 pool. Repay, collateral changes and liquidation stay open. The point is to stop
-lenders racing for the exit ahead of a loss that is about to be shared out.
+lenders racing for the exit ahead of a loss that is about to be shared out. A
+debt worth no more than `min_collateral_value_cents` is written off at once,
+with no claim and no lock, whatever collateral is left. The borrow pool's
+lenders bear it without the fund's review, up to `min_collateral_value_cents`
+per pool on each cover. A debt whose price can't be read opens a claim as usual.
 
 The lock only lifts once every outstanding claim on the pool has settled;
 waiting out the duration isn't enough on its own. A claim that sits pending
@@ -259,9 +263,11 @@ past its deadline can be cancelled by anyone, so an unanswered claim can't hold
 the lock open indefinitely.
 
 Losses are absorbed in order: liquidation proceeds first, then the pool's
-insurance fund, and only what's left is socialized across that pool's lenders.
-Whether that last step can happen, and how much it costs, is the main tail risk
-in everything above.
+insurance fund (except dust written off as above), and only what's left is
+socialized across that pool's lenders. Whether that last step can happen, and
+how much it costs, is the main tail risk in everything above. Unpaid take-rate
+fees rank ahead of lenders; once a write-off wipes out lenders' equity, the fee
+claim beyond the pool's cash and remaining debt is written off with it.
 
 ---
 
@@ -272,6 +278,11 @@ in everything above.
 | `max_positions`              | Max simultaneous positions per obligation                      | `10`           | `2..=10`              |
 | `min_collateral_value_cents` | Dust floor each borrow-backing collateral position must retain | `500` ($5)     | `0..=10000` ($100)    |
 | `bad_debt_lock_d`            | Lock duration set on a pool when a bad-debt claim opens        | `43200` (12 h) | `0..=432000` (5 days) |
+
+`min_collateral_value_cents` sets two limits at once: `issue_cover_bad_debt`
+accepts an obligation only when every collateral position is worth no more
+than it, and writes off without a claim any debt worth no more than it (§6).
+Raising one raises the other.
 
 ### Fixed at deployment
 
@@ -398,7 +409,10 @@ none of them affect lending LPs.
 The market's `oracle` address is fixed at deployment (§7). The market rejects
 any price stamped more than 6 minutes ago (a constant 360 s) or in the future.
 A price is read at most once per call and never reused by a later transaction,
-even in the same ledger.
+even in the same ledger. With debt open, `deposit` and `add_collateral` need a
+readable price for the pool's asset, since liquidation prices every position of
+the obligation. Dust deposited before a feed fails is not covered: liquidation
+waits for that price too.
 
 If the market points at the Aggregated Oracle, that contract takes a median
 across several SEP-40 feeds and adds a deviation check on top. It stamps the

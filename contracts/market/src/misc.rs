@@ -95,7 +95,10 @@ pub fn require_borrows_on_market_allowed(e: &Env) -> Result<(), MCError> {
 
 #[inline(always)]
 pub fn require_deposits_on_market_allowed(e: &Env) -> Result<(), MCError> {
-    if !matches!(storage::get_market_status(e), MarketStatus::Active | MarketStatus::BorrowFrozen) {
+    if !matches!(
+        storage::get_market_status(e),
+        MarketStatus::Active | MarketStatus::BorrowFrozen | MarketStatus::BorrowFrozenByAdmin
+    ) {
         return Err(MCError::DepositForbiddenOnMarket);
     }
 

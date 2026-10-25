@@ -492,6 +492,51 @@ fn test_update_market_status() {
 }
 
 #[test]
+fn test_borrow_frozen_by_admin_freezes_only_borrows() {
+    let TestMarketFixture { contract_client, users, usdc_pool_address, gold_pool_address, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(&ObligationKey::new(creditor.clone()), &gold_pool_address, &100, &None);
+    contract_client.borrow(&ObligationKey::new(creditor.clone()), &usdc_pool_address, &50, &None);
+
+    contract_client.update_market_status(&(MarketStatus::BorrowFrozenByAdmin as u32));
+    assert_eq!(contract_client.get_global_state().status, MarketStatus::BorrowFrozenByAdmin as u32);
+
+    assert!(
+        contract_client
+            .try_deposit(&ObligationKey::new(creditor.clone()), &gold_pool_address, &1, &None)
+            .is_ok()
+    );
+    assert!(
+        contract_client
+            .try_withdraw(&ObligationKey::new(creditor.clone()), &gold_pool_address, &1, &None)
+            .is_ok()
+    );
+    assert_eq!(
+        contract_client.try_borrow(
+            &ObligationKey::new(creditor.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::BorrowForbiddenOnMarket))
+    );
+    assert!(
+        contract_client
+            .try_repay(&ObligationKey::new(creditor.clone()), &usdc_pool_address, &1, &None)
+            .is_ok()
+    );
+}
+
+#[test]
 fn test_queue_in_market_config_update() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);

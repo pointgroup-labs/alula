@@ -691,6 +691,15 @@ impl Pool {
         Ok(i128::max(supply, 0))
     }
 
+    // After a write-off the fee claim stays senior only up to what the pool still holds; the excess is
+    // interest that will never be paid, and the next deposit would otherwise fill it.
+    pub fn cap_take_rate_fees_at_backing(&mut self) -> Result<(), MCError> {
+        let backing =
+            self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
+        self.take_rate_fees_sum = i128::min(self.take_rate_fees_sum, backing);
+        Ok(())
+    }
+
     // Tries to get the pool from the contract's storage
     //
     // # Returns
