@@ -722,7 +722,8 @@ impl Market for MarketContract {
         require_deposits_on_market_allowed(&e)?;
         storage::extend_instance(&e);
 
-        process_deposit(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_deposit(&e, &mut oracle::Prices::new(&e), &user, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn borrow(
@@ -749,7 +750,15 @@ impl Market for MarketContract {
         user.require_auth();
         storage::extend_instance(&e);
 
-        process_add_collateral(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_add_collateral(
+            &e,
+            &mut oracle::Prices::new(&e),
+            &user,
+            &pool_address,
+            amount,
+            &referrer,
+        )?
+        .execute_transfers(&e)
     }
 
     fn remove_collateral(

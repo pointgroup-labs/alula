@@ -225,6 +225,20 @@ impl Obligation {
         Ok(())
     }
 
+    // Liquidation prices every deposit of a borrower, so an unpriceable one would block it.
+    pub fn require_priced_if_borrowing(
+        &self,
+        e: &Env,
+        prices: &mut Prices,
+        pool: &Pool,
+    ) -> Result<(), MCError> {
+        if self.borrow_exists() {
+            oracle::get_asset_price(e, prices, &pool.token_address)?;
+        }
+
+        Ok(())
+    }
+
     // ------ Health Factor Removing Computations ------
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per

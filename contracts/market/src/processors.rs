@@ -49,6 +49,7 @@ pub fn process_submit_requests_batch(
             Request::Deposit(standard_request) => {
                 let new_transfers = process_deposit(
                     e,
+                    &mut prices,
                     obligation_key,
                     &standard_request.pool_address,
                     standard_request.amount,
@@ -95,6 +96,7 @@ pub fn process_submit_requests_batch(
             Request::AddCollateral(standard_request) => {
                 let new_transfers = process_add_collateral(
                     e,
+                    &mut prices,
                     obligation_key,
                     &standard_request.pool_address,
                     standard_request.amount,
@@ -273,6 +275,7 @@ pub fn process_initialize_pool(
 
 pub fn process_deposit<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
@@ -299,6 +302,7 @@ pub fn process_deposit<'a>(
     let mut obligation = Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e));
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
+    obligation.require_priced_if_borrowing(e, prices, &pool)?;
 
     let deposit_result = obligation.deposit(e, &pool, amount, referrer)?;
     pool.deposit(e, &deposit_result)?;
@@ -380,6 +384,7 @@ pub fn process_borrow<'a>(
 
 pub fn process_add_collateral<'a>(
     e: &'a Env,
+    prices: &mut Prices,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
@@ -394,6 +399,7 @@ pub fn process_add_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_add_collateral_enabled()?;
+    obligation.require_priced_if_borrowing(e, prices, &pool)?;
 
     let add_collateral_result = obligation.add_collateral(e, &pool, amount, referrer)?;
     pool.add_collateral(e, &add_collateral_result)?;
