@@ -109,7 +109,7 @@ configured for it.
 
 | Function | Signature | Notes |
 | --- | --- | --- |
-| `issue_cover_bad_debt` | `user` | Files cover-bad-debt requests to the Insurance Fund for every bad-debt borrow position on the obligation. |
+| `issue_cover_bad_debt` | `user` | Writes off borrow positions worth no more than `min_collateral_value_cents` and files cover-bad-debt requests to the Insurance Fund for the rest. |
 | `claim_cover_bad_debt_results` | `user` | Claims the Insurance Fund's response to previously issued requests. |
 
 ## Fees

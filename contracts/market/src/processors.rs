@@ -15,8 +15,10 @@ use crate::{
         require_borrows_on_market_allowed, require_deposits_on_market_allowed, require_nonnegative,
         require_positive,
     },
-    obligation::{Obligation, ObligationKey, WithdrawResult},
-    oracle::Prices,
+    obligation::{
+        Obligation, ObligationKey, WithdrawResult, compute_min_collateral_threshold_scaled,
+    },
+    oracle::{self, Prices},
     pool::{Pool, PoolConfig},
     request::{
         LiquidateRequest, Request, RequestTransfers, StandardRequest, SwapExactTokensRequest,
@@ -826,6 +828,10 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
     let borrow_pools = obligation.borrows.keys();
     let mut borrow_positions_to_remove: Vec<Address> = Vec::new(e);
 
+    // A debt worth no more than this is written off at once, however much collateral is left: a fund request
+    // would lock the borrow pool until its deadline over a few dollars.
+    let dust_value = compute_min_collateral_threshold_scaled(e)?;
+
     for (pool_address, borrow_position) in obligation.borrows.iter() {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
             events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
@@ -834,81 +840,99 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
         })?;
         let obligation_debt_on_pool =
             pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-
-        let token_client = token::Client::new(e, &pool.token_address);
-        let market_balance_before = token_client.balance(&e.current_contract_address());
-
-        match insurance_fund_client.request_coverage(&pool.token_address, &obligation_debt_on_pool)
-        {
-            IssueRequestResult::Recorded(request_id) => {
-                if obligation
-                    .insurance_fund_requests_ids
-                    .contains_key((pool_address.clone(), request_id))
-                {
-                    events::insurance_fund_duplicate_request_id(
-                        e,
-                        obligation_key,
-                        pool_address,
-                        request_id,
-                    );
-
-                    return Err(MCError::DependencyContractError);
-                }
-
-                let duration = storage::get_bad_debt_lock_d(e);
-                let request_deadline =
-                    e.ledger().timestamp().checked_add(duration).map_over_or_underflow()?;
-                // Pool deadline is monotonically extended (used as withdraw-gate);
-                // per-request deadline is stored on the obligation entry below so
-                // older requests keep their original cancellation eligibility.
-                pool.bad_debt_lock_d = request_deadline;
-                pool.bad_debt_request_count =
-                    pool.bad_debt_request_count.checked_add(1).map_over_or_underflow()?;
-                pool.set(e);
-
-                events::pool_bad_debt_locked(e, &pool_address, pool.bad_debt_lock_d);
-
-                obligation
-                    .insurance_fund_requests_ids
-                    .set((pool_address, request_id), request_deadline);
-            }
-            IssueRequestResult::Immediate(covered_amount) => {
-                let market_balance_after = token_client.balance(&e.current_contract_address());
-                let actual_received = market_balance_after - market_balance_before; // safe
-
-                // Verify the insurance fund transferred what it claimed
-                if actual_received != covered_amount {
-                    events::inconsistent_immediate_insurance_fund_coverage(
-                        e,
-                        obligation_key,
-                        pool_address,
-                        actual_received,
-                        covered_amount,
-                    );
-
-                    return Err(MCError::DependencyContractError);
-                }
-
-                // Cap coverage to actual debt (defensive, shouldn't happen with well-behaved fund)
-                let effective_coverage = i128::min(obligation_debt_on_pool, actual_received);
-
-                // Socialize any uncovered portion: add what was received to available,
-                // and remove full debt - the gap reduces j-token value for suppliers
-                pool.adjust_total_available(e, effective_coverage)?;
-                pool.adjust_total_borrowed(
+        // At a zero threshold nothing is dust. A debt price that cannot be read sends the debt to the fund as
+        // before, so an outage cannot keep the pool unlocked.
+        let is_dust = dust_value > 0
+            && matches!(
+                oracle::get_asset_value_ceil(
                     e,
-                    obligation_debt_on_pool.checked_neg().map_over_or_underflow()?,
-                )?;
-                pool.adjust_total_d_tokens(
-                    e,
-                    borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
-                )?;
-                pool.cap_take_rate_fees_at_backing()?;
+                    &mut prices,
+                    obligation_debt_on_pool,
+                    &pool.token_address,
+                    pool.token_decimals,
+                ),
+                Ok(value) if value <= dust_value
+            );
+        let effective_coverage = if is_dust {
+            0
+        } else {
+            let token_client = token::Client::new(e, &pool.token_address);
+            let market_balance_before = token_client.balance(&e.current_contract_address());
 
-                pool.set(e);
-                borrow_positions_to_remove.push_back(pool_address);
+            match insurance_fund_client
+                .request_coverage(&pool.token_address, &obligation_debt_on_pool)
+            {
+                IssueRequestResult::Recorded(request_id) => {
+                    if obligation
+                        .insurance_fund_requests_ids
+                        .contains_key((pool_address.clone(), request_id))
+                    {
+                        events::insurance_fund_duplicate_request_id(
+                            e,
+                            obligation_key,
+                            pool_address,
+                            request_id,
+                        );
+
+                        return Err(MCError::DependencyContractError);
+                    }
+
+                    let duration = storage::get_bad_debt_lock_d(e);
+                    let request_deadline =
+                        e.ledger().timestamp().checked_add(duration).map_over_or_underflow()?;
+                    // Pool deadline is monotonically extended (used as withdraw-gate);
+                    // per-request deadline is stored on the obligation entry below so
+                    // older requests keep their original cancellation eligibility.
+                    pool.bad_debt_lock_d = request_deadline;
+                    pool.bad_debt_request_count =
+                        pool.bad_debt_request_count.checked_add(1).map_over_or_underflow()?;
+                    pool.set(e);
+
+                    events::pool_bad_debt_locked(e, &pool_address, pool.bad_debt_lock_d);
+
+                    obligation
+                        .insurance_fund_requests_ids
+                        .set((pool_address, request_id), request_deadline);
+                    continue;
+                }
+                IssueRequestResult::Immediate(covered_amount) => {
+                    let market_balance_after = token_client.balance(&e.current_contract_address());
+                    let actual_received = market_balance_after - market_balance_before; // safe
+
+                    // Verify the insurance fund transferred what it claimed
+                    if actual_received != covered_amount {
+                        events::inconsistent_immediate_insurance_fund_coverage(
+                            e,
+                            obligation_key,
+                            pool_address,
+                            actual_received,
+                            covered_amount,
+                        );
+
+                        return Err(MCError::DependencyContractError);
+                    }
+
+                    // Cap coverage to actual debt (defensive, shouldn't happen with well-behaved fund)
+                    i128::min(obligation_debt_on_pool, actual_received)
+                }
             }
-        }
+        };
+
+        // Socialize any uncovered portion: add what was received to available,
+        // and remove full debt - the gap reduces j-token value for suppliers
+        pool.adjust_total_available(e, effective_coverage)?;
+        pool.adjust_total_borrowed(
+            e,
+            obligation_debt_on_pool.checked_neg().map_over_or_underflow()?,
+        )?;
+        pool.adjust_total_d_tokens(
+            e,
+            borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
+        )?;
+        pool.cap_take_rate_fees_at_backing()?;
+
+        pool.set(e);
+        borrow_positions_to_remove.push_back(pool_address);
     }
 
     for pool_address in borrow_positions_to_remove {

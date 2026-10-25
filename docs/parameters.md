@@ -251,7 +251,10 @@ When a liquidation leaves a shortfall that isn't covered, a claim opens against
 the insurance fund and the affected pool locks for `bad_debt_lock_d` seconds.
 While it's locked, deposit, withdraw, borrow and flash loan are blocked on that
 pool. Repay, collateral changes and liquidation stay open. The point is to stop
-lenders racing for the exit ahead of a loss that is about to be shared out.
+lenders racing for the exit ahead of a loss that is about to be shared out. A
+debt worth no more than `min_collateral_value_cents` is written off at once,
+with no claim and no lock, whatever collateral is left. A debt whose price
+can't be read opens a claim as usual.
 
 The lock only lifts once every outstanding claim on the pool has settled;
 waiting out the duration isn't enough on its own. A claim that sits pending

@@ -296,7 +296,8 @@ pub trait Market {
 
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
-    // Opens requests and socialises nothing; the write-off happens at settlement. While one is open,
+    // Writes off debts worth no more than `min_collateral_value_cents` at once. For the rest it opens
+    // requests and socialises nothing; the write-off happens at settlement. While one is open,
     // `withdraw`, `add_collateral` and `repay` are refused — blocking repay is deliberate, since
     // settlement recomputes the debt from the position's current `d_tokens`.
     //

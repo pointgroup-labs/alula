@@ -8,7 +8,10 @@ use market::{
     pool::PoolConfig,
 };
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, contract, contractimpl, map as smap, testutils::Ledger};
+use soroban_sdk::{
+    Address, BytesN, Env, contract, contractimpl, map as smap,
+    testutils::{Address as _, Ledger},
+};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
@@ -961,4 +964,263 @@ fn test_a_wipe_out_without_a_take_rate_leaves_the_cash_to_the_lender() {
         get_obligation_j_tokens_as_tokens(&f.e, &f.contract_client, &f.users[3], usdc),
         Ok(deposited)
     );
+}
+
+const ONE: i128 = 10_000_000;
+
+/// The production $5 dust threshold.
+fn set_5_usd_dust_threshold(f: &TestMarketFixture) {
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.contract_client.queue_in_market_update(&10, &500, &DEFAULT_BAD_DEBT_LOCK_D);
+    f.e.ledger().with_mut(|li| li.timestamp += period);
+    f.contract_client.apply_market_update();
+}
+
+/// A $5 dust threshold, a lender, and a borrower owing $1 of USDC against $10 of GOLD.
+fn dust_position(f: &TestMarketFixture) -> (ObligationKey, ObligationKey) {
+    set_5_usd_dust_threshold(f);
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lender, &f.usdc_pool_address, &(100 * ONE), &None);
+    f.contract_client.add_collateral(&borrower, &f.gold_pool_address, &(10 * ONE), &None);
+    f.contract_client.borrow(&borrower, &f.usdc_pool_address, &ONE, &None);
+    (lender, borrower)
+}
+
+/// GOLD, BTC and USDC prices in the oracle's feed order, in 14 decimals; BTC stays at $1.
+fn set_dust_prices(f: &TestMarketFixture, gold: i128, usdc: i128) {
+    f.oracle_client.set_price_stable(&soroban_sdk::vec![&f.e, gold, 1_00000000000000, usdc]);
+    f.e.ledger().with_mut(|li| li.timestamp += 1);
+}
+
+fn gold_cents(cents: i128) -> i128 {
+    cents * 1_000_000_000_000
+}
+
+fn lock_of(f: &TestMarketFixture, pool: &Address) -> (u32, u64) {
+    let pool = f.contract_client.get_pool(pool);
+    (pool.bad_debt_request_count, pool.bad_debt_lock_d)
+}
+
+/// A million BTC and a million USDC lent by two lenders.
+fn lend_btc_and_usdc(f: &TestMarketFixture) -> (ObligationKey, ObligationKey) {
+    let (btc_lender, usdc_lender) =
+        (ObligationKey::new(f.users[3].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&btc_lender, &f.btc_pool_address, &(1_000_000 * ONE), &None);
+    f.contract_client.deposit(&usdc_lender, &f.usdc_pool_address, &(1_000_000 * ONE), &None);
+    (btc_lender, usdc_lender)
+}
+
+/// $7.25 of GOLD, enough to back a borrow at a $5 threshold, against stroop-sized debts.
+fn stroop_debts(f: &TestMarketFixture, key: &ObligationKey, btc: i128, usdc: i128) {
+    f.contract_client.add_collateral(key, &f.gold_pool_address, &(725 * ONE / 100), &None);
+    if btc > 0 {
+        f.contract_client.borrow(key, &f.btc_pool_address, &btc, &None);
+    }
+    if usdc > 0 {
+        f.contract_client.borrow(key, &f.usdc_pool_address, &usdc, &None);
+    }
+}
+
+/// A debt worth no more than the dust threshold is written off at once instead of going to the fund, whose
+/// request would lock the whole borrow pool until its deadline over a few dollars.
+#[test]
+fn test_a_dust_bad_debt_is_written_off_without_locking_the_pool() {
+    let f = TestMarketFixture::new();
+    let (lender, borrower) = dust_position(&f);
+    set_dust_prices(&f, 1, 1_00000000000000);
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    let pool = f.contract_client.get_pool(&f.usdc_pool_address);
+    assert_eq!(pool.bad_debt_request_count, 0);
+    assert_eq!(pool.total_borrowed, 0);
+    f.contract_client.withdraw(&lender, &f.usdc_pool_address, &1, &None);
+}
+
+/// Collateral worth more than the debt does not change that: anyone can cover such an obligation once its
+/// collateral is dust, so solvency is no guard against the lock.
+#[test]
+fn test_a_solvent_dust_debt_is_written_off_without_locking_the_pool() {
+    let f = TestMarketFixture::new();
+    let (lender, borrower) = dust_position(&f);
+    // $0.45 a GOLD: $4.50 of collateral, under the $5 threshold but above the $1 debt.
+    set_dust_prices(&f, gold_cents(45), 1_00000000000000);
+    let gold_before = f.contract_client.get_pool(&f.gold_pool_address);
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(f.contract_client.get_pool(&f.usdc_pool_address).total_borrowed, 0);
+    let gold = f.contract_client.get_pool(&f.gold_pool_address);
+    assert_eq!(gold.total_available, gold_before.total_available + 10 * ONE);
+    assert_eq!(gold.total_collateral, gold_before.total_collateral - 10 * ONE);
+    assert_eq!(
+        f.contract_client.try_withdraw(&lender, &f.usdc_pool_address, &1, &None),
+        Ok(Ok(()))
+    );
+}
+
+/// A debt above the dust threshold still goes to the fund and locks its pool until the fund answers.
+#[test]
+fn test_a_debt_above_the_dust_threshold_still_locks_its_pool() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lender, &f.usdc_pool_address, &(100 * ONE), &None);
+    f.contract_client.add_collateral(&borrower, &f.gold_pool_address, &(20 * ONE), &None);
+    f.contract_client.borrow(&borrower, &f.usdc_pool_address, &(6 * ONE), &None);
+    // $0.20 a GOLD: $4 of collateral under the threshold, $6 of debt above it.
+    set_dust_prices(&f, gold_cents(20), 1_00000000000000);
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    assert_eq!(lock_of(&f, &f.usdc_pool_address).0, 1);
+    assert_eq!(
+        f.contract_client.try_withdraw(&lender, &f.usdc_pool_address, &1, &None),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+
+    f.controlled_insurance_fund_client.mark_ready(&0, &0);
+    f.contract_client.claim_cover_bad_debt_results(&borrower);
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(
+        f.contract_client.try_withdraw(&lender, &f.usdc_pool_address, &1, &None),
+        Ok(Ok(()))
+    );
+}
+
+/// A debt whose price cannot be read goes to the fund and locks the pool, instead of failing the cover and
+/// letting lenders leave ahead of the loss.
+#[test]
+fn test_an_unpriceable_debt_still_locks_its_pool() {
+    let f = TestMarketFixture::new();
+    let (lender, borrower) = dust_position(&f);
+    set_dust_prices(&f, 1, 0);
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    assert_eq!(f.contract_client.get_pool(&f.usdc_pool_address).bad_debt_request_count, 1);
+    assert_eq!(
+        f.contract_client.try_withdraw(&lender, &f.usdc_pool_address, &1, &None),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+}
+
+/// Written-off dust leaves the books once: settling the obligation's other debt later does not touch it.
+#[test]
+fn test_a_written_off_dust_debt_is_socialized_once() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let c = &f.contract_client;
+    lend_btc_and_usdc(&f);
+    let borrower = ObligationKey::new(f.users[0].clone());
+    c.add_collateral(&borrower, &f.gold_pool_address, &(30 * ONE), &None);
+    c.borrow(&borrower, &f.usdc_pool_address, &ONE, &None);
+    c.borrow(&borrower, &f.btc_pool_address, &(6 * ONE), &None);
+    // $0.10 a GOLD: $3 of collateral; the $1 USDC debt is dust, the $6 BTC debt is not.
+    set_dust_prices(&f, gold_cents(10), 1_00000000000000);
+    c.refresh_pool(&f.usdc_pool_address);
+    let usdc_before = c.get_pool(&f.usdc_pool_address);
+    let dust =
+        get_obligation_d_tokens_as_tokens(&f.e, c, &f.users[0], &f.usdc_pool_address).unwrap();
+
+    c.issue_cover_bad_debt(&borrower);
+
+    let usdc_after = c.get_pool(&f.usdc_pool_address);
+    assert_eq!(usdc_after.total_supply().unwrap(), usdc_before.total_supply().unwrap() - dust);
+    assert_eq!(usdc_after.total_available, usdc_before.total_available);
+    assert_eq!(usdc_after.total_d_tokens, 0);
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(lock_of(&f, &f.btc_pool_address).0, 1);
+    f.assert_invariants();
+
+    f.controlled_insurance_fund_client.mark_ready(&0, &0);
+    c.claim_cover_bad_debt_results(&borrower);
+
+    assert_eq!(c.get_pool(&f.usdc_pool_address), usdc_after);
+    assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
+    assert_eq!(c.try_issue_cover_bad_debt(&borrower), Err(Ok(MCError::ObligationDoesNotExist)));
+    f.assert_invariants();
+}
+
+/// Anyone may cover an obligation whose collateral is dust. One-stroop debts beside $4.93 of GOLD are written
+/// off without locking either borrow pool.
+#[test]
+fn test_a_third_party_cover_of_stroop_debts_locks_no_pool() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (btc_lender, usdc_lender) = lend_btc_and_usdc(&f);
+    let c = &f.contract_client;
+    let other_borrower = ObligationKey::new(f.users[2].clone());
+    c.add_collateral(&other_borrower, &f.gold_pool_address, &(1_000 * ONE), &None);
+    let borrower = ObligationKey::new(f.users[0].clone());
+    stroop_debts(&f, &borrower, 1, 1);
+    // $0.68 a GOLD: the first whole-cent price at which $7.25 of GOLD falls to the $5 threshold.
+    set_dust_prices(&f, gold_cents(68), 1_00000000000000);
+
+    c.issue_cover_bad_debt(&borrower);
+    assert!(f.e.auths().iter().all(|(address, _)| !f.users.contains(address)));
+
+    assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(c.get_pool(&f.btc_pool_address).total_borrowed, 0);
+    assert_eq!(c.get_pool(&f.usdc_pool_address).total_borrowed, 0);
+    assert_eq!(c.try_withdraw(&btc_lender, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
+    assert_eq!(c.try_withdraw(&usdc_lender, &f.usdc_pool_address, &ONE, &None), Ok(Ok(())));
+    assert_eq!(c.try_deposit(&btc_lender, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
+    assert_eq!(c.try_borrow(&other_borrower, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
+    assert_ne!(
+        c.try_flash_loan(&Address::generate(&f.e), &f.users[2], &f.btc_pool_address, &ONE),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+}
+
+/// A borrower who liquidates their own dust collateral leaves debt with nothing behind it; covering that
+/// debt later, after prices recover, still locks nothing.
+#[test]
+fn test_debt_left_after_a_self_liquidation_is_written_off_without_a_lock() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (btc_lender, usdc_lender) = lend_btc_and_usdc(&f);
+    let c = &f.contract_client;
+    let borrower = ObligationKey::new(f.users[0].clone());
+    stroop_debts(&f, &borrower, 1, 10);
+    set_dust_prices(&f, gold_cents(68), 1_00000000000000);
+    c.liquidate(&f.users[4], &borrower, &f.usdc_pool_address, &f.gold_pool_address, &2, &0);
+    let obligation = c.get_user_obligation(&borrower);
+    assert_eq!((obligation.deposits.len(), obligation.borrows.len()), (0, 2));
+
+    set_dust_prices(&f, gold_cents(100), 1_00000000000000);
+    f.pass_time(30 * 24 * SECONDS_PER_HOUR);
+    c.issue_cover_bad_debt(&borrower);
+
+    assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(c.try_withdraw(&btc_lender, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
+    assert_eq!(c.try_withdraw(&usdc_lender, &f.usdc_pool_address, &ONE, &None), Ok(Ok(())));
+}
+
+/// Covers of several dust obligations hours apart never hold the pool shut.
+#[test]
+fn test_staggered_dust_covers_do_not_chain_a_lock() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (btc_lender, _) = lend_btc_and_usdc(&f);
+    let c = &f.contract_client;
+    let first = ObligationKey::new(f.users[0].clone());
+    let second =
+        ObligationKey::new_with_seed(f.users[0].clone(), BytesN::from_array(&f.e, &[7; 32]));
+    stroop_debts(&f, &first, 1, 0);
+    stroop_debts(&f, &second, 1, 0);
+    set_dust_prices(&f, gold_cents(68), 1_00000000000000);
+
+    c.issue_cover_bad_debt(&first);
+    assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
+    f.pass_time(11 * SECONDS_PER_HOUR);
+    c.issue_cover_bad_debt(&second);
+
+    assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
+    assert_eq!(c.try_withdraw(&btc_lender, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
 }
