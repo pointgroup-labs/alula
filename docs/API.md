@@ -91,10 +91,10 @@ All require the obligation user's authorization.
 
 | Function | Signature (after `e: Env`) | Notes |
 | --- | --- | --- |
-| `deposit` | `user, pool_address, amount, referrer` | Supply to earn yield; mints j-tokens. |
+| `deposit` | `user, pool_address, amount, referrer` | Supply to earn yield; mints j-tokens. With open debt, needs a readable price for the pool's asset. |
 | `withdraw` | `user, pool_address, amount, referrer` | Actual amount capped to keep the position at its Open-LTV. `i128::MAX` = withdraw all available. |
 | `simulate_withdraw` | `user, pool_address, amount, referrer` → `WithdrawResult` | Read-only preview of a withdraw. |
-| `add_collateral` | `user, pool_address, amount, referrer` | Collateral-only supply — always healthily withdrawable, earns no interest. |
+| `add_collateral` | `user, pool_address, amount, referrer` | Collateral-only supply — always healthily withdrawable, earns no interest. With open debt, needs a readable price for the pool's asset. |
 | `remove_collateral` | `user, pool_address, amount, referrer` | Capped to Open-LTV; `i128::MAX` removes all available. |
 | `borrow` | `user, pool_address, amount, referrer` | Draw a loan against collateral; accrues d-tokens. |
 | `repay` | `user, pool_address, amount, referrer` | Repay debt; excess is ignored. `i128::MAX` = repay entire debt. |
