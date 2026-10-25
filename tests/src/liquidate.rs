@@ -1,7 +1,9 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_MAX_POSITIONS},
+    constants::{
+        BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
+    },
     error::MCError,
     obligation::ObligationKey,
 };
@@ -12,8 +14,8 @@ use soroban_sdk::{
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_unparameterized_ltv_bps,
-    get_obligation_collateral, get_obligation_d_tokens_as_tokens,
-    get_obligation_initially_borrowed, get_obligation_j_tokens_as_tokens,
+    get_obligation_collateral, get_obligation_d_tokens, get_obligation_d_tokens_as_tokens,
+    get_obligation_initially_borrowed, get_obligation_j_tokens, get_obligation_j_tokens_as_tokens,
     get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
@@ -1120,4 +1122,254 @@ fn test_a_liquidator_is_not_seeded_into_a_pool_it_borrows_from() {
         ),
         Err(Ok(MCError::BorrowPositionForAssetExists))
     );
+}
+
+// Feed order is GOLD, BTC, USDC. Prices near 1e7 make one unit of value about one token, so each rounding
+// step in the seizure moves the result by a whole token. The USDC price leaves a remainder on every
+// value it produces.
+const GOLD_START_PRICE: i128 = 10_000_000;
+const USDC_PRICE: i128 = 10_000_003;
+const TOKEN_SCALE: i128 = 10_000_000;
+const PRICED_COLLATERAL: i128 = 1_000_000;
+const PRICED_BORROW: i128 = 650_000;
+
+/// A borrower holding `PRICED_COLLATERAL` GOLD (plain, or as supply shares) against a `PRICED_BORROW` USDC loan,
+/// with each pool's `max_liquidation_incentive_bps` set and GOLD repriced so the unweighted LTV is about
+/// `ltv_bps`. Returns the fixture, the borrower, the liquidator and the GOLD price.
+fn priced_position(
+    ltv_bps: i128,
+    gold_incentive_bps: i128,
+    usdc_incentive_bps: i128,
+    as_supply: bool,
+) -> (TestMarketFixture<'static>, Address, Address, i128) {
+    let f = TestMarketFixture::new();
+    for (pool, incentive) in
+        [(&f.gold_pool_address, gold_incentive_bps), (&f.usdc_pool_address, usdc_incentive_bps)]
+    {
+        let mut config = f.contract_client.get_pool(pool).config;
+        config.health_config.max_liquidation_incentive_bps = incentive;
+        f.contract_client.queue_in_pool_set(pool, &config);
+    }
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.e.ledger().with_mut(|li| li.timestamp += period);
+    f.contract_client.apply_pool_set(&f.gold_pool_address);
+    f.contract_client.apply_pool_set(&f.usdc_pool_address);
+
+    let set_gold_price = |gold: i128| {
+        f.oracle_client.set_price_stable(&soroban_sdk::vec![
+            &f.e,
+            gold,
+            GOLD_START_PRICE,
+            USDC_PRICE
+        ]);
+    };
+    set_gold_price(GOLD_START_PRICE);
+
+    let (lender, borrower, liquidator) = (&f.users[0], &f.users[1], &f.users[2]);
+    let borrower_key = ObligationKey::new(borrower.clone());
+    f.contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &f.usdc_pool_address,
+        &(10 * PRICED_COLLATERAL),
+        &None,
+    );
+    if as_supply {
+        f.contract_client.deposit(&borrower_key, &f.gold_pool_address, &PRICED_COLLATERAL, &None);
+    } else {
+        f.contract_client.add_collateral(
+            &borrower_key,
+            &f.gold_pool_address,
+            &PRICED_COLLATERAL,
+            &None,
+        );
+    }
+    f.contract_client.borrow(&borrower_key, &f.usdc_pool_address, &PRICED_BORROW, &None);
+
+    let gold_price = PRICED_BORROW * USDC_PRICE * BPS_FACTOR / (ltv_bps * PRICED_COLLATERAL);
+    set_gold_price(gold_price);
+
+    let (borrower, liquidator) = (borrower.clone(), liquidator.clone());
+    (f, borrower, liquidator, gold_price)
+}
+
+fn seized_with_incentive(repay: i128, gold_price: i128, incentive_bps: i128) -> i128 {
+    let repaid_value = repay * USDC_PRICE / TOKEN_SCALE;
+    let collateral_amount = repaid_value * TOKEN_SCALE / gold_price;
+
+    collateral_amount * (BPS_FACTOR + incentive_bps) / BPS_FACTOR
+}
+
+/// Where the incentive bounds the seizure, a liquidation hands over exactly
+/// `floor(floor(floor(repay * p_debt / 10^7) * 10^7 / p_collateral) * (1 + min incentive))` collateral, refuses a
+/// demand one unit above it, and moves supply shares (not cash) when the collateral is held as a deposit.
+#[test]
+fn test_a_liquidation_seizes_the_repaid_value_plus_the_smaller_incentive() {
+    // (LTV, GOLD incentive, USDC incentive, repay, collateral held as supply shares)
+    let cases = [
+        (8_500, 500, 1_000, 123_457, false),
+        (8_500, 1_000, 500, 98_765, true),
+        (8_500, 300, 300, 10_007, false),
+        (9_950, 1_000, 2_000, 123_457, true),
+        (9_950, 2_000, 1_000, 200_003, false),
+    ];
+    for (ltv_bps, gold_incentive, usdc_incentive, repay, as_supply) in cases {
+        let (f, borrower, liquidator, gold_price) =
+            priced_position(ltv_bps, gold_incentive, usdc_incentive, as_supply);
+        let borrower_key = ObligationKey::new(borrower.clone());
+        let expected = seized_with_incentive(repay, gold_price, gold_incentive.min(usdc_incentive));
+
+        let debt = get_obligation_d_tokens_as_tokens(
+            &f.e,
+            &f.contract_client,
+            &borrower,
+            &f.usdc_pool_address,
+        )
+        .unwrap();
+        let debt_value = (debt * USDC_PRICE + TOKEN_SCALE - 1) / TOKEN_SCALE;
+        let collateral_value = PRICED_COLLATERAL * gold_price / TOKEN_SCALE;
+        if ltv_bps < DEFAULT_INSOLVENCY_LTV_BPS {
+            // The LTV-improving cap, `0.999 * repaid value * collateral / debt`, is above the incentive bound.
+            let repaid_value = repay * USDC_PRICE / TOKEN_SCALE;
+            assert!(
+                expected * gold_price * 1_000 * debt_value
+                    < 999 * repaid_value * collateral_value * TOKEN_SCALE
+            );
+        }
+
+        assert_eq!(
+            f.contract_client.try_liquidate(
+                &liquidator,
+                &borrower_key,
+                &f.usdc_pool_address,
+                &f.gold_pool_address,
+                &repay,
+                &(expected + 1),
+            ),
+            Err(Ok(MCError::LiquidationExcessiveDemandedCollateral))
+        );
+
+        let gold_before = f.gold_token_client.balance(&liquidator);
+        let usdc_before = f.usdc_token_client.balance(&liquidator);
+        f.contract_client.liquidate(
+            &liquidator,
+            &borrower_key,
+            &f.usdc_pool_address,
+            &f.gold_pool_address,
+            &repay,
+            &expected,
+        );
+
+        assert_eq!(usdc_before - f.usdc_token_client.balance(&liquidator), repay);
+        assert_eq!(
+            get_obligation_d_tokens_as_tokens(
+                &f.e,
+                &f.contract_client,
+                &borrower,
+                &f.usdc_pool_address
+            ),
+            Ok(debt - repay)
+        );
+        let gold_received = f.gold_token_client.balance(&liquidator) - gold_before;
+        if as_supply {
+            // No GOLD is borrowed, so one supply share is one token.
+            assert_eq!(gold_received, 0);
+            assert_eq!(
+                get_obligation_j_tokens(&f.contract_client, &liquidator, &f.gold_pool_address),
+                Ok(expected)
+            );
+            assert_eq!(
+                get_obligation_j_tokens(&f.contract_client, &borrower, &f.gold_pool_address),
+                Ok(PRICED_COLLATERAL - expected)
+            );
+        } else {
+            assert_eq!(gold_received, expected);
+            assert_eq!(
+                get_obligation_collateral(&f.contract_client, &borrower, &f.gold_pool_address),
+                Ok(PRICED_COLLATERAL - expected)
+            );
+        }
+    }
+}
+
+/// Where the LTV-improving cap bounds a solvent liquidation, the collateral value taken stays at or below
+/// 99.9 % of `repaid value * collateral value / debt value` (and within 0.2 % of it), so each step lowers the LTV.
+#[test]
+fn test_a_solvent_liquidation_keeps_a_margin_below_the_ltv_neutral_seizure() {
+    let (f, borrower, liquidator, gold_price) = priced_position(8_500, 3_000, 3_000, false);
+    let borrower_key = ObligationKey::new(borrower.clone());
+
+    for repay in [50_000_i128, 123_457, 150_001] {
+        let debt = get_obligation_d_tokens_as_tokens(
+            &f.e,
+            &f.contract_client,
+            &borrower,
+            &f.usdc_pool_address,
+        )
+        .unwrap();
+        let collateral =
+            get_obligation_collateral(&f.contract_client, &borrower, &f.gold_pool_address).unwrap();
+        let debt_value = (debt * USDC_PRICE + TOKEN_SCALE - 1) / TOKEN_SCALE;
+        let collateral_value = collateral * gold_price / TOKEN_SCALE;
+        let repaid_value = repay * USDC_PRICE / TOKEN_SCALE;
+        let ltv_before =
+            compute_unparameterized_ltv_bps(&f.e, &f.contract_client, &borrower).unwrap();
+
+        let gold_before = f.gold_token_client.balance(&liquidator);
+        f.contract_client.liquidate(
+            &liquidator,
+            &borrower_key,
+            &f.usdc_pool_address,
+            &f.gold_pool_address,
+            &repay,
+            &0,
+        );
+        let seized = f.gold_token_client.balance(&liquidator) - gold_before;
+
+        // seized * p / 10^7 <= 0.999 * repaid_value * collateral_value / debt_value, cross-multiplied
+        let seized_scaled = seized * gold_price * 1_000 * debt_value;
+        let neutral_scaled = repaid_value * collateral_value * TOKEN_SCALE;
+        assert!(seized_scaled <= 999 * neutral_scaled, "seized {seized} for {repay}");
+        assert!(seized_scaled >= 998 * neutral_scaled, "the LTV cap did not bind: {seized}");
+        assert!(
+            compute_unparameterized_ltv_bps(&f.e, &f.contract_client, &borrower).unwrap()
+                <= ltv_before
+        );
+    }
+}
+
+/// A partial liquidation at a debt-share rate below one burns `floor(repaid * total_d_tokens / total_borrowed)`
+/// debt shares: rounding favours the remaining debt, not the borrower.
+#[test]
+fn test_a_partial_liquidation_burns_the_floored_debt_shares() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(2);
+    let borrower_key = ObligationKey::new(test.borrower.clone());
+
+    for repay in [1_001_i128, 7_777, 3_333] {
+        let pool = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
+        assert!(pool.total_d_tokens < pool.total_borrowed, "the share rate must not be one");
+        let d_before = get_obligation_d_tokens(
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.borrow_pool_address,
+        )
+        .unwrap();
+
+        test.fixture.contract_client.liquidate(
+            &test.liquidator,
+            &borrower_key,
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &repay,
+            &0,
+        );
+
+        let d_after = get_obligation_d_tokens(
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.borrow_pool_address,
+        )
+        .unwrap();
+        assert_eq!(d_before - d_after, repay * pool.total_d_tokens / pool.total_borrowed);
+    }
 }
