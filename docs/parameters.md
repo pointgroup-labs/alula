@@ -213,8 +213,13 @@ zero, so every withdrawal from a pool carrying any debt reverts with
 flag, but it can starve them to nothing through those two parameters — under
 the usual 12-hour pool-config timelock.
 
-A farm attached to the pool (§9) is not such a path: the market ignores a
-refused stake push, so a frozen or failing farm cannot hold up an exit.
+A farm attached to the pool (§9) is another such path. The market ignores a
+stake push the farm refuses, but not one that exhausts the transaction's CPU or
+memory budget, which Soroban cannot catch. Such a farm blocks withdraw, repay
+and liquidation on its pools until the admin detaches it (`clear_pool_farms` or
+`clear_farms_contract`); adding and removing collateral make no push. The
+market admin attaches farms at once, and the farm admin can replace the farms
+contract's code at once.
 
 ### Market status
 
@@ -233,8 +238,8 @@ liquidation work at every freeze level, and the test suite asserts this
 directly (`tests/src/update.rs`). Freezing a market stops it taking on new
 risk; it doesn't hold your funds.
 
-One thing outside the status system can pause withdrawals: the bad-debt lock
-below.
+Two things outside the status system can pause withdrawals: a farm that
+exhausts the budget (above) and the bad-debt lock below.
 
 The insurance fund can freeze the market on its own authority, as a circuit
 breaker. It can't set or clear the `…ByAdmin` variants, which only the market
@@ -282,14 +287,18 @@ including the admin.
 | `update_in_queue_period` | Governance timelock for all config changes            | 60 s to 10 years               |
 | `is_owned`               | Whether the market has governance at all              | —                              |
 
-`is_owned = false` makes the market immutable. Every path that changes
-configuration (market update, pool config, pool status, market status) checks
-this flag first. Where it's false, the existing pools stay exactly as
-configured, permanently, and the admin can only add new pools.
+`is_owned = false` fixes the market's configuration, not its code. Every admin
+path that changes configuration (market update, existing pool config, pool
+status, market status) checks this flag first. Where it's false, the existing
+pools keep their parameters, and the admin can only add new pools, set fee
+beneficiaries and farms, and hand over the admin role. The insurance fund can
+still change the market status (§6). The code can still be replaced: `upgrade`
+checks only the Market Manager's and the market admin's auth, not `is_owned`,
+so the manager's queue / apply (§8) works with the market admin's signature.
 
-The oracle can't be swapped either. Prices older than 6 minutes are rejected,
-so a stalled feed stops price-dependent operations instead of letting them run
-on old data.
+The oracle can't be swapped either. The market rejects a price stamped more
+than 6 minutes ago, but behind the Aggregated Oracle a stalled push feed can
+keep pricing operations for hours (§10).
 
 `update_in_queue_period` is worth a look before you supply. It's the delay on
 every economic change, and it's chosen at deployment. The contract only
@@ -316,6 +325,9 @@ Queued changes are visible before they take effect.
 `get_queued_pool_set(pool)` and `get_market_queued_in_update()` show what's
 pending and when it was queued, so you can see an unwelcome change coming and
 leave before it lands, assuming the timelock is long enough to be useful.
+The farm setters are the market admin's only instant power over a lender's
+withdrawal (§6), while a code upgrade gives 12 h notice on `main`, so watch
+each market's `farms_contract_set_event` and `pool_farm_set_event`.
 
 Once the delay has passed, anyone can apply a queued change. Governance can't
 sit on an approved change and spring it later.
@@ -359,7 +371,8 @@ rate, not a promise.
 
 The farm admin is a different key from the market admin, and farms can be
 frozen. The Market ignores a stake push the farm refuses, so a frozen farm
-cannot block deposits or withdrawals; the affected stakes go stale until
+cannot block deposits or withdrawals (a farm whose code exhausts the budget
+can, §6); the affected stakes go stale until
 `refresh_farm_stakes(obligation_key, pools)` re-pushes them (anyone can call it,
 and an obligation that no longer exists pushes zero). Debt in a position settled
 as bad debt stops earning in the attached farms when the cover is issued.
@@ -382,14 +395,20 @@ none of them affect lending LPs.
 
 ## 10. Price oracle
 
-The market's `oracle` address is fixed at deployment (§7). Any price older than
-6 minutes is rejected, as is any price timestamped in the future, so a stalled
-feed halts price-dependent operations rather than letting them run on stale
-data. A price is read at most once per call and never reused by a later
-transaction, even in the same ledger.
+The market's `oracle` address is fixed at deployment (§7). The market rejects
+any price stamped more than 6 minutes ago (a constant 360 s) or in the future.
+A price is read at most once per call and never reused by a later transaction,
+even in the same ledger.
 
 If the market points at the Aggregated Oracle, that contract takes a median
-across several SEP-40 feeds and adds a deviation check on top.
+across several SEP-40 feeds and adds a deviation check on top. It stamps the
+median with the oldest time among the periodic sources that answered
+(Reflector, on mainnet), or with the ledger time if none did, so the market's
+6-minute check never sees a push source's age. A push source counts toward the
+median until its adapter's `resolution()` runs out: `46800` (13 h) for RedStone
+on mainnet, which the adapter's admin can reset at once within 60 s – 25 h, and
+a fixed `90000` (25 h) for Chainlink. A stalled push feed can keep pricing
+operations that long.
 
 | Parameter                        | Meaning                                                                | Bounds                      | Changeable            |
 |----------------------------------|------------------------------------------------------------------------|-----------------------------|-----------------------|

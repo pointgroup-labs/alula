@@ -33,11 +33,11 @@ Suppliers receive j-tokens (shares of a pool's supply) and borrowers d-tokens (s
 
 ### Pricing
 
-Each market reads one SEP-40 oracle, fixed at deployment, and refuses prices that are not positive, dated in the future, or more than six minutes old.
+Each market reads one SEP-40 oracle, fixed at deployment, and refuses prices that are not positive, dated in the future, or dated more than six minutes ago.
 
 - **Oracle router** — per asset, the median of up to three sources, such as Reflector, RedStone, Chainlink, or a cross rate. The router drops answers older than their source's `max_age_s` and serves the median only when at least `min_sources` of them lie within `max_deviation_bps` of it. Because it stamps its answer with the current time, each source's `max_age_s` sets freshness. Configuration changes wait out a timelock set at deployment.
 - **NAV oracle** — a NAV within the growth and drawdown band goes live on the publisher's word; one outside the band waits for a second key, the confirmer. A pending rise keeps the previous NAV; a pending drop or a stale NAV stops pricing at once.
-- **Aggregated oracle** — a median of SEP-40 sources with a circuit breaker on sharp moves.
+- **Aggregated oracle** — a median of SEP-40 sources with a circuit breaker on sharp moves. It dates its answer by its oldest periodic source (Reflector) or, when none answers, by the current time, so a push source such as RedStone or Chainlink counts until its adapter's resolution runs out: 13 h and 25 h on mainnet.
 
 ### Permissioned markets
 

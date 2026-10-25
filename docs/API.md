@@ -142,7 +142,10 @@ on-chain composition.
 ## Governance & administration
 
 Config changes are **timelocked**: queue → wait out the queue period → apply.
-An owned market can queue updates; an ungoverned market's config is immutable.
+On an unowned market (`is_owned = false`) the state-changing calls below fail
+with `MarketIsNotOwned`, except pool sets for new pools,
+`fund_update_market_status` and `upgrade`. Existing pools (fee beneficiaries
+and farms aside) and market settings are fixed; the code is not.
 
 | Function | Signature | Notes |
 | --- | --- | --- |
@@ -202,7 +205,7 @@ releases.
 | 0 | `InternalError` | Unexpected internal failure. |
 | 1 | `InvalidInputAmount` | Amount is zero/negative or otherwise invalid. |
 | 2 | `DependencyContractError` | A cross-contract call failed. |
-| 3 | `MarketIsNotOwned` | Governance action on an ungoverned (immutable) market. |
+| 3 | `MarketIsNotOwned` | Governance action on an unowned market. |
 | 4 | `BorrowForbiddenOnMarket` | Market status forbids borrowing. |
 | 5 | `DepositForbiddenOnMarket` | Market status forbids deposits. |
 | 6 | `MarketIsFrozen` | Market fully frozen. |
