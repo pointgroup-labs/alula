@@ -1,0 +1,3 @@
+[advisories]
+# crypto-bigint timing issues reach only the native soroban-env-host used by tests, not the wasm contracts.
+ignore = ["RUSTSEC-2026-0387"]
