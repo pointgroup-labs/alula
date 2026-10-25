@@ -2,6 +2,7 @@ mod bad_debt;
 mod batch_flash_swap;
 mod batch_liquidate_seed;
 mod borrow;
+mod borrower_deposit_price;
 mod deposit;
 mod farm_faults;
 mod farms_highland;

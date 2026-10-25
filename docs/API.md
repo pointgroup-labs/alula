@@ -91,10 +91,10 @@ All require the obligation user's authorization.
 
 | Function | Signature (after `e: Env`) | Notes |
 | --- | --- | --- |
-| `deposit` | `user, pool_address, amount, referrer` | Supply to earn yield; mints j-tokens. |
+| `deposit` | `user, pool_address, amount, referrer` | Supply to earn yield; mints j-tokens. With open debt, needs a readable price for the pool's asset. |
 | `withdraw` | `user, pool_address, amount, referrer` | Actual amount capped to keep the position at its Open-LTV. `i128::MAX` = withdraw all available. |
 | `simulate_withdraw` | `user, pool_address, amount, referrer` → `WithdrawResult` | Read-only preview of a withdraw. |
-| `add_collateral` | `user, pool_address, amount, referrer` | Collateral-only supply — always healthily withdrawable, earns no interest. |
+| `add_collateral` | `user, pool_address, amount, referrer` | Collateral-only supply — always healthily withdrawable, earns no interest. With open debt, needs a readable price for the pool's asset. |
 | `remove_collateral` | `user, pool_address, amount, referrer` | Capped to Open-LTV; `i128::MAX` removes all available. |
 | `borrow` | `user, pool_address, amount, referrer` | Draw a loan against collateral; accrues d-tokens. |
 | `repay` | `user, pool_address, amount, referrer` | Repay debt; excess is ignored. `i128::MAX` = repay entire debt. |
@@ -109,7 +109,7 @@ configured for it.
 
 | Function | Signature | Notes |
 | --- | --- | --- |
-| `issue_cover_bad_debt` | `user` | Files cover-bad-debt requests to the Insurance Fund for every bad-debt borrow position on the obligation. |
+| `issue_cover_bad_debt` | `user` | Writes off borrow positions worth no more than `min_collateral_value_cents` and files cover-bad-debt requests to the Insurance Fund for the rest. |
 | `claim_cover_bad_debt_results` | `user` | Claims the Insurance Fund's response to previously issued requests. |
 
 ## Fees
