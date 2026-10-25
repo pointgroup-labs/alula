@@ -1224,3 +1224,45 @@ fn test_staggered_dust_covers_do_not_chain_a_lock() {
     assert_eq!(lock_of(&f, &f.btc_pool_address), (0, 0));
     assert_eq!(c.try_withdraw(&btc_lender, &f.btc_pool_address, &ONE, &None), Ok(Ok(())));
 }
+
+/// A wipe-out whose remaining debt is dust takes the write-off without a claim; the fee claim is still
+/// capped at what the pool holds, so a later deposit comes back whole.
+#[test]
+fn test_a_dust_write_off_caps_the_fee_claim_at_what_the_pool_still_holds() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (borrower, lender, newcomer) = (
+        ObligationKey::new(f.users[0].clone()),
+        ObligationKey::new(f.users[1].clone()),
+        ObligationKey::new(f.users[3].clone()),
+    );
+    let usdc = &f.usdc_pool_address;
+    let c = &f.contract_client;
+    c.set_take_rate_fees_beneficiaries(usdc, &smap![&f.e, (f.users[4].clone(), 10_000)]);
+    // $10 of GOLD less the $5 floor still leaves more borrowing room than the pool holds.
+    c.add_collateral(&borrower, &f.gold_pool_address, &(10 * ONE), &None);
+    c.deposit(&lender, usdc, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    c.borrow(&borrower, usdc, &i128::MAX, &None);
+    c.withdraw(&lender, usdc, &i128::MAX, &None);
+    f.e.ledger().with_mut(|li| li.timestamp += 7 * SECONDS_PER_DAY);
+    c.refresh_pool(usdc);
+    set_dust_prices(&f, 1, 1_00000000000000);
+    c.liquidate(&f.users[2], &borrower, usdc, &f.gold_pool_address, &100, &0);
+    let before = c.get_pool(usdc);
+
+    c.issue_cover_bad_debt(&borrower);
+
+    let after = c.get_pool(usdc);
+    assert_eq!(after.bad_debt_request_count, 0, "the write-off did not take the dust branch");
+    assert!(before.take_rate_fees_sum > after.total_available, "the cap was never needed");
+    assert_eq!(after.take_rate_fees_sum, after.total_available + after.total_borrowed);
+
+    c.withdraw(&lender, usdc, &i128::MAX, &None);
+    let deposited = 1_000;
+    c.deposit(&newcomer, usdc, &deposited, &None);
+    c.distribute_pool_fees(usdc);
+    let newcomer_before = f.usdc_token_client.balance(&f.users[3]);
+    c.withdraw(&newcomer, usdc, &i128::MAX, &None);
+    assert_approx_eq_abs(f.usdc_token_client.balance(&f.users[3]) - newcomer_before, deposited, 1);
+    f.assert_invariants();
+}
