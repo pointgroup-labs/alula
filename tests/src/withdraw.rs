@@ -1134,6 +1134,62 @@ fn test_withdraw_all_when_borrow_exists_but_max_healthy_exceeds_deposit() {
     );
 }
 
+/// A borrower whose other collateral keeps it healthy still withdraws at most its own deposit, whatever it asks
+/// for, while the pool holds other lenders' cash.
+#[test]
+fn test_withdraw_with_a_borrow_never_pays_past_the_deposit() {
+    let TestMarketFixture {
+        contract_client,
+        contract_id,
+        gold_pool_address,
+        btc_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        e,
+        ..
+    } = TestMarketFixture::new();
+    let (user, lender) = (&users[0], &users[1]);
+    let user_key = &ObligationKey::new(user.clone());
+    let lender_key = &ObligationKey::new(lender.clone());
+    let lender_gold = 10 * DEFAULT_DEPOSIT_AMOUNT;
+
+    contract_client.deposit(lender_key, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(lender_key, &gold_pool_address, &lender_gold, &None);
+    contract_client.add_collateral(
+        user_key,
+        &btc_pool_address,
+        &(10 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(user_key, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
+
+    for requested in [
+        DEFAULT_DEPOSIT_AMOUNT + 1,
+        2 * DEFAULT_DEPOSIT_AMOUNT,
+        5 * DEFAULT_DEPOSIT_AMOUNT,
+        i128::MAX,
+    ] {
+        contract_client.deposit(user_key, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+        let user_before = gold_token_client.balance(user);
+        let market_before = gold_token_client.balance(&contract_id);
+
+        contract_client.withdraw(user_key, &gold_pool_address, &requested, &None);
+
+        assert_eq!(gold_token_client.balance(user) - user_before, DEFAULT_DEPOSIT_AMOUNT);
+        assert_eq!(market_before - gold_token_client.balance(&contract_id), DEFAULT_DEPOSIT_AMOUNT);
+        assert_eq!(
+            get_deposit_position(&contract_client, user, &gold_pool_address),
+            Err(MCError::DepositPositionDoesNotExist)
+        );
+        assert_eq!(
+            get_obligation_j_tokens_as_tokens(&e, &contract_client, lender, &gold_pool_address),
+            Ok(lender_gold)
+        );
+        assert_eq!(get_pool_total_supply(&contract_client, &gold_pool_address), Ok(lender_gold));
+    }
+}
+
 /// A pool configured as supply-only (`open_ltv_bps = 0`) must not make a borrower's withdrawal trap.
 /// Config validation accepts 0, and the max-healthy-removal maths divides by `asset_price * open_ltv`.
 #[test]
