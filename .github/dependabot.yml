@@ -6,18 +6,38 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
   - package-ecosystem: cargo
     target-branch: dev
     open-pull-requests-limit: 5
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      cargo-minor-and-patch:
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: npm
     target-branch: dev
     open-pull-requests-limit: 5
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
   #  - package-ecosystem: docker
   #    target-branch: dev
   #    directory: /
