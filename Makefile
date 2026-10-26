@@ -171,6 +171,9 @@ FUZZ_RUN              := RUST_BACKTRACE=1 CARGO_PROFILE_RELEASE_LTO=false CARGO_
 test/fuzz: build ## Run fuzzing suite
 	@$(FUZZ_RUN) fuzz_target -- -max_len=2048
 
+test/fuzz/floor: build ## Run fuzzing suite at the 5 USD dust floor
+	@$(FUZZ_RUN) fuzz_target_floor -- -max_len=2048
+
 # ── Coverage ──────────────────────────────────────────────────────────────────
 
 cov: ## Generate coverage report
