@@ -27,6 +27,8 @@ mod per_market_upgrade;
 mod resource_limits;
 mod scarcity_brake;
 
+pub mod scenario;
+
 use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
@@ -45,6 +47,7 @@ use market::{
     request::{Request, StandardRequest},
     storage::MarketInitParams,
 };
+use scenario::LiquidationOutcome;
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -304,6 +307,17 @@ impl TestMarketFixture<'_> {
         self.contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).ok()?.ok()
     }
 
+    pub fn set_min_collateral_value_cents(&self, cents: i128) {
+        let global = self.contract_client.get_global_state();
+        self.contract_client.queue_in_market_update(
+            &global.max_positions,
+            &cents,
+            &global.bad_debt_lock_d,
+        );
+        self.pass_time(global.update_in_queue_period);
+        self.contract_client.apply_market_update();
+    }
+
     // Floored supply-share rate per pool, in basis points, in the order `assert_invariants` uses.
     // `None` where the pool holds no shares and the rate is undefined.
     pub fn j_token_rates(&self) -> [Option<i128>; 3] {
@@ -527,6 +541,19 @@ impl Command {
             NibblesFlashBatch(command) => command.run(test_fixture, 3),
             // All
             AllPassTime(command) => command.run(test_fixture, 0),
+        }
+    }
+
+    /// The liquidation and its liquidator's index, if this is a liquidation.
+    pub fn liquidation(&self) -> Option<(&Liquidate, usize)> {
+        use Command::*;
+
+        match self {
+            TomLiquidate(command) => Some((command, 0)),
+            JerryLiquidate(command) => Some((command, 1)),
+            ButchLiquidate(command) => Some((command, 2)),
+            NibblesLiquidate(command) => Some((command, 3)),
+            _ => None,
         }
     }
 }
@@ -797,25 +824,30 @@ impl RunCommand for Repay {
 
 impl RunCommand for Liquidate {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        self.attempt(test_fixture, who);
+    }
+}
+
+impl Liquidate {
+    pub fn attempt(&self, test_fixture: &TestMarketFixture, who: usize) -> LiquidationOutcome {
         let borrow_pool_address = test_fixture.get_pool_address(self.token);
         let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
-        if borrow_pool_address != collateral_pool_address {
-            let TestMarketFixture { contract_client, users, .. } = test_fixture;
-            let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
-
-            let res = contract_client.try_liquidate(
-                liquidator,
-                &ObligationKey::new(borrower.clone()),
-                &borrow_pool_address,
-                &collateral_pool_address,
-                &self.repay_amount.0,
-                &self.min_collateral_received_amount.0,
-            );
-            if matches!(res, Err(Ok(MCError::InternalError))) {
-                panic!("Internal Error");
-            }
+        if borrow_pool_address == collateral_pool_address {
+            return LiquidationOutcome::SamePool;
         }
+        let users = &test_fixture.users;
+        let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
+
+        scenario::liquidate(
+            test_fixture,
+            liquidator,
+            borrower,
+            &borrow_pool_address,
+            &collateral_pool_address,
+            self.repay_amount.0,
+            self.min_collateral_received_amount.0,
+        )
     }
 }
 
