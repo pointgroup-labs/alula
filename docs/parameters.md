@@ -159,6 +159,17 @@ liquidation. A wider gap makes it less likely that a price move turns into bad
 debt. If a liquidation touches two pools, the incentive actually paid is the
 lower of the two pools' `max_liquidation_incentive_bps`.
 
+A liquidation hands over the repaid value plus that incentive, capped by the
+collateral position. While the LTV is below `insolvency_ltv_bps`, the close
+factor and a cap that keeps each step lowering the LTV also apply, unless the
+collateral position or the debt position is worth less than twice
+`min_collateral_value_cents` (§7). Such a small position can be closed in one
+liquidation; when its whole collateral position is bought, the repay is capped
+at that position's value divided by `1 + incentive` and the excess is returned.
+Whatever its size, a liquidation must repay the whole debt position, take the
+whole collateral position, or leave both worth at least
+`min_collateral_value_cents`; otherwise it fails with `LiquidationLeavesDust`.
+
 `utilization_ratio_limit_bps` only gates borrowing. Utilization can still climb
 past it through accrued interest or withdrawals, and once it does, the scarcity
 rules in §5 apply.
@@ -251,11 +262,16 @@ When a liquidation leaves a shortfall that isn't covered, a claim opens against
 the insurance fund and the affected pool locks for `bad_debt_lock_d` seconds.
 While it's locked, deposit, withdraw, borrow and flash loan are blocked on that
 pool. Repay, collateral changes and liquidation stay open. The point is to stop
-lenders racing for the exit ahead of a loss that is about to be shared out. A
-debt worth no more than `min_collateral_value_cents` is written off at once,
-with no claim and no lock, whatever collateral is left. The borrow pool's
-lenders bear it without the fund's review, up to `min_collateral_value_cents`
-per pool on each cover. A debt whose price can't be read opens a claim as usual.
+lenders racing for the exit ahead of a loss that is about to be shared out.
+
+`issue_cover_bad_debt` accepts only an insolvent obligation: one whose
+collateral that a liquidation can seize (deposits in pools with a positive
+`close_ltv_bps`) is worth nothing or less than its debt. A solvent one is left
+to liquidation. A debt worth no more than `min_collateral_value_cents` is
+written off at once, with no claim and no lock. The borrow pool's lenders bear
+it without the fund's review, up to `min_collateral_value_cents` per pool on
+each cover. An obligation with a debt whose price can't be read skips the
+solvency test, and that debt opens a claim as usual.
 
 The lock only lifts once every outstanding claim on the pool has settled;
 waiting out the duration isn't enough on its own. A claim that sits pending
@@ -279,10 +295,19 @@ claim beyond the pool's cash and remaining debt is written off with it.
 | `min_collateral_value_cents` | Dust floor each borrow-backing collateral position must retain | `500` ($5)     | `0..=10000` ($100)    |
 | `bad_debt_lock_d`            | Lock duration set on a pool when a bad-debt claim opens        | `43200` (12 h) | `0..=432000` (5 days) |
 
-`min_collateral_value_cents` sets two limits at once: `issue_cover_bad_debt`
-accepts an obligation only when every collateral position is worth no more
-than it, and writes off without a claim any debt worth no more than it (§6).
-Raising one raises the other.
+`min_collateral_value_cents` sets several limits at once:
+
+- Each borrow-backing collateral position must retain it: the health check
+  subtracts it once per such position.
+- A liquidation must repay the whole debt position, take the whole collateral
+  position, or leave both worth at least this much (§4).
+- A collateral or debt position worth less than twice this much is liquidated
+  without the close factor (§4).
+- `issue_cover_bad_debt` accepts an obligation only when every collateral
+  position is worth no more than it, and writes off without a claim any debt
+  worth no more than it (§6).
+
+Raising one raises the others. At `0` the first three do not apply.
 
 ### Fixed at deployment
 

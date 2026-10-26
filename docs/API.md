@@ -98,7 +98,7 @@ All require the obligation user's authorization.
 | `remove_collateral` | `user, pool_address, amount, referrer` | Capped to Open-LTV; `i128::MAX` removes all available. |
 | `borrow` | `user, pool_address, amount, referrer` | Draw a loan against collateral; accrues d-tokens. |
 | `repay` | `user, pool_address, amount, referrer` | Repay debt; excess is ignored. `i128::MAX` = repay entire debt. |
-| `liquidate` | `liquidator, borrower, borrow_pool_address, collateral_pool_address, repay_amount, demanded_collateral_amount` | Requires the liquidator's auth. Repays borrower debt, receives collateral at a bounded discount. `demanded_collateral_amount` is the liquidator's minimum-acceptable collateral (slippage guard). |
+| `liquidate` | `liquidator, borrower, borrow_pool_address, collateral_pool_address, repay_amount, demanded_collateral_amount` | Requires the liquidator's auth. Repays borrower debt, receives collateral at a bounded discount: the repaid value plus the incentive, capped by the collateral position. The close factor applies to solvent positions unless the collateral or debt position is worth less than twice `min_collateral_value_cents`; when such a small position's collateral is bought whole, the repay is capped at its value divided by `1 + incentive` and the excess refunded. Fails with `LiquidationLeavesDust` unless it repays the whole debt position, takes the whole collateral position, or leaves both worth at least `min_collateral_value_cents`. `demanded_collateral_amount` is the liquidator's minimum-acceptable collateral (slippage guard). |
 | `flash_loan` | `contract, caller, pool_address, amount` | ERC-3156 flash loan. `contract` is the receiver implementing `ModErc3156`; it must validate `caller` as `initiator` and grant a just-in-time `amount + fee` allowance in its `exec_op` callback. |
 | `submit_requests_batch` | `user, requests, referrer` | The atomic multi-action primitive above. |
 
@@ -109,7 +109,7 @@ configured for it.
 
 | Function | Signature | Notes |
 | --- | --- | --- |
-| `issue_cover_bad_debt` | `user` | Writes off borrow positions worth no more than `min_collateral_value_cents` and files cover-bad-debt requests to the Insurance Fund for the rest. |
+| `issue_cover_bad_debt` | `user` | Requires every collateral position to be worth no more than `min_collateral_value_cents` and the obligation to be insolvent: its seizable collateral (pools with a positive `close_ltv_bps`) worth nothing or less than its debt; an obligation with a debt whose price can't be read skips that test. Writes off borrow positions worth no more than `min_collateral_value_cents` and files cover-bad-debt requests to the Insurance Fund for the rest. |
 | `claim_cover_bad_debt_results` | `user` | Claims the Insurance Fund's response to previously issued requests. |
 
 ## Fees
@@ -246,9 +246,10 @@ releases.
 | 600 | `InvalidLiquidationInputs` | Malformed liquidation request. |
 | 601 | `ObligationIsHealthy` | Position not liquidatable. |
 | 602 | `ObligationContainsOpenCoverBadDebtRequests` | Pending bad-debt requests block the action. |
-| 603 | `BadDebtCoverageCriterionIsNotMet` | Coverage precondition unmet. |
+| 603 | `BadDebtCoverageCriterionIsNotMet` | Coverage precondition unmet: no debt, collateral above the floor, or a solvent obligation. |
 | 604 | `AssetCannotBeUsedAsCollateral` | Asset not eligible as collateral. |
 | 605 | `LiquidationExcessiveDemandedCollateral` | Liquidator demanded more collateral than allowed. |
+| 606 | `LiquidationLeavesDust` | Liquidation would leave the debt or the collateral position under `min_collateral_value_cents` while both remain. |
 | 701 | `InvalidSwap` | Swap request rejected. |
 | 702 | `FlashBorrowAlreadyRegistered` | Duplicate flash borrow in one batch. |
 | 703 | `SwapSlippageExceeded` | Swap breached its min/max bound. |
