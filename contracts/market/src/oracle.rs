@@ -154,6 +154,25 @@ pub fn get_asset_amount_floor(
     amount.to_i128().map_over_or_underflow()
 }
 
+/// Returns the amount of a given asset for a specific value, ceiled
+pub fn get_asset_amount_ceil(
+    e: &Env,
+    prices: &mut Prices,
+    value: i128,
+    token_address: &Address,
+    token_decimals: u32,
+) -> Result<i128, MCError> {
+    let price = I256::from_i128(e, get_asset_price(e, prices, token_address)?);
+    let value_i256 = I256::from_i128(e, value);
+
+    let token_scale = I256::from_i128(e, 10_i128.pow(token_decimals));
+    let numerator = value_i256.mul(&token_scale);
+
+    let amount = numerator.fixed_div_ceil(e, &price, &I256::from_i128(e, 1));
+
+    amount.to_i128().map_over_or_underflow()
+}
+
 /// Retrieves the decimal precision used by the oracle for price values
 ///
 /// # Arguments
