@@ -820,6 +820,7 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
     obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e, &mut prices)?;
+    obligation.require_insolvent(e, &mut prices)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
     let insurance_fund = storage::get_insurance_fund(e);

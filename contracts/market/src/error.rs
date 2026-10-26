@@ -63,6 +63,7 @@ pub enum MCError {
     BadDebtCoverageCriterionIsNotMet = 603,
     AssetCannotBeUsedAsCollateral = 604,
     LiquidationExcessiveDemandedCollateral = 605,
+    LiquidationLeavesDust = 606,
 
     // Requests batching & swap errors (700-799)
     InvalidSwap = 701,
