@@ -28,8 +28,8 @@ Suppliers receive j-tokens (shares of a pool's supply) and borrowers d-tokens (s
 ### Lending and liquidation
 
 - **Borrowing** — borrows and withdrawals value collateral at its pool's `open_ltv`, against debt weighted by each borrow pool's liability factor.
-- **Liquidation** — once weighted debt exceeds collateral valued at `close_ltv`, a liquidator repays debt — up to the pool's close factor while the LTV is below `insolvency_ltv_bps` — and receives collateral plus a bounded bonus.
-- **Bad debt** — when every collateral position is dust, anyone can call `issue_cover_bad_debt`. The market writes off debts up to `min_collateral_value_cents` at once, at the borrow pool lenders' cost, and claims the rest from the insurance fund. While a claim is open, the pool pauses deposits, withdrawals, borrowing, and flash loans. Anyone can settle the claim once the fund pays or its deadline passes, and without calling the fund 24 hours after the deadline. The pool's lenders bear only what the fund leaves uncovered.
+- **Liquidation** — once weighted debt exceeds collateral valued at `close_ltv`, a liquidator repays debt — up to the pool's close factor while the LTV is below `insolvency_ltv_bps`, or in full when a position is worth less than twice `min_collateral_value_cents` — and receives collateral plus a bounded bonus. A liquidation may not leave a debt or collateral remainder below `min_collateral_value_cents`.
+- **Bad debt** — when every collateral position is dust and the seizable collateral is worth less than the debt, anyone can call `issue_cover_bad_debt`. The market writes off debts up to `min_collateral_value_cents` at once, at the borrow pool lenders' cost, and claims the rest from the insurance fund. While a claim is open, the pool pauses deposits, withdrawals, borrowing, and flash loans. Anyone can settle the claim once the fund pays or its deadline passes, and without calling the fund 24 hours after the deadline. The pool's lenders bear only what the fund leaves uncovered.
 
 ### Pricing
 
