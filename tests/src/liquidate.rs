@@ -1687,6 +1687,24 @@ fn test_a_liquidation_may_leave_exactly_the_floor() {
     assert_eq!(gold_left * gold_cents(9) / TOKEN_SCALE, 500_000_004_000_000);
 }
 
+/// A collateral remainder worth exactly the floor is not dust: at $0.10 a GOLD, a 4.5454545 USDC repay leaves exactly
+/// 50 GOLD ($5.00) behind.
+#[test]
+fn test_a_liquidation_may_leave_collateral_worth_exactly_the_floor() {
+    let repay = 45_454_545;
+    let gold = 50 * ONE + seized_for(repay, gold_cents(10));
+    let f = TestMarketFixture::new();
+    let borrower = dust_borrower(&f, &[(&f.gold_pool_address, gold)], 10 * ONE);
+    set_collateral_prices(&f, gold_cents(10), USD);
+
+    liquidate_usdc(&f, &borrower, &f.gold_pool_address, repay).unwrap();
+
+    let gold_left =
+        get_obligation_collateral(&f.contract_client, &f.users[0], &f.gold_pool_address).unwrap();
+    assert_eq!(gold_left, 50 * ONE);
+    assert_eq!(gold_left * gold_cents(10) / TOKEN_SCALE, 500_000_000_000_000);
+}
+
 /// The close factor lifts only below twice the floor. Beside $100 of BTC, $10.00 of GOLD keeps it and one price
 /// unit less sells the GOLD whole; a $10.00 debt against $11.50 of GOLD keeps it and a $9.999999 one clears.
 #[test]
