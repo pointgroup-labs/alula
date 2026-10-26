@@ -1,9 +1,19 @@
 #![cfg(test)]
 
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+use arbitrary::{Arbitrary, Unstructured};
+
 use crate::{
-    Amount, BatchOp, Borrow, Command::*, Deposit, DepositCollateral, FlashBatch, Input, Liquidate,
-    PassTime, Repay, TestMarketFixture, Token::*, Withdraw, WithdrawCollateral,
-    make_oracle_prices_different,
+    Amount, BatchOp, Borrow,
+    Command::*,
+    Deposit, DepositCollateral, FlashBatch, Input, Liquidate, PassTime, Repay, TestMarketFixture,
+    Token::*,
+    Withdraw, WithdrawCollateral, make_oracle_prices_different,
+    scenario::{ReachTally, Scenario, fuzz_fixture},
 };
 
 #[allow(unused)]
@@ -260,4 +270,120 @@ fn test_dec_2_2() {
             NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: BTC }),
         ],
     });
+}
+
+const REACH_SEEDS: usize = 128;
+const REACH_INPUT_LEN: usize = 320;
+
+/// Replays scenarios and counts how far their liquidations get. `FUZZ_REACH_CORPUS=<dir>` replays a
+/// libFuzzer corpus instead of the seeded set, at the floor in `FUZZ_REACH_FLOOR_CENTS` (default 0);
+/// `FUZZ_REACH_LEGACY=1` decodes it as the legacy `Input`, for a baseline.
+#[test]
+fn liquidation_reach() {
+    let Ok(dir) = std::env::var("FUZZ_REACH_CORPUS") else {
+        for cents in [0, 500] {
+            let tally = replay(&seeded_inputs(), cents, false);
+            println!("seeded set, floor {cents} cents: {tally}");
+            assert_substantial_reach(&tally);
+        }
+        return;
+    };
+
+    let cents = std::env::var("FUZZ_REACH_FLOOR_CENTS").map_or(0, |v| v.parse().unwrap());
+    let legacy = std::env::var("FUZZ_REACH_LEGACY").is_ok_and(|v| v == "1");
+    let mut paths: Vec<_> =
+        std::fs::read_dir(&dir).unwrap().map(|entry| entry.unwrap().path()).collect();
+    paths.sort();
+    let inputs: Vec<_> = paths
+        .iter()
+        .map(|path| (path.display().to_string(), std::fs::read(path).unwrap()))
+        .collect();
+
+    let tally = replay(&inputs, cents, legacy);
+    println!("{dir}, floor {cents} cents, legacy {legacy}: {tally}");
+    // A corpus is kept for coverage, so its malformed calls are over-represented and only
+    // inertness is asserted; the seeded set above carries the ratios.
+    if !legacy {
+        assert!(tally.reached > 0 && tally.liquidated > 0, "the corpus never liquidated");
+    }
+}
+
+fn assert_substantial_reach(tally: &ReachTally) {
+    assert!(tally.calls >= tally.inputs, "under one liquidation call per input");
+    assert!(tally.reached * 2 >= tally.calls, "under half the calls reached the health check");
+    assert!(tally.liquidated * 10 >= tally.calls, "under a tenth of the calls liquidated");
+}
+
+fn seeded_inputs() -> Vec<(String, Vec<u8>)> {
+    // splitmix64
+    let mut state = 0x9E37_79B9_7F4A_7C15_u64;
+    let mut next_byte = move || {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        (z ^ (z >> 31)) as u8
+    };
+
+    (0..REACH_SEEDS)
+        .map(|i| (format!("seed {i}"), (0..REACH_INPUT_LEN).map(|_| next_byte()).collect()))
+        .collect()
+}
+
+/// Replays on unnamed worker threads, which also keeps the SDK from writing a test snapshot per
+/// input.
+fn replay(inputs: &[(String, Vec<u8>)], cents: i128, legacy: bool) -> ReachTally {
+    let next = AtomicUsize::new(0);
+    let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).min(16);
+
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut tally = ReachTally::default();
+                    while let Some((name, bytes)) = inputs.get(next.fetch_add(1, Ordering::Relaxed))
+                    {
+                        if let Err(panic) = catch_unwind(AssertUnwindSafe(|| {
+                            replay_one(bytes, cents, legacy, &mut tally)
+                        })) {
+                            eprintln!("replaying {name} failed");
+                            resume_unwind(panic);
+                        }
+                    }
+                    tally
+                })
+            })
+            .collect();
+
+        handles.into_iter().fold(ReachTally::default(), |mut total, handle| {
+            total.merge(handle.join().unwrap_or_else(|panic| resume_unwind(panic)));
+            total
+        })
+    })
+}
+
+/// Decodes as libfuzzer-sys does, skipping what the target would skip.
+fn replay_one(bytes: &[u8], cents: i128, legacy: bool, tally: &mut ReachTally) {
+    if !legacy {
+        if let Ok(scenario) = Scenario::arbitrary_take_rest(Unstructured::new(bytes)) {
+            scenario.run(cents, tally);
+        }
+        return;
+    }
+
+    if bytes.len() < Input::size_hint(0).0 {
+        return;
+    }
+    let Ok(input) = Input::arbitrary_take_rest(Unstructured::new(bytes)) else {
+        return;
+    };
+    let f = fuzz_fixture(cents);
+    tally.inputs += 1;
+    for command in &input.commands {
+        match command.liquidation() {
+            Some((liquidation, who)) => tally.record(&liquidation.attempt(&f, who)),
+            None => command.run(&f),
+        }
+        f.assert_invariants();
+    }
 }
