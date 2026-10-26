@@ -163,8 +163,16 @@ test: build ## Run tests
 test/watch: build ## Run tests in watch mode
 	@cargo watch -x 'nextest run --workspace --lib'
 
+# LTO in the release profile leaves a fuzz build 177 coverage counters, and opt-level "z" halves its speed.
+# A scenario reads at most ~1.1 KB.
+FUZZ_RUN              := RUST_BACKTRACE=1 CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_OPT_LEVEL=3 \
+                         $(CARGO_NIGHTLY) fuzz run --fuzz-dir=tests/fuzz --sanitizer=none
+
 test/fuzz: build ## Run fuzzing suite
-	@RUST_BACKTRACE=1 $(CARGO_NIGHTLY) fuzz run --fuzz-dir=tests/fuzz --sanitizer=none fuzz_target -- -max_len=1048576
+	@$(FUZZ_RUN) fuzz_target -- -max_len=2048
+
+test/fuzz/floor: build ## Run fuzzing suite at the 5 USD dust floor
+	@$(FUZZ_RUN) fuzz_target_floor -- -max_len=2048
 
 # ── Coverage ──────────────────────────────────────────────────────────────────
 
