@@ -40,7 +40,7 @@ use market::{
     contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
     math_utils::MathUtils,
-    obligation::{BorrowPosition, DepositPosition, ObligationKey},
+    obligation::{BorrowPosition, DepositPosition, Obligation, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
     request::{Request, StandardRequest},
     storage::MarketInitParams,
@@ -300,6 +300,10 @@ impl TestMarketFixture<'_> {
         });
     }
 
+    pub fn obligation(&self, user: &Address) -> Option<Obligation> {
+        self.contract_client.try_get_user_obligation(&ObligationKey::new(user.clone())).ok()?.ok()
+    }
+
     // Floored supply-share rate per pool, in basis points, in the order `assert_invariants` uses.
     // `None` where the pool holds no shares and the rate is undefined.
     pub fn j_token_rates(&self) -> [Option<i128>; 3] {
@@ -348,13 +352,14 @@ impl TestMarketFixture<'_> {
             assert!(pool.total_available().unwrap() >= 0);
         }
 
-        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + fees values on pools --
+        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + plain collateral + fees
+        // values on pools --
 
         let token_balances: Vec<i128> =
             clients.iter().map(|client| client.balance(contract_id)).collect();
 
         for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
-            // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
+            // Calculate the Total Liabilities of the protocol (User Liquidity + Plain Collateral + Fees Sum)
             //
             // An outstanding batch flash borrow stays counted in `total_available` while out of
             // the contract. It is 0 at a transaction boundary, where this runs; an in-batch check
@@ -364,18 +369,37 @@ impl TestMarketFixture<'_> {
             });
             let expected_minimum_balance = pool
                 .total_available
-                .checked_add(pool.operation_fees_sum)
+                .checked_add(pool.total_collateral)
+                .and_then(|sum| sum.checked_add(pool.operation_fees_sum))
                 .expect("Overflow in invariant calc")
                 .checked_sub(flash_reserved)
                 .expect("Overflow in invariant calc");
 
             assert!(
                 token_balance >= expected_minimum_balance,
-                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + Fees \
-                 ({})",
+                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + \
+                 Collateral + Fees ({})",
                 pool.pool_address,
                 token_balance,
                 expected_minimum_balance
+            );
+        }
+
+        // -- Every position is non-negative and counted --
+
+        let obligations: Vec<Obligation> =
+            users.iter().filter_map(|u| self.obligation(u)).collect();
+        for obligation in &obligations {
+            for (_, deposit) in obligation.deposits.iter() {
+                assert!(deposit.j_tokens >= 0 && deposit.collateral >= 0, "{deposit:?}");
+                assert!(deposit.originally_deposited >= 0, "{deposit:?}");
+            }
+            for (_, borrow) in obligation.borrows.iter() {
+                assert!(borrow.d_tokens >= 0 && borrow.originally_borrowed >= 0, "{borrow:?}");
+            }
+            assert_eq!(
+                obligation.positions_count,
+                obligation.deposits.len() + obligation.borrows.len()
             );
         }
 
@@ -383,21 +407,16 @@ impl TestMarketFixture<'_> {
 
         for pool in pools {
             let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
+            let mut collateral_obligations_sum = 0_i128;
 
-            for user in users {
-                if let Ok(Ok(obligation)) =
-                    contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
-                {
-                    if let Some(deposit_position) =
-                        obligation.deposits.get(pool.pool_address.clone())
-                    {
-                        j_tokens_obligations_sum += deposit_position.j_tokens;
-                    }
+            for obligation in &obligations {
+                if let Some(deposit_position) = obligation.deposits.get(pool.pool_address.clone()) {
+                    j_tokens_obligations_sum += deposit_position.j_tokens;
+                    collateral_obligations_sum += deposit_position.collateral;
+                }
 
-                    if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
-                    {
-                        d_tokens_obligations_sum += borrow_position.d_tokens;
-                    }
+                if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone()) {
+                    d_tokens_obligations_sum += borrow_position.d_tokens;
                 }
             }
 
@@ -406,6 +425,10 @@ impl TestMarketFixture<'_> {
 
             assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
             assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
+            assert_eq!(pool.total_collateral, collateral_obligations_sum);
+            if pool.total_d_tokens == 0 {
+                assert_eq!(pool.total_borrowed, 0, "debt left without debt shares");
+            }
         }
     }
 }
