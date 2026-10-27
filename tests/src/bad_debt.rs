@@ -1073,6 +1073,39 @@ fn test_a_solvent_dust_debt_is_written_off_only_once_insolvent() {
     );
 }
 
+/// A debt worth exactly the dust threshold is still dust: written off at once, with no claim and no lock.
+#[test]
+fn test_a_debt_worth_exactly_the_dust_threshold_is_written_off() {
+    let f = TestMarketFixture::new();
+    set_5_usd_dust_threshold(&f);
+    let (lender, borrower) =
+        (ObligationKey::new(f.users[0].clone()), ObligationKey::new(f.users[1].clone()));
+    f.contract_client.deposit(&lender, &f.usdc_pool_address, &(100 * ONE), &None);
+    f.contract_client.add_collateral(&borrower, &f.gold_pool_address, &(20 * ONE), &None);
+    f.contract_client.borrow(&borrower, &f.usdc_pool_address, &(5 * ONE), &None);
+    // $0.20 a GOLD: $4 of collateral. The price moves in the same ledger, so the $5 debt accrues nothing.
+    f.oracle_client.set_price_stable(&soroban_sdk::vec![
+        &f.e,
+        gold_cents(20),
+        1_00000000000000,
+        1_00000000000000
+    ]);
+    assert_eq!(
+        get_obligation_d_tokens_as_tokens(
+            &f.e,
+            &f.contract_client,
+            &borrower.user,
+            &f.usdc_pool_address
+        ),
+        Ok(5 * ONE)
+    );
+
+    f.contract_client.issue_cover_bad_debt(&borrower);
+
+    assert_eq!(lock_of(&f, &f.usdc_pool_address), (0, 0));
+    assert_eq!(f.contract_client.get_pool(&f.usdc_pool_address).total_borrowed, 0);
+}
+
 /// A debt above the dust threshold still goes to the fund and locks its pool until the fund answers.
 #[test]
 fn test_a_debt_above_the_dust_threshold_still_locks_its_pool() {
