@@ -870,3 +870,75 @@ fn test_a_borrow_after_a_swap_in_the_batch_is_priced_after_the_swap() {
         Err(Ok(MCError::UnhealthyOperation))
     );
 }
+
+/// A swap provider whose reported result misses the caller's bound by `miss` units: it reports
+/// `min_amount_out - miss` received, or `max_amount_in + miss` spent.
+#[contract]
+pub struct BoundMissingSwap;
+
+#[contractimpl]
+impl BoundMissingSwap {
+    pub fn __constructor(e: Env, miss: i128) {
+        e.storage().instance().set(&0_u32, &miss);
+    }
+
+    pub fn swap_exact(
+        e: Env,
+        _user: Address,
+        _path: Vec<Address>,
+        _in: i128,
+        min_out: i128,
+    ) -> i128 {
+        min_out - e.storage().instance().get::<_, i128>(&0_u32).unwrap()
+    }
+
+    pub fn swap_for_exact(
+        e: Env,
+        _user: Address,
+        _path: Vec<Address>,
+        max_in: i128,
+        _out: i128,
+    ) -> i128 {
+        max_in + e.storage().instance().get::<_, i128>(&0_u32).unwrap()
+    }
+}
+
+/// A batch swap is refused when the provider reports receiving less than `min_amount_out` or spending more
+/// than `max_amount_in`, and accepted when it meets the bound exactly.
+#[test]
+fn test_a_batch_swap_outside_the_callers_bound_is_refused() {
+    let f = TestMarketFixture::new();
+    let user = ObligationKey::new(f.users[0].clone());
+    let path = svec![&f.e, f.usdc_token_address.clone(), f.gold_token_address.clone()];
+
+    for (miss, bound) in [(0_i128, 1_000_i128), (1, 1_000), (1, 1), (500, 7_777)] {
+        let provider = f.e.register(BoundMissingSwap, (miss,));
+        let exact = svec![
+            &f.e,
+            Request::SwapExactTokens(SwapExactTokensRequest {
+                swap_provider: provider.clone(),
+                path: path.clone(),
+                amount_in: bound,
+                min_amount_out: bound,
+            }),
+        ];
+        let for_exact = svec![
+            &f.e,
+            Request::SwapForExactTokens(SwapForExactTokensRequest {
+                swap_provider: provider,
+                path: path.clone(),
+                max_amount_in: bound,
+                amount_out: bound,
+            }),
+        ];
+
+        for batch in [exact, for_exact] {
+            let outcome = f.contract_client.try_submit_requests_batch(&user, &batch, &None);
+            if miss == 0 {
+                assert!(outcome.is_ok(), "a swap meeting its bound exactly must pass: {outcome:?}");
+            } else {
+                assert_eq!(outcome, Err(Ok(MCError::SwapSlippageExceeded)));
+            }
+        }
+    }
+}

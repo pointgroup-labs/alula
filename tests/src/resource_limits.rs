@@ -432,17 +432,32 @@ impl PositionFixture<'_> {
 
     /// Borrow assets stay at $1.
     fn reprice_collateral(&self, collateral_price: i128) {
-        let unit_price = 10_i128.pow(ORACLE_PRICE_DECIMALS);
+        self.reprice(collateral_price, 10_i128.pow(ORACLE_PRICE_DECIMALS));
+    }
+
+    fn reprice(&self, collateral_price: i128, borrow_price: i128) {
         let mut prices = soroban_sdk::Vec::new(&self.e);
         for _ in 0..self.collateral_pools.len() {
             prices.push_back(collateral_price);
         }
         for _ in 0..self.borrow_pools.len() {
-            prices.push_back(unit_price);
+            prices.push_back(borrow_price);
         }
         self.oracle_client.set_price_stable(&prices);
 
         self.e.ledger().with_mut(|li| li.timestamp += 1);
+    }
+
+    /// The fixture opens its positions at a zero floor: its $0.50 of collateral could back no borrow at $5.
+    fn set_min_collateral_value_cents(&self, cents: i128) {
+        let period = self.contract_client.get_global_state().update_in_queue_period;
+        self.contract_client.queue_in_market_update(
+            &MAX_RESERVES,
+            &cents,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        );
+        self.e.ledger().with_mut(|li| li.timestamp += period);
+        self.contract_client.apply_market_update();
     }
 
     /// Gives the insurance fund enough of every borrow asset to cover the whole
@@ -950,6 +965,42 @@ fn cover_bad_debt_collateral_heavy_pubnet_ceiling() {
     let ceilings = cover_bad_debt_ceilings("/ch", &COLLATERAL_HEAVY_SWEEP, |total| (total - 1, 1));
 
     assert_eq!(ceilings, EXPECTED_COLLATERAL_HEAVY, "collateral-heavy ceiling moved");
+}
+
+/// Above a zero `min_collateral_value_cents` the cover prices every debt to choose between writing it off
+/// and filing a claim, a read the zero-floor measurements above never take. Measured on the borrow-heavy
+/// shape at the $5 and $100 floors, with every debt dust ($1) or every debt above the floor ($100 000).
+/// On wasm the claim shape takes 17.57% of memory, against 14.48% for the same cover at a zero floor.
+#[test]
+fn issue_cover_with_a_dust_floor_fits_pubnet() {
+    report_header();
+
+    let unit_price = 10_i128.pow(ORACLE_PRICE_DECIMALS);
+    let total = MAX_RESERVES;
+    for (build_label, build) in MARKET_BUILDS {
+        for (floor_label, floor_cents) in [("$5", 500), ("$100", 10_000)] {
+            for (debt_label, borrow_price, requests) in
+                [("dust", unit_price, 0), ("claim", 100_000 * unit_price, 1)]
+            {
+                let f = PositionFixture::with_positions(build, 1, total as usize - 1);
+                f.set_min_collateral_value_cents(floor_cents);
+                f.reprice(DUST_COLLATERAL_PRICE, borrow_price);
+                f.fund_insurance_fund();
+                f.contract_client.issue_cover_bad_debt(&f.borrower);
+
+                let label = format!("issue/{build_label}/{floor_label}/{debt_label}");
+                let m = report(&f, &label, total);
+                assert_within_pubnet_limits(&label, total, &m);
+                for pool in &f.borrow_pools {
+                    assert_eq!(
+                        f.contract_client.get_pool(pool).bad_debt_request_count,
+                        requests,
+                        "{label}: the cover took the other branch"
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// `issue_cover_bad_debt` pushes a stake for every position it settles, so with farms attached it is

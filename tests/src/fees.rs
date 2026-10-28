@@ -8,8 +8,9 @@ use market::{
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, map as smap,
+    Address, Env, contract, contractimpl, map as smap,
     testutils::{Address as _, Ledger},
+    token::TokenClient,
 };
 
 use crate::{
@@ -1712,4 +1713,109 @@ fn test_fee_distribution_keeps_the_floor_remainder_in_the_bucket() {
     let pool = f.contract_client.get_pool(&f.gold_pool_address);
     assert_eq!(pool.take_rate_fees_sum, bucket - paid);
     assert_eq!(pool.total_available, available - paid);
+}
+
+/// A flash-loan receiver that allows the market to pull more than principal plus fee, so the amount pulled
+/// back is the market's own choice. It records the fee it was quoted.
+#[contract]
+pub struct GenerousFlashLoanReceiver;
+
+#[contractimpl]
+impl GenerousFlashLoanReceiver {
+    pub fn __constructor(e: Env, market: Address) {
+        e.storage().instance().set(&0_u32, &market);
+    }
+
+    pub fn exec_op(e: Env, _initiator: Address, token: Address, amount: i128, fee: i128) {
+        let market: Address = e.storage().instance().get(&0_u32).unwrap();
+        e.storage().instance().set(&1_u32, &fee);
+        TokenClient::new(&e, &token).approve(
+            &e.current_contract_address(),
+            &market,
+            &(2 * amount + fee + 1),
+            &e.ledger().sequence(),
+        );
+    }
+
+    pub fn quoted_fee(e: Env) -> i128 {
+        e.storage().instance().get(&1_u32).unwrap()
+    }
+}
+
+/// A flash loan returns principal plus `ceil(amount * flash_loan_fee_bps / 10_000)` to the market, and books
+/// exactly that fee in the pool's operation fees.
+#[test]
+fn test_a_flash_loan_collects_and_books_the_ceiled_fee() {
+    for fee_bps in [1_u32, 30, 2_500] {
+        let pool_config = PoolConfig {
+            fee_config: PoolFeeConfig { flash_loan_fee_bps: fee_bps, ..Default::default() },
+            ..Default::default()
+        };
+        let f = TestMarketFixture::new_with_pool_config(pool_config);
+        let (lender, initiator) = (&f.users[0], &f.users[1]);
+        f.contract_client.deposit(
+            &ObligationKey::new(lender.clone()),
+            &f.usdc_pool_address,
+            &(100 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
+        );
+        let receiver = f.e.register(GenerousFlashLoanReceiver, (f.contract_id.clone(),));
+        let receiver_client = GenerousFlashLoanReceiverClient::new(&f.e, &receiver);
+        f.usdc_sac.mint(&receiver, &(10 * DEFAULT_DEPOSIT_AMOUNT));
+
+        for amount in [1_i128, 333, 10_001, 123_457] {
+            let product = amount * fee_bps as i128;
+            let expected_fee = product / BPS_FACTOR + i128::from(product % BPS_FACTOR != 0);
+            let market_before = f.usdc_token_client.balance(&f.contract_id);
+            let receiver_before = f.usdc_token_client.balance(&receiver);
+            let fees_before = get_pool_operation_fees_sum(&f.contract_client, &f.usdc_pool_address);
+
+            f.contract_client.flash_loan(&receiver, initiator, &f.usdc_pool_address, &amount);
+
+            assert_eq!(receiver_client.quoted_fee(), expected_fee);
+            assert_eq!(f.usdc_token_client.balance(&f.contract_id) - market_before, expected_fee);
+            assert_eq!(receiver_before - f.usdc_token_client.balance(&receiver), expected_fee);
+            assert_eq!(
+                get_pool_operation_fees_sum(&f.contract_client, &f.usdc_pool_address) - fees_before,
+                expected_fee
+            );
+        }
+    }
+}
+
+/// A referrer receives `ceil(fee_sum * share_bps / 10_000)` of an operation fee that is itself
+/// `ceil(amount * fee_bps / 10_000)`.
+#[test]
+fn test_a_referrer_share_of_an_operation_fee_rounds_up() {
+    let f = TestMarketFixture::new();
+    let depositor = ObligationKey::new(f.users[0].clone());
+    let referrer = Address::generate(&f.e);
+    let (deposit_fee_bps, share_bps) = (777_u32, 3_333_u32);
+
+    let mut config = f.contract_client.get_pool(&f.gold_pool_address).config;
+    config.fee_config.deposit_fee_bps = deposit_fee_bps;
+    config.fee_config.referrers = Some(smap![&f.e, (referrer.clone(), share_bps)]);
+    f.contract_client.queue_in_pool_set(&f.gold_pool_address, &config);
+    let period = f.contract_client.get_global_state().update_in_queue_period;
+    f.e.ledger().with_mut(|li| li.timestamp += period);
+    f.contract_client.apply_pool_set(&f.gold_pool_address);
+
+    let ceil_bps = |x: i128, bps: u32| {
+        let product = x * bps as i128;
+        product / BPS_FACTOR + i128::from(product % BPS_FACTOR != 0)
+    };
+    for amount in [13_i128, 1_001, 50_000, 987_654] {
+        let fee_sum = ceil_bps(amount, deposit_fee_bps);
+        let expected_referrer_fee = ceil_bps(fee_sum, share_bps);
+        let before = f.gold_token_client.balance(&referrer);
+
+        f.contract_client.deposit(
+            &depositor,
+            &f.gold_pool_address,
+            &amount,
+            &Some(referrer.clone()),
+        );
+
+        assert_eq!(f.gold_token_client.balance(&referrer) - before, expected_referrer_fee);
+    }
 }

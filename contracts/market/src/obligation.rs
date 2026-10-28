@@ -225,6 +225,20 @@ impl Obligation {
         Ok(())
     }
 
+    // Liquidation prices every deposit of a borrower, so an unpriceable one would block it.
+    pub fn require_priced_if_borrowing(
+        &self,
+        e: &Env,
+        prices: &mut Prices,
+        pool: &Pool,
+    ) -> Result<(), MCError> {
+        if self.borrow_exists() {
+            oracle::get_asset_price(e, prices, &pool.token_address)?;
+        }
+
+        Ok(())
+    }
+
     // ------ Health Factor Removing Computations ------
 
     // Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -1017,7 +1031,7 @@ impl Obligation {
 
         let position_debt =
             borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-        let liquidated_amount = repay_amount.min(position_debt);
+        let mut liquidated_amount = repay_amount.min(position_debt);
         let liquidated_value = oracle::get_asset_value_floor(
             e,
             prices,
@@ -1032,6 +1046,27 @@ impl Obligation {
             .collateral
             .checked_add(position_collateral_tokens_from_j_tokens)
             .map_over_or_underflow()?;
+
+        // Aave v3: no close factor while either position is worth less than twice the floor.
+        let is_small_position = {
+            let small_position_value =
+                min_collateral_value_threshold.checked_mul(2).map_over_or_underflow()?;
+
+            oracle::get_asset_value_floor(
+                e,
+                prices,
+                position_collateral_sum,
+                &collateral_pool.token_address,
+                collateral_pool.token_decimals,
+            )? < small_position_value
+                || oracle::get_asset_value_ceil(
+                    e,
+                    prices,
+                    position_debt,
+                    &borrow_pool.token_address,
+                    borrow_pool.token_decimals,
+                )? < small_position_value
+        };
 
         // -- Count max possible redeemed collateral with liquidation incentive --
 
@@ -1054,7 +1089,7 @@ impl Obligation {
                 .map_over_or_underflow()?
         };
 
-        let mut collateral_to_sell_to_liquidator = if is_solvent {
+        let collateral_to_sell_to_liquidator = if is_solvent && !is_small_position {
             // -- LTV-improving scenario --
 
             // Check if the liquidation doesn't exceed the close factor
@@ -1102,31 +1137,67 @@ impl Obligation {
                 .min(max_ltv_improving_collateral_seized)
                 .min(redeemed_collateral_amount_with_max_incentive)
         } else {
-            // -- Insolvency scenario - the obligation is given away completely to liquidators to decrease the amount of `bad debt`
-            // in the market --
+            // -- Insolvency or small-position scenario - no close factor: the position can go to liquidators whole,
+            // which decreases the amount of `bad debt` in the market --
 
             position_collateral_sum.min(redeemed_collateral_amount_with_max_incentive)
         };
 
+        // In the small-position regime a repay worth more than the collateral position buys it whole; the rest is refunded.
+        if is_small_position && collateral_to_sell_to_liquidator == position_collateral_sum {
+            let whole_position_value = oracle::get_asset_value_ceil(
+                e,
+                prices,
+                position_collateral_sum,
+                &collateral_pool.token_address,
+                collateral_pool.token_decimals,
+            )?
+            .fixed_div_ceil(
+                BPS_FACTOR.checked_add(max_liquidation_incentive_bps).map_over_or_underflow()?,
+                BPS_FACTOR,
+            )
+            .map_over_or_underflow()?;
+            let whole_position_repay = oracle::get_asset_amount_ceil(
+                e,
+                prices,
+                whole_position_value,
+                &borrow_pool.token_address,
+                borrow_pool.token_decimals,
+            )?;
+
+            liquidated_amount = liquidated_amount.min(whole_position_repay);
+        }
+
         let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe
-        let collateral_value_left = oracle::get_asset_value_floor(
-            e,
-            prices,
-            collateral_left,
-            &collateral_pool.token_address,
-            collateral_pool.token_decimals,
-        )?;
+        let debt_left = position_debt - liquidated_amount; // safe
 
-        let is_all_collateral_drained = if collateral_value_left < min_collateral_value_threshold {
-            // If collateral(both plain collateral and supply shares) that's left is worth
-            // less than the configured `min_collateral_value_cents` on the market, the liquidator
-            // additionally receives all of the collateral that's left
-            collateral_to_sell_to_liquidator += collateral_left;
+        // Aave v3's dust rule: clear the debt or the collateral, or leave both worth at least the floor.
+        if collateral_left.is_positive() && debt_left.is_positive() {
+            let collateral_value_left = oracle::get_asset_value_floor(
+                e,
+                prices,
+                collateral_left,
+                &collateral_pool.token_address,
+                collateral_pool.token_decimals,
+            )?;
+            let debt_value_left = oracle::get_asset_value_ceil(
+                e,
+                prices,
+                debt_left,
+                &borrow_pool.token_address,
+                borrow_pool.token_decimals,
+            )?;
 
-            true
-        } else {
-            false
-        };
+            if collateral_value_left < min_collateral_value_threshold
+                || debt_value_left < min_collateral_value_threshold
+            {
+                return Err(MCError::LiquidationLeavesDust);
+            }
+        }
+
+        // With a zero floor nothing is dust, so a sold-out position keeps its sub-unit share remainder.
+        let is_all_collateral_drained =
+            collateral_left == 0 && min_collateral_value_threshold.is_positive();
 
         if collateral_to_sell_to_liquidator < demanded_collateral_amount {
             return Err(MCError::LiquidationExcessiveDemandedCollateral);
@@ -1304,6 +1375,43 @@ impl Obligation {
             if collateral_value > min_collateral_value_threshold {
                 return Err(MCError::BadDebtCoverageCriterionIsNotMet);
             }
+        }
+
+        Ok(())
+    }
+
+    // Debt that the seizable (positive close-LTV) collateral covers is left to liquidation. A debt whose price
+    // cannot be read still qualifies, so a feed outage cannot keep it from the fund.
+    pub fn require_insolvent(&self, e: &Env, prices: &mut Prices) -> Result<(), MCError> {
+        let Ok(debt_value) = self.compute_debt_value(e, prices) else {
+            return Ok(());
+        };
+
+        let mut seizable_collateral_value = 0_i128;
+        for (pool_address, deposit_position) in self.deposits.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+                MCError::InternalError
+            })?;
+            if pool.require_collateral_is_seizable().is_err() {
+                continue;
+            }
+
+            let value = Self::compute_pool_collateral_value_scaled(
+                e,
+                prices,
+                &pool,
+                &deposit_position,
+                BPS_FACTOR,
+            )?;
+            seizable_collateral_value =
+                seizable_collateral_value.checked_add(value).map_over_or_underflow()?;
+        }
+
+        // Nothing seizable means nothing to liquidate, even against a debt worth nothing.
+        if seizable_collateral_value.is_positive() && seizable_collateral_value >= debt_value {
+            return Err(MCError::BadDebtCoverageCriterionIsNotMet);
         }
 
         Ok(())

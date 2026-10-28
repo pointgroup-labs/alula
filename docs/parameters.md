@@ -159,6 +159,17 @@ liquidation. A wider gap makes it less likely that a price move turns into bad
 debt. If a liquidation touches two pools, the incentive actually paid is the
 lower of the two pools' `max_liquidation_incentive_bps`.
 
+A liquidation hands over the repaid value plus that incentive, capped by the
+collateral position. While the LTV is below `insolvency_ltv_bps`, the close
+factor and a cap that keeps each step lowering the LTV also apply, unless the
+collateral position or the debt position is worth less than twice
+`min_collateral_value_cents` (§7). Such a small position can be closed in one
+liquidation; when its whole collateral position is bought, the repay is capped
+at that position's value divided by `1 + incentive` and the excess is returned.
+Whatever its size, a liquidation must repay the whole debt position, take the
+whole collateral position, or leave both worth at least
+`min_collateral_value_cents`; otherwise it fails with `LiquidationLeavesDust`.
+
 `utilization_ratio_limit_bps` only gates borrowing. Utilization can still climb
 past it through accrued interest or withdrawals, and once it does, the scarcity
 rules in §5 apply.
@@ -213,8 +224,13 @@ zero, so every withdrawal from a pool carrying any debt reverts with
 flag, but it can starve them to nothing through those two parameters — under
 the usual 12-hour pool-config timelock.
 
-A farm attached to the pool (§9) is not such a path: the market ignores a
-refused stake push, so a frozen or failing farm cannot hold up an exit.
+A farm attached to the pool (§9) is another such path. The market ignores a
+stake push the farm refuses, but not one that exhausts the transaction's CPU or
+memory budget, which Soroban cannot catch. Such a farm blocks withdraw, repay
+and liquidation on its pools until the admin detaches it (`clear_pool_farms` or
+`clear_farms_contract`); adding and removing collateral make no push. The
+market admin attaches farms at once, and the farm admin can replace the farms
+contract's code at once.
 
 ### Market status
 
@@ -233,8 +249,8 @@ liquidation work at every freeze level, and the test suite asserts this
 directly (`tests/src/update.rs`). Freezing a market stops it taking on new
 risk; it doesn't hold your funds.
 
-One thing outside the status system can pause withdrawals: the bad-debt lock
-below.
+Two things outside the status system can pause withdrawals: a farm that
+exhausts the budget (above) and the bad-debt lock below.
 
 The insurance fund can freeze the market on its own authority, as a circuit
 breaker. It can't set or clear the `…ByAdmin` variants, which only the market
@@ -248,15 +264,26 @@ While it's locked, deposit, withdraw, borrow and flash loan are blocked on that
 pool. Repay, collateral changes and liquidation stay open. The point is to stop
 lenders racing for the exit ahead of a loss that is about to be shared out.
 
+`issue_cover_bad_debt` accepts only an insolvent obligation: one whose
+collateral that a liquidation can seize (deposits in pools with a positive
+`close_ltv_bps`) is worth nothing or less than its debt. A solvent one is left
+to liquidation. A debt worth no more than `min_collateral_value_cents` is
+written off at once, with no claim and no lock. The borrow pool's lenders bear
+it without the fund's review, up to `min_collateral_value_cents` per pool on
+each cover. An obligation with a debt whose price can't be read skips the
+solvency test, and that debt opens a claim as usual.
+
 The lock only lifts once every outstanding claim on the pool has settled;
 waiting out the duration isn't enough on its own. A claim that sits pending
 past its deadline can be cancelled by anyone, so an unanswered claim can't hold
 the lock open indefinitely.
 
 Losses are absorbed in order: liquidation proceeds first, then the pool's
-insurance fund, and only what's left is socialized across that pool's lenders.
-Whether that last step can happen, and how much it costs, is the main tail risk
-in everything above.
+insurance fund (except dust written off as above), and only what's left is
+socialized across that pool's lenders. Whether that last step can happen, and
+how much it costs, is the main tail risk in everything above. Unpaid take-rate
+fees rank ahead of lenders; once a write-off wipes out lenders' equity, the fee
+claim beyond the pool's cash and remaining debt is written off with it.
 
 ---
 
@@ -267,6 +294,20 @@ in everything above.
 | `max_positions`              | Max simultaneous positions per obligation                      | `10`           | `2..=10`              |
 | `min_collateral_value_cents` | Dust floor each borrow-backing collateral position must retain | `500` ($5)     | `0..=10000` ($100)    |
 | `bad_debt_lock_d`            | Lock duration set on a pool when a bad-debt claim opens        | `43200` (12 h) | `0..=432000` (5 days) |
+
+`min_collateral_value_cents` sets several limits at once:
+
+- Each borrow-backing collateral position must retain it: the health check
+  subtracts it once per such position.
+- A liquidation must repay the whole debt position, take the whole collateral
+  position, or leave both worth at least this much (§4).
+- A collateral or debt position worth less than twice this much is liquidated
+  without the close factor (§4).
+- `issue_cover_bad_debt` accepts an obligation only when every collateral
+  position is worth no more than it, and writes off without a claim any debt
+  worth no more than it (§6).
+
+Raising one raises the others. At `0` the first three do not apply.
 
 ### Fixed at deployment
 
@@ -282,14 +323,18 @@ including the admin.
 | `update_in_queue_period` | Governance timelock for all config changes            | 60 s to 10 years               |
 | `is_owned`               | Whether the market has governance at all              | —                              |
 
-`is_owned = false` makes the market immutable. Every path that changes
-configuration (market update, pool config, pool status, market status) checks
-this flag first. Where it's false, the existing pools stay exactly as
-configured, permanently, and the admin can only add new pools.
+`is_owned = false` fixes the market's configuration, not its code. Every admin
+path that changes configuration (market update, existing pool config, pool
+status, market status) checks this flag first. Where it's false, the existing
+pools keep their parameters, and the admin can only add new pools, set fee
+beneficiaries and farms, and hand over the admin role. The insurance fund can
+still change the market status (§6). The code can still be replaced: `upgrade`
+checks only the Market Manager's and the market admin's auth, not `is_owned`,
+so the manager's queue / apply (§8) works with the market admin's signature.
 
-The oracle can't be swapped either. Prices older than 6 minutes are rejected,
-so a stalled feed stops price-dependent operations instead of letting them run
-on old data.
+The oracle can't be swapped either. The market rejects a price stamped more
+than 6 minutes ago, but behind the Aggregated Oracle a stalled push feed can
+keep pricing operations for hours (§10).
 
 `update_in_queue_period` is worth a look before you supply. It's the delay on
 every economic change, and it's chosen at deployment. The contract only
@@ -316,6 +361,9 @@ Queued changes are visible before they take effect.
 `get_queued_pool_set(pool)` and `get_market_queued_in_update()` show what's
 pending and when it was queued, so you can see an unwelcome change coming and
 leave before it lands, assuming the timelock is long enough to be useful.
+The farm setters are the market admin's only instant power over a lender's
+withdrawal (§6), while a code upgrade gives 12 h notice on `main`, so watch
+each market's `farms_contract_set_event` and `pool_farm_set_event`.
 
 Once the delay has passed, anyone can apply a queued change. Governance can't
 sit on an approved change and spring it later.
@@ -359,7 +407,8 @@ rate, not a promise.
 
 The farm admin is a different key from the market admin, and farms can be
 frozen. The Market ignores a stake push the farm refuses, so a frozen farm
-cannot block deposits or withdrawals; the affected stakes go stale until
+cannot block deposits or withdrawals (a farm whose code exhausts the budget
+can, §6); the affected stakes go stale until
 `refresh_farm_stakes(obligation_key, pools)` re-pushes them (anyone can call it,
 and an obligation that no longer exists pushes zero). Debt in a position settled
 as bad debt stops earning in the attached farms when the cover is issued.
@@ -382,14 +431,23 @@ none of them affect lending LPs.
 
 ## 10. Price oracle
 
-The market's `oracle` address is fixed at deployment (§7). Any price older than
-6 minutes is rejected, as is any price timestamped in the future, so a stalled
-feed halts price-dependent operations rather than letting them run on stale
-data. A price is read at most once per call and never reused by a later
-transaction, even in the same ledger.
+The market's `oracle` address is fixed at deployment (§7). The market rejects
+any price stamped more than 6 minutes ago (a constant 360 s) or in the future.
+A price is read at most once per call and never reused by a later transaction,
+even in the same ledger. With debt open, `deposit` and `add_collateral` need a
+readable price for the pool's asset, since liquidation prices every position of
+the obligation. Dust deposited before a feed fails is not covered: liquidation
+waits for that price too.
 
 If the market points at the Aggregated Oracle, that contract takes a median
-across several SEP-40 feeds and adds a deviation check on top.
+across several SEP-40 feeds and adds a deviation check on top. It stamps the
+median with the oldest time among the periodic sources that answered
+(Reflector, on mainnet), or with the ledger time if none did, so the market's
+6-minute check never sees a push source's age. A push source counts toward the
+median until its adapter's `resolution()` runs out: `46800` (13 h) for RedStone
+on mainnet, which the adapter's admin can reset at once within 60 s – 25 h, and
+a fixed `90000` (25 h) for Chainlink. A stalled push feed can keep pricing
+operations that long.
 
 | Parameter                        | Meaning                                                                | Bounds                      | Changeable            |
 |----------------------------------|------------------------------------------------------------------------|-----------------------------|-----------------------|

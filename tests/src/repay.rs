@@ -375,3 +375,52 @@ fn test_consecutive_borrows_can_lead_to_unpaid_interest_become_negative() {
         Err(Ok(MCError::InternalError))
     );
 }
+
+/// `repay` is authorised by the obligation's owner at the market call itself, not only through the token
+/// transfer it triggers.
+#[test]
+fn test_repay_requires_the_obligation_owner_to_authorise_the_call() {
+    use soroban_sdk::{
+        Address, IntoVal, Symbol,
+        testutils::{AuthorizedFunction, AuthorizedInvocation},
+    };
+
+    let f = TestMarketFixture::new();
+    let (borrower, lender) = (&f.users[0], &f.users[1]);
+    let borrower_key = ObligationKey::new(borrower.clone());
+    f.contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &f.usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    f.contract_client.add_collateral(
+        &borrower_key,
+        &f.gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    f.contract_client.borrow(&borrower_key, &f.usdc_pool_address, &1_000, &None);
+
+    let amount = 400_i128;
+    f.contract_client.repay(&borrower_key, &f.usdc_pool_address, &amount, &None);
+
+    let repay_args: soroban_sdk::Vec<soroban_sdk::Val> =
+        (borrower_key.clone(), f.usdc_pool_address.clone(), amount, None::<Address>).into_val(&f.e);
+    let owner_authorised_repay = |invocation: &AuthorizedInvocation| {
+        invocation.function
+            == AuthorizedFunction::Contract((
+                f.contract_id.clone(),
+                Symbol::new(&f.e, "repay"),
+                repay_args.clone(),
+            ))
+    };
+    let auths = f.e.auths();
+    assert!(
+        auths
+            .iter()
+            .any(|(address, invocation)| address == borrower && owner_authorised_repay(invocation)),
+        "the owner must authorise `repay` itself: {auths:?}"
+    );
+    assert!(!auths.iter().any(|(address, _)| address == &f.contract_admin));
+}
