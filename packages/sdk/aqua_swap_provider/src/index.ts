@@ -33,8 +33,6 @@ if (typeof window !== "undefined") {
 
 
 
-export type DataKey = {tag: "Admin", values: void} | {tag: "Pool", values: readonly [string, string]};
-
 export const ASPError = {
   1: {message:"OverOrUnderflow"},
   2: {message:"InvalidPath"},
@@ -45,7 +43,8 @@ export const ASPError = {
   7: {message:"PoolNotFound"},
   8: {message:"DuplicatePool"},
   9: {message:"IdenticalTokens"},
-  10: {message:"Unauthorized"}
+  10: {message:"Unauthorized"},
+  11: {message:"NoPendingAdmin"}
 }
 
 export interface Client {
@@ -55,9 +54,23 @@ export interface Client {
   swap_exact: ({user, path, amount_in, min_amount_out}: {user: string, path: Array<string>, amount_in: i128, min_amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
 
   /**
+   * Construct and simulate a accept_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Completes the admin transfer initiated by `propose_admin`.
+   * Must be called by the address that was proposed.
+   */
+  accept_admin: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
    * Construct and simulate a get_amount_in transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   get_amount_in: ({path, amount_out}: {path: Array<string>, amount_out: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
+
+  /**
+   * Construct and simulate a propose_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Nominates `new_admin` as the next administrator. Admin-gated.
+   * The transfer is not effective until `new_admin` calls `accept_admin`.
+   */
+  propose_admin: ({new_admin}: {new_admin: string}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a add_asset_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -94,11 +107,12 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAgAAAAAAAAAAAAAABUFkbWluAAAAAAAAAQAAAAAAAAAEUG9vbAAAAAIAAAATAAAAEw==",
-        "AAAABAAAAAAAAAAAAAAACEFTUEVycm9yAAAACgAAAAAAAAAPT3Zlck9yVW5kZXJmbG93AAAAAAEAAAAAAAAAC0ludmFsaWRQYXRoAAAAAAIAAAAAAAAAEUludmFsaWRTd2FwUmVzdWx0AAAAAAAAAwAAAAAAAAAOTmVnYXRpdmVBbW91bnQAAAAAAAQAAAAAAAAAE1Rva2VuTm90Rm91bmRJblBvb2wAAAAABQAAAAAAAAAOQW1vdW50VG9vTGFyZ2UAAAAAAAYAAAAAAAAADFBvb2xOb3RGb3VuZAAAAAcAAAAAAAAADUR1cGxpY2F0ZVBvb2wAAAAAAAAIAAAAAAAAAA9JZGVudGljYWxUb2tlbnMAAAAACQAAAAAAAAAMVW5hdXRob3JpemVkAAAACg==",
+      new ContractSpec([ "AAAABAAAAAAAAAAAAAAACEFTUEVycm9yAAAACwAAAAAAAAAPT3Zlck9yVW5kZXJmbG93AAAAAAEAAAAAAAAAC0ludmFsaWRQYXRoAAAAAAIAAAAAAAAAEUludmFsaWRTd2FwUmVzdWx0AAAAAAAAAwAAAAAAAAAOTmVnYXRpdmVBbW91bnQAAAAAAAQAAAAAAAAAE1Rva2VuTm90Rm91bmRJblBvb2wAAAAABQAAAAAAAAAOQW1vdW50VG9vTGFyZ2UAAAAAAAYAAAAAAAAADFBvb2xOb3RGb3VuZAAAAAcAAAAAAAAADUR1cGxpY2F0ZVBvb2wAAAAAAAAIAAAAAAAAAA9JZGVudGljYWxUb2tlbnMAAAAACQAAAAAAAAAMVW5hdXRob3JpemVkAAAACgAAAAAAAAAOTm9QZW5kaW5nQWRtaW4AAAAAAAs=",
         "AAAAAAAAAAAAAAAKc3dhcF9leGFjdAAAAAAABAAAAAAAAAAEdXNlcgAAABMAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAAAAAAObWluX2Ftb3VudF9vdXQAAAAAAAsAAAABAAAACw==",
+        "AAAAAAAAAGtDb21wbGV0ZXMgdGhlIGFkbWluIHRyYW5zZmVyIGluaXRpYXRlZCBieSBgcHJvcG9zZV9hZG1pbmAuCk11c3QgYmUgY2FsbGVkIGJ5IHRoZSBhZGRyZXNzIHRoYXQgd2FzIHByb3Bvc2VkLgAAAAAMYWNjZXB0X2FkbWluAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAFcG9vbHMAAAAAAAPsAAAD7QAAAAIAAAATAAAAEwAAABMAAAAA",
         "AAAAAAAAAAAAAAANZ2V0X2Ftb3VudF9pbgAAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAKYW1vdW50X291dAAAAAAACwAAAAEAAAAL",
+        "AAAAAAAAAINOb21pbmF0ZXMgYG5ld19hZG1pbmAgYXMgdGhlIG5leHQgYWRtaW5pc3RyYXRvci4gQWRtaW4tZ2F0ZWQuClRoZSB0cmFuc2ZlciBpcyBub3QgZWZmZWN0aXZlIHVudGlsIGBuZXdfYWRtaW5gIGNhbGxzIGBhY2NlcHRfYWRtaW5gLgAAAAANcHJvcG9zZV9hZG1pbgAAAAAAAAEAAAAAAAAACW5ld19hZG1pbgAAAAAAABMAAAAA",
         "AAAAAAAAAAAAAAAOYWRkX2Fzc2V0X3Bvb2wAAAAAAAMAAAAAAAAAB3Rva2VuX2EAAAAAEwAAAAAAAAAHdG9rZW5fYgAAAAATAAAAAAAAAAlwb29sX2FkZHIAAAAAAAATAAAAAA==",
         "AAAAAAAAAAAAAAAOZ2V0X2Ftb3VudF9vdXQAAAAAAAIAAAAAAAAABHBhdGgAAAPqAAAAEwAAAAAAAAAJYW1vdW50X2luAAAAAAAACwAAAAEAAAAL",
         "AAAAAAAAAAAAAAAOc3dhcF9mb3JfZXhhY3QAAAAAAAQAAAAAAAAABHVzZXIAAAATAAAAAAAAAARwYXRoAAAD6gAAABMAAAAAAAAADW1heF9hbW91bnRfaW4AAAAAAAALAAAAAAAAAAphbW91bnRfb3V0AAAAAAALAAAAAQAAAAs=" ]),
@@ -107,7 +121,9 @@ export class Client extends ContractClient {
   }
   public readonly fromJSON = {
     swap_exact: this.txFromJSON<i128>,
+        accept_admin: this.txFromJSON<null>,
         get_amount_in: this.txFromJSON<i128>,
+        propose_admin: this.txFromJSON<null>,
         add_asset_pool: this.txFromJSON<null>,
         get_amount_out: this.txFromJSON<i128>,
         swap_for_exact: this.txFromJSON<i128>
