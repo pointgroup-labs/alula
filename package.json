@@ -17,7 +17,7 @@
     "@stellar/stellar-sdk": "^14.6.1"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^9.5.1",
+    "@antfu/eslint-config": "^10.0.0",
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
     "typescript": "~6.0.3"
