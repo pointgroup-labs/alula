@@ -22,7 +22,7 @@ jobs:
           # release-plz pushes through the GitHub API.
           persist-credentials: false
       - name: Run release-plz
-        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
+        uses: release-plz/action@7ef5e4d4b0420630cfcaeb182c01e13651d4c577 # v0.5.145
         with:
           command: release-pr
         env:
