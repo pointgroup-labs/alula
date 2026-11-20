@@ -14,7 +14,7 @@
   "dependencies": {
     "@stellar/stellar-sdk": "^14.6.1",
     "chalk": "^6.0.1",
-    "commander": "^15.0.0"
+    "commander": "^15.1.0"
   },
   "devDependencies": {
     "tsx": "^4.23.15"
